@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+.venv/
+venv/
+env/
+.env
+
+# Environment Variables
+.env
+.env.local
+
+# IDEs
+.vscode/
+.idea/
+
+# System
+.DS_Store
+Thumbs.db
+
+# Project Artifacts (Generated files)
+*.mp3
+*.wav
+notion_data_dump.json
+daily_report_voice.mp3
+test_voice.mp3
+
+# Logs
+*.log
