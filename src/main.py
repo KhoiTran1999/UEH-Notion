@@ -38,22 +38,25 @@ def main():
     send_telegram_message(summary_message)
     
     # 4. Generate & Send Voice
-    print("🎙️ Đang xử lý Voice...")
-    
-    # a) Re-script for audio
-    print("   ✍️ Đang viết lại kịch bản nói...")
-    voice_script = generate_voice_script(summary_message)
-    # print(f"   📜 Kịch bản Voice: {voice_script}") # Debug if needed
-    
-    # b) Generate Audio
-    print("   🔊 Đang tạo file Audio (Edge-TTS)...")
-    audio_file = generate_voice_summary(voice_script, "daily_report_voice.mp3")
-    
-    if audio_file:
-        print(f"   📨 Đang gửi Voice Telegram...")
-        send_telegram_voice(audio_file, caption="🎧 Bản tin Audio Morning Review")
+    if tasks:
+        print("🎙️ Đang xử lý Voice...")
+        
+        # a) Re-script for audio
+        print("   ✍️ Đang viết lại kịch bản nói...")
+        voice_script = generate_voice_script(summary_message)
+        # print(f"   📜 Kịch bản Voice: {voice_script}") # Debug if needed
+        
+        # b) Generate Audio
+        print("   🔊 Đang tạo file Audio (Edge-TTS)...")
+        audio_file = generate_voice_summary(voice_script, "daily_report_voice.mp3")
+        
+        if audio_file:
+            print(f"   📨 Đang gửi Voice Telegram...")
+            send_telegram_voice(audio_file, caption="🎧 Bản tin Audio Morning Review")
+        else:
+            print("   ❌ Không tạo được file audio.")
     else:
-        print("   ❌ Không tạo được file audio.")
+        print("🔕 Không có task nên bỏ qua phần tạo Voice.")
     
     print("🏁 Hoàn thành!")
 
