@@ -107,4 +107,4 @@ Project đã tích hợp sẵn GitHub Actions để chạy định kỳ:
 
 ---
 
-**Made with ❤️ by [Your Name] for Productivity.**
+**Made with ❤️ by Khôi Trần for Productivity.**
