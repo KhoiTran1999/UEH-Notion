@@ -1,5 +1,6 @@
 import os
 import json
+from datetime import datetime, timedelta, timezone
 from google import genai
 
 def analyze_tasks(tasks, db_options=None):
@@ -39,7 +40,8 @@ def analyze_tasks(tasks, db_options=None):
 """
 
         prompt = f"""
-Bạn là một Chuyên gia Quản trị năng suất (Productivity Coach). 
+Bạn là một Chuyên gia Quản trị năng suất (Productivity Coach).
+Thời gian hiện tại: {datetime.now(timezone(timedelta(hours=7))).strftime("%Y-%m-%d %H:%M:%S")}
 Dưới đây là danh sách nhiệm vụ từ Notion của tôi:
 {tasks_str}
 
@@ -97,6 +99,7 @@ def generate_voice_script(original_text):
         
         prompt = f"""
 Bạn là biên tập viên trong vai trò trợ lý của tôi. 
+Thời gian hiện tại: {datetime.now(timezone(timedelta(hours=7))).strftime("%Y-%m-%d %H:%M:%S")}
 Dưới đây là nội dung bản tin văn bản:
 ---
 {original_text}
