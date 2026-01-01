@@ -1,3 +1,9 @@
+import sys
+import os
+
+# Add project root to python path to allow direct execution
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+
 from src.services.notion import NotionService
 from src.services.ai import AIService
 from src.services.telegram import TelegramService
@@ -43,3 +49,6 @@ def run_daily_report():
         logger.info("🔕 Skipped voice generation (no tasks).")
 
     logger.info("🏁 Daily Report Job Completed!")
+
+if __name__ == "__main__":
+    run_daily_report()

@@ -89,7 +89,7 @@ class NotionService:
 
         return {
             "Task Name":    get_val("Name", "title"),
-            "Deadline":     get_val("Hạn chốt", "date"),
+            "Deadline":     get_val("Hạn chót", "date"),
             "Status":       get_val("Trạng thái", "status"),
             "Type":         get_val("Loại nhiệm vụ", "select"),
             "Priority":     get_val("Độ ưu tiên", "select"),
@@ -124,6 +124,9 @@ class NotionService:
     def get_review_notes(self):
         """Fetches notes with '🔴 Cần xem lại' status."""
         raw_db_id = Config.NOTION_DB_GHI_CHEP_ID
+        if not raw_db_id: return []
+
+        # Ensure ID format
         db_id = raw_db_id.replace("-", "")
         db_id = f"{db_id[:8]}-{db_id[8:12]}-{db_id[12:16]}-{db_id[16:20]}-{db_id[20:]}"
 
@@ -138,16 +141,39 @@ class NotionService:
         
         try:
             with httpx.Client(timeout=30.0) as client:
-                resp = client.post(f"https://api.notion.com/v1/databases/{db_id}/query", headers=self.headers, json=payload)
-                
-                # Retry logic
-                if resp.status_code == 400:
-                     logger.warning("⚠️ Filter select failed, switching to status...")
-                     payload["filter"]["status"] = payload["filter"].pop("select")
-                     resp = client.post(f"https://api.notion.com/v1/databases/{db_id}/query", headers=self.headers, json=payload)
+                # 1. Resolve Data Source ID (New API 2025-09-03)
+                real_source_id, _ = self._resolve_db_info(client, db_id)
+                if not real_source_id: 
+                    logger.error("❌ Could not resolve Data Source ID.")
+                    return []
 
+                # 2. Use Data Sources Query Endpoint
+                query_url = f"https://api.notion.com/v1/data_sources/{real_source_id}/query"
+                
+                resp = client.post(query_url, headers=self.headers, json=payload)
+                
+                # Retry logic for property mismatch
+                if resp.status_code == 400:
+                     err_body = resp.json()
+                     # Only switch filter if it's a validation error about property
+                     if err_body.get("code") == "validation_error":
+                        logger.warning("⚠️ Filter select failed, switching to status...")
+                        # Backup: try 'Status' or 'Trạng thái' if 'Độ hiểu bài' fails
+                        # For now, let's just try filtering by 'Trạng thái' if the user has that common column
+                        if "status" in payload["filter"]:
+                            pass # Already tried
+                        else:
+                            # Use new payload structure for status
+                            payload = {
+                                "filter": {
+                                    "property": "Trạng thái",
+                                    "status": { "equals": "In progress" } # Generic fallback, user might need to customize
+                                }
+                            }
+                            resp = client.post(query_url, headers=self.headers, json=payload)
+                
                 if resp.status_code != 200:
-                    logger.error(f"❌ Query Error: {resp.status_code}")
+                    logger.error(f"❌ Query Error: {resp.status_code} -Body: {resp.text}")
                     return []
 
                 pages = resp.json().get("results", [])

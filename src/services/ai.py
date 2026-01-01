@@ -57,14 +57,28 @@ Nhiệm vụ của bạn là lập kế hoạch tác chiến dựa trên tư duy
 1. GIỮ NGUYÊN 100% các thuật ngữ và Emoji sau:
 {tags_instruction}
 2. Chỉ dùng dấu * để bold text cho text và *** để bold text cho title, dùng dấu • cho danh sách.
-3. Phản hồi bằng tiếng Việt thân thiện, hào hứng, tối ưu cho Telegram HTML.
+3. Phản hồi bằng tiếng Việt thân thiện, hào hứng, tối ưu cho Telegram markdown.
 4. Không cần chào hỏi và giới thiệu gì hết mà vào thẳng nội dung.
+5. Không giải thích và nhắc đến các thuật ngữ như "Eat the Frog 🐸" hoặc "Ma trận Eisenhower" mà chỉ tập trung vào liệt kê các nhiệm vụ.
 
 **🎯 CẤU TRÚC BẢN TIN CHIẾN LƯỢC**:
-1. **Tổng quan**: Tóm tắt số lượng task.
-2. **Nhiệm vụ trọng tâm (Eat the Frog 🐸)**: Chọn ra 1 nhiệm vụ quan trọng nhất.
-3. **Phân loại chiến thuật**: Liệt kê các task còn lại.
-4. **Lời khuyên hành động**.
+1. **Tổng quan**: Tóm tắt số lượng task theo trạng thái (vd: 2 ⚪ Not started).
+2. **Nhiệm vụ trọng tâm (Eat the Frog 🐸)**: Chọn ra 1 nhiệm vụ quan trọng/gần "Hạn chót" (Deadline) nhất để làm ngay. Hãy ghi rõ hạn chót nếu có.
+3. **Phân loại chiến thuật**: Liệt kê các task còn lại theo nhóm Độ ưu tiên (🔥, ⏳, ⚠️, 💩).
+4. **Lời khuyên hành động**: Đưa ra lời khuyên ngắn gọn để Khôi hoàn thành task tốt hơn.
+LƯU Ý: tên nhiệm vụ luôn phải được in đậm bằng dấu *
+
+**📖 VÍ DỤ OUTPUT MẪU**:
+• Hiện tại bạn đang có *3* nhiệm vụ: *2 ⚪ Not started*, 1 *🔵 In progress*.
+
+***🔥 NHIỆM VỤ TRỌNG TÂM***
+[Ưu tiên xử lý công việc "Tên task" (Hạn chót: dd/mm/yyyy).]
+
+***💪 PHÂN LOẠI CHIẾN THUẬT***
+[Phân loại các nhiệm vụ theo "Độ ưu tiên". Không nhắc lại công việc đã có trong phần "Nhiệm vụ trọng tâm".]
+
+***💡 LỜI KHUYÊN***:
+[Hãy đưa ra lời khuyên ngắn gọn để hoàn thành task tốt hơn]
 
 ---
 **BÂY GIỜ, HÃY DỰA VÀO DỮ LIỆU THỰC TẾ ĐỂ VIẾT BẢN TIN CHO HÔM NAY:**
@@ -74,14 +88,14 @@ Nhiệm vụ của bạn là lập kế hoạch tác chiến dựa trên tư duy
     def generate_voice_script(self, original_text):
         """Rewrites text for voice generation."""
         prompt = f"""
-Bạn là biên tập viên phát thanh.
+Bạn là người bạn thân và cũng là trợ lý trong công việc của Khôi.
 Thời gian: {self._get_vn_time()}
 Nội dung bản tin:
 ---
 {original_text}
 ---
 
-Nhiệm vụ: Viết lại thành **KỊCH BẢN ĐỌC (Voice Script)** ngắn gọn, tự nhiên, bỏ emoji, bỏ markdown.
+Nhiệm vụ: Viết lại thành **KỊCH BẢN ĐỌC (Voice Script)** ngắn gọn, tự nhiên, bỏ emoji, bỏ markdown. Giọng điệu: Hào hứng, năng động, ấm áp, như một người bạn đồng hành.
 """
         return self.generate_content(prompt, model=Config.GEMINI_MODEL_FLASH)
 
@@ -109,6 +123,7 @@ YÊU CẦU ĐỊNH DẠNG (HTML Telegram Mode):
 2. Mỗi câu trả lời phải nằm trọn vẹn trong thẻ <tg-spoiler>.
 3. Sau mỗi cặp Q&A phải có một dòng trống để tránh dính Spoiler trên di động.
 4. Ngôn ngữ: Tiếng Việt (Trừ các thuật ngữ chuyên ngành tiếng Anh).
+5. Không chào hỏi và giới thiệu gì hết mà vào thẳng nội dung trong Output
 
 OUTPUT:
 🎯 <b>Q1: Nội dung câu hỏi...?</b>
@@ -120,5 +135,4 @@ OUTPUT:
 ---
 Hãy bắt đầu tạo ngay bộ câu hỏi cho ghi chép trên:
 """
-        # User requested 3-flash-preview/2.0-flash-exp for quiz
-        return self.generate_content(prompt, model=Config.GEMINI_MODEL_PRO)
+        return self.generate_content(prompt, model=Config.GEMINI_MODEL_FLASH)

@@ -7,7 +7,7 @@ class TelegramService:
         self.base_url = f"https://api.telegram.org/bot{Config.TELEGRAM_BOT_TOKEN}"
         self.chat_id = Config.TELEGRAM_CHAT_ID
 
-    def send_message(self, message, parse_mode="HTML", disable_notification=False):
+    def send_message(self, message, parse_mode="Markdown", disable_notification=False):
         """Sends a text message to the default chat."""
         url = f"{self.base_url}/sendMessage"
         payload = {

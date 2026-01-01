@@ -1,5 +1,11 @@
 import time
 import random
+import sys
+import os
+
+# Add project root to python path to allow direct execution
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+
 from src.services.notion import NotionService
 from src.services.ai import AIService
 from src.services.telegram import TelegramService
@@ -48,7 +54,7 @@ def run_study_assistant():
     
     # Header
     header_msg = f"""
-🎯 <b>GÓC ÔN TẬP NGẪU NHIÊN</b>
+🎯 <h1>GÓC ÔN TẬP NGẪU NHIÊN</h1>
 Bài: <a href="{note_url}">{note_title}</a>
 Trạng thái: 🔴 Cần xem lại
 """
@@ -80,3 +86,6 @@ Trạng thái: 🔴 Cần xem lại
     telegram.send_message(footer, parse_mode="HTML", disable_notification=True)
     
     logger.info("🏁 Study Job Completed!")
+
+if __name__ == "__main__":
+    run_study_assistant()
