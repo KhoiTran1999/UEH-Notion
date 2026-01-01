@@ -127,3 +127,57 @@ Hãy viết lại ngay bây giờ:
     except Exception as e:
         print(f"❌ Lỗi Re-Scripting: {e}")
         return original_text
+
+def generate_quiz(content):
+    """
+    Tạo bộ câu hỏi ôn tập từ nội dung ghi chép.
+    """
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return "❌ Thiếu GEMINI_API_KEY."
+
+    if not content:
+        return "⚠️ Nội dung bài học trống, không thể tạo câu hỏi."
+
+    try:
+        client = genai.Client(api_key=api_key)
+        
+        prompt = f"""
+Bạn là một Chuyên gia Giáo dục và Trợ lý Học tập Thông minh.
+Nhiệm vụ: Phân tích ghi chép và tạo bộ câu hỏi ôn tập Active Recall tối ưu cho từng loại môn học.
+
+--- NỘI DUNG GHI CHÉP ---
+{content}
+-------------------------
+
+**XÁC ĐỊNH CHIẾN THUẬT ĐẶT CÂU HỎI**
+Dựa trên nội dung ghi chép, hãy xác định môn học thuộc nhóm nào sau đây để áp dụng cách đặt câu hỏi tương ứng:
+- Nhóm Ngôn ngữ (Tiếng Anh): Tập trung vào vựng (vocab), ngữ pháp, collocations, idioms,...
+- Nhóm Tính toán/Logic (Toán, Kinh tế): Tập trung vào công thức, cách giải bài toán tối ưu, ý nghĩa của các biến số và đồ thị (Cung - Cầu, Ma trận, Tích phân),...
+- Nhóm Lý thuyết/Hệ thống (Triết học, Luật, Tâm lý): Tập trung vào khái niệm, tư duy hệ thống, các quy định pháp lý hoặc hành vi con người,...
+
+**TẠO BỘ CÂU HỎI (3-5 CÂU)**
+YÊU CẦU ĐỊNH DẠNG (HTML Telegram Mode):
+1. Mỗi câu hỏi phải in đậm bằng thẻ <b> và bắt đầu bằng "🎯 <b>Q[số]: ..."
+2. Mỗi câu trả lời phải nằm trọn vẹn trong thẻ <tg-spoiler>.
+3. Sau mỗi cặp Q&A phải có một dòng trống để tránh dính Spoiler trên di động.
+4. Ngôn ngữ: Tiếng Việt (Trừ các thuật ngữ chuyên ngành tiếng Anh).
+
+OUTPUT:
+🎯 <b>Q1: Nội dung câu hỏi...?</b>
+👉 <tg-spoiler>Đáp án ngắn gọn...</tg-spoiler>
+
+🎯 <b>Q2: Nội dung câu hỏi...?</b>
+👉 <tg-spoiler>Đáp án ngắn gọn...</tg-spoiler>
+
+---
+Hãy bắt đầu tạo ngay bộ câu hỏi cho ghi chép trên:
+"""
+        response = client.models.generate_content(
+            model="gemini-3-flash-preview", # Upscale model for better reasoning if available, else 1.5-flash
+            contents=prompt
+        )
+        return response.text.strip()
+
+    except Exception as e:
+        return f"❌ Lỗi tạo câu hỏi: {str(e)}"

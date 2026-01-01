@@ -169,6 +169,150 @@ def get_database_options():
         print(f"❌ Exception fetching metadata: {e}")
         return {}
 
+# --- New Functions for Study Assistant ---
+
+def extract_plain_text(rich_text_list):
+    if not rich_text_list: return ""
+    return "".join([t.get("plain_text", "") for t in rich_text_list])
+
+def process_block(block, depth=0):
+    """
+    Xử lý hiển thị text của 1 block dựa trên type.
+    Trả về chuỗi text đã định dạng.
+    """
+    b_type = block.get("type")
+    indent = "  " * depth # Thụt đầu dòng để thể hiện cấp độ con
+    text_content = ""
+    
+    # Lấy nội dung rich_text tùy theo loại block
+    if b_type == "paragraph":
+        text_content = extract_plain_text(block["paragraph"].get("rich_text", []))
+    elif b_type in ["heading_1", "heading_2", "heading_3"]:
+        level = int(b_type.split("_")[1])
+        prefix = "#" * level
+        raw = extract_plain_text(block[b_type].get("rich_text", []))
+        text_content = f"\n{prefix} {raw}"
+    elif b_type == "bulleted_list_item":
+        raw = extract_plain_text(block["bulleted_list_item"].get("rich_text", []))
+        text_content = f"• {raw}"
+    elif b_type == "numbered_list_item":
+        raw = extract_plain_text(block["numbered_list_item"].get("rich_text", []))
+        text_content = f"1. {raw}"
+    elif b_type == "to_do":
+        checked = "x" if block["to_do"].get("checked") else " "
+        raw = extract_plain_text(block["to_do"].get("rich_text", []))
+        text_content = f"- [{checked}] {raw}"
+    elif b_type == "callout":
+        icon = block["callout"].get("icon", {}).get("emoji", "💡")
+        raw = extract_plain_text(block["callout"].get("rich_text", []))
+        text_content = f"> {icon} {raw}"
+    elif b_type == "quote":
+        raw = extract_plain_text(block["quote"].get("rich_text", []))
+        text_content = f"> {raw}"
+    
+    # Các loại block chứa cấu trúc (không có text trực tiếp)
+    elif b_type == "column_list":
+        text_content = "" # Chỉ là container
+    elif b_type == "column":
+        text_content = f"\n--- [Cột] ---" 
+    elif b_type == "code":
+         raw = extract_plain_text(block["code"].get("rich_text", []))
+         lang = block["code"].get("language", "text")
+         text_content = f"\n```{lang}\n{raw}\n```"
+
+    return f"{indent}{text_content}" if text_content.strip() else ""
+
+def fetch_children_recursive(client, block_id, depth=0):
+    """
+    Hàm đệ quy: Lấy block con, in ra, và nếu block con đó có con nữa thì gọi lại chính nó.
+    """
+    token = os.getenv("NOTION_TOKEN")
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Notion-Version": "2022-06-28", # Use older version for stability with blocks if needed, or 2025-09-03
+        "Content-Type": "application/json"
+    }
+
+    url = f"https://api.notion.com/v1/blocks/{block_id}/children"
+    all_content = []
+    
+    try:
+        response = client.get(url, headers=headers)
+        if response.status_code != 200:
+            return [f"Error fetching children: {response.status_code}"]
+        
+        blocks = response.json().get("results", [])
+        
+        for block in blocks:
+            # 1. Lấy nội dung của chính block này
+            text = process_block(block, depth)
+            if text:
+                all_content.append(text)
+            
+            # 2. KIỂM TRA ĐỆ QUY: Nếu block này có con (has_children = True), chui vào lấy tiếp
+            if block.get("has_children", False):
+                children_content = fetch_children_recursive(client, block["id"], depth + 1)
+                all_content.extend(children_content)
+                
+    except Exception as e:
+        all_content.append(f"Error recursive: {str(e)}")
+        
+    return all_content
+
+def format_uuid(id_str):
+    if not id_str: return ""
+    id_str = id_str.replace("-", "").strip()
+    return f"{id_str[:8]}-{id_str[8:12]}-{id_str[12:16]}-{id_str[16:20]}-{id_str[20:]}"
+
+def get_review_notes():
+    """
+    Lấy danh sách các bài có trạng thái '🔴 Cần xem lại'
+    """
+    token = os.getenv("NOTION_TOKEN")
+    raw_db_id = os.getenv("NOTION_DB_GHI_CHEP_ID", "2d96633f4324813b9d9eca9f85d2ea48")
+    
+    if not token: 
+        print("❌ Thiếu Notion Token")
+        return []
+
+    db_id = format_uuid(raw_db_id)
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Notion-Version": "2022-06-28",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "filter": {
+            "property": "Độ hiểu bài",
+            "select": { "equals": "🔴 Cần xem lại" }
+        }
+    }
+
+    print(f"🔄 Đang tìm bài cần ôn tập từ DB {db_id}...")
+    
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            resp = client.post(f"https://api.notion.com/v1/databases/{db_id}/query", headers=headers, json=payload)
+            
+            # Fallback logic nếu filter lỗi (ví dụ dùng status thay vì select)
+            if resp.status_code == 400:
+                 print("⚠️ Filter select lỗi, thử switch sang status...")
+                 payload["filter"]["status"] = payload["filter"].pop("select")
+                 resp = client.post(f"https://api.notion.com/v1/databases/{db_id}/query", headers=headers, json=payload)
+            
+            if resp.status_code != 200:
+                print(f"❌ Lỗi Query Review Notes: {resp.status_code} - {resp.text}")
+                return []
+
+            pages = resp.json().get("results", [])
+            print(f"✅ Tìm thấy {len(pages)} bài cần ôn tập.")
+            return pages
+            
+    except Exception as e:
+        print(f"❌ Exception querying review notes: {e}")
+        return []
+
 if __name__ == "__main__":
     # Test nhanh khi chạy trực tiếp file này
     t_list = get_tasks_from_notion()

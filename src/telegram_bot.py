@@ -1,7 +1,7 @@
 import os
 import httpx
 
-def send_telegram_message(message):
+def send_telegram_message(message, parse_mode="Markdown", disable_notification=False):
     bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
     
@@ -14,7 +14,8 @@ def send_telegram_message(message):
     payload = {
         "chat_id": chat_id,
         "text": message,
-        "parse_mode": "Markdown" # Or HTML
+        "parse_mode": parse_mode,
+        "disable_notification": disable_notification
     }
     
     try:
