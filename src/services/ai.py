@@ -116,7 +116,7 @@ Dựa trên nội dung ghi chép, hãy xác định môn học thuộc nhóm nà
 - Nhóm Ngôn ngữ (Tiếng Anh): Sử dụng định dạng Trắc nghiệm điền vào chỗ trống (Fill-in-the-blank MCQ). Câu hỏi phải tạo ra một ngữ cảnh (context) cụ thể để người học hiểu cách dùng từ. 
 - Nhóm còn lại Sử dụng câu hỏi vấn đáp trực tiếp (Q&A).
 
-[TẠO BỘ CÂU HỎI (3-5 CÂU)]
+[TẠO 5 CÂU HỎI]
 YÊU CẦU ĐỊNH DẠNG (HTML Telegram Mode):
 1. Mỗi câu hỏi phải in đậm bằng thẻ <b> và bắt đầu bằng "🎯 <b>Q[số]: ..."
 2. Nếu là câu hỏi trắc nghiệm: Liệt kê 4 đáp án A, B, C, D ở các dòng tiếp theo.
@@ -130,8 +130,7 @@ YÊU CẦU ĐỊNH DẠNG (HTML Telegram Mode):
 [B. Option 2]
 [C. Option 3]
 [D. Option 4]
-👉 <tg-spoiler>Đáp án: ...
-Giải thích: ...</tg-spoiler>
+👉 <tg-spoiler>Đáp án: ... (Giải thích: ...)</tg-spoiler>
 Ví dụ:
 🎯 <b>Q1: An …………… manager understands the personal needs of team members and creates a workplace where individuals feel heard.</b>
 A. energetic

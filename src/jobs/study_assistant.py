@@ -47,6 +47,7 @@ def run_study_assistant():
 
     # 4. Generate Quiz
     logger.info("🧠 Generating Quiz...")
+
     quiz_content = ai.generate_quiz(full_content)
 
     # 5. Send to Telegram
