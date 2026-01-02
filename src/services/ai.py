@@ -111,12 +111,12 @@ Nhiệm vụ: Phân tích ghi chép và tạo bộ câu hỏi ôn tập Active R
 {content}
 -------------------------
 
-**XÁC ĐỊNH CHIẾN THUẬT ĐẶT CÂU HỎI**
+[XÁC ĐỊNH CHIẾN THUẬT ĐẶT CÂU HỎI]
 Dựa trên nội dung ghi chép, hãy xác định môn học thuộc nhóm nào sau đây để áp dụng cách đặt câu hỏi tương ứng:
 - Nhóm Ngôn ngữ (Tiếng Anh): Sử dụng định dạng Trắc nghiệm điền vào chỗ trống (Fill-in-the-blank MCQ). Câu hỏi phải tạo ra một ngữ cảnh (context) cụ thể để người học hiểu cách dùng từ. 
 - Nhóm còn lại Sử dụng câu hỏi vấn đáp trực tiếp (Q&A).
 
-**TẠO BỘ CÂU HỎI (3-5 CÂU)**
+[TẠO BỘ CÂU HỎI (3-5 CÂU)]
 YÊU CẦU ĐỊNH DẠNG (HTML Telegram Mode):
 1. Mỗi câu hỏi phải in đậm bằng thẻ <b> và bắt đầu bằng "🎯 <b>Q[số]: ..."
 2. Nếu là câu hỏi trắc nghiệm: Liệt kê 4 đáp án A, B, C, D ở các dòng tiếp theo.
@@ -124,7 +124,7 @@ YÊU CẦU ĐỊNH DẠNG (HTML Telegram Mode):
 4. Sau mỗi cặp Q&A phải có một dòng trống để tránh dính Spoiler trên di động.
 5. Ngôn ngữ: Tiếng Việt (Trừ các thuật ngữ chuyên ngành tiếng Anh, thì câu hỏi sẽ bằng tiếng Anh).
 
-[OUTPUT Cho nhóm Ngôn ngữ tiếng Anh:]
+[OUTPUT Cho nhóm Ngôn ngữ tiếng Anh]
 🎯 <b>Q1: [Câu hỏi hoặc Câu điền vào chỗ trống]</b>
 [A. Option 1]
 [B. Option 2]
