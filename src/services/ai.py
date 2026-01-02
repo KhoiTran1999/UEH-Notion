@@ -113,18 +113,34 @@ Nhiệm vụ: Phân tích ghi chép và tạo bộ câu hỏi ôn tập Active R
 
 **XÁC ĐỊNH CHIẾN THUẬT ĐẶT CÂU HỎI**
 Dựa trên nội dung ghi chép, hãy xác định môn học thuộc nhóm nào sau đây để áp dụng cách đặt câu hỏi tương ứng:
-- Nhóm Ngôn ngữ (Tiếng Anh): Tập trung vào vựng (vocab), ngữ pháp, collocations, idioms,...
-- Nhóm Tính toán/Logic (Toán, Kinh tế): Tập trung vào công thức, cách giải bài toán tối ưu, ý nghĩa của các biến số và đồ thị (Cung - Cầu, Ma trận, Tích phân),...
-- Nhóm Lý thuyết/Hệ thống (Triết học, Luật, Tâm lý): Tập trung vào khái niệm, tư duy hệ thống, các quy định pháp lý hoặc hành vi con người,...
+- Nhóm Ngôn ngữ (Tiếng Anh): Sử dụng định dạng Trắc nghiệm điền vào chỗ trống (Fill-in-the-blank MCQ). Câu hỏi phải tạo ra một ngữ cảnh (context) cụ thể để người học hiểu cách dùng từ. 
+- Nhóm còn lại Sử dụng câu hỏi vấn đáp trực tiếp (Q&A).
 
 **TẠO BỘ CÂU HỎI (3-5 CÂU)**
 YÊU CẦU ĐỊNH DẠNG (HTML Telegram Mode):
 1. Mỗi câu hỏi phải in đậm bằng thẻ <b> và bắt đầu bằng "🎯 <b>Q[số]: ..."
-2. Mỗi câu trả lời phải nằm trọn vẹn trong thẻ <tg-spoiler>.
-3. Sau mỗi cặp Q&A phải có một dòng trống để tránh dính Spoiler trên di động.
-4. Ngôn ngữ: Tiếng Việt (Trừ các thuật ngữ chuyên ngành tiếng Anh, thì câu hỏi sẽ bằng tiếng Anh).
+2. Nếu là câu hỏi trắc nghiệm: Liệt kê 4 đáp án A, B, C, D ở các dòng tiếp theo.
+3. Mỗi câu trả lời phải nằm trọn vẹn trong thẻ <tg-spoiler>.
+4. Sau mỗi cặp Q&A phải có một dòng trống để tránh dính Spoiler trên di động.
+5. Ngôn ngữ: Tiếng Việt (Trừ các thuật ngữ chuyên ngành tiếng Anh, thì câu hỏi sẽ bằng tiếng Anh).
 
-OUTPUT:
+[OUTPUT Cho nhóm Ngôn ngữ tiếng Anh:]
+🎯 <b>Q1: [Câu hỏi hoặc Câu điền vào chỗ trống]</b>
+[A. Option 1]
+[B. Option 2]
+[C. Option 3]
+[D. Option 4]
+👉 <tg-spoiler>Đáp án: ...
+Giải thích: ...</tg-spoiler>
+Ví dụ:
+🎯 <b>Q1: An …………… manager understands the personal needs of team members and creates a workplace where individuals feel heard.</b>
+A. energetic
+B. anxious
+C. empathetic
+D. ambitious
+👉 <tg-spoiler>Đáp án: C. empathetic (Giải thích: Người quản lý thấu hiểu nhu cầu cá nhân là người có sự đồng cảm).</tg-spoiler>
+
+[OUTPUT cho các nhóm còn lại:]
 🎯 <b>Q1: Nội dung câu hỏi...?</b>
 👉 <tg-spoiler>Đáp án ngắn gọn...</tg-spoiler>
 
