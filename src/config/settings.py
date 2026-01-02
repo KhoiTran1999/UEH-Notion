@@ -29,8 +29,6 @@ class Config:
         missing = []
         if not cls.NOTION_TOKEN: missing.append("NOTION_TOKEN")
         if not cls.GEMINI_API_KEY: missing.append("GEMINI_API_KEY")
-        if not cls.NOTION_DATABASE_ID: missing.append("NOTION_DATABASE_ID")
-        if not cls.NOTION_DB_GHI_CHEP_ID: missing.append("NOTION_DB_GHI_CHEP_ID")
         if not cls.TELEGRAM_BOT_TOKEN: missing.append("TELEGRAM_BOT_TOKEN")
         if not cls.TELEGRAM_CHAT_ID: missing.append("TELEGRAM_CHAT_ID")
         
