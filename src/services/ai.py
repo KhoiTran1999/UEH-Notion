@@ -122,8 +122,7 @@ YÊU CẦU ĐỊNH DẠNG (HTML Telegram Mode):
 1. Mỗi câu hỏi phải in đậm bằng thẻ <b> và bắt đầu bằng "🎯 <b>Q[số]: ..."
 2. Mỗi câu trả lời phải nằm trọn vẹn trong thẻ <tg-spoiler>.
 3. Sau mỗi cặp Q&A phải có một dòng trống để tránh dính Spoiler trên di động.
-4. Ngôn ngữ: Tiếng Việt (Trừ các thuật ngữ chuyên ngành tiếng Anh).
-5. Không chào hỏi và giới thiệu gì hết mà vào thẳng nội dung trong Output
+4. Ngôn ngữ: Tiếng Việt (Trừ các thuật ngữ chuyên ngành tiếng Anh, thì câu hỏi sẽ bằng tiếng Anh).
 
 OUTPUT:
 🎯 <b>Q1: Nội dung câu hỏi...?</b>
@@ -133,6 +132,7 @@ OUTPUT:
 👉 <tg-spoiler>Đáp án ngắn gọn...</tg-spoiler>
 
 ---
+LƯU Ý: Không chào hỏi và giới thiệu gì hết mà vào thẳng nội dung trong OUTPUT.
 Hãy bắt đầu tạo ngay bộ câu hỏi cho ghi chép trên:
 """
         return self.generate_content(prompt, model=Config.GEMINI_MODEL_FLASH)
