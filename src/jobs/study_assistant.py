@@ -54,7 +54,7 @@ def run_study_assistant():
     
     # Header
     header_msg = f"""
-🎯 <h1>GÓC ÔN TẬP NGẪU NHIÊN</h1>
+🎯 <b>GÓC ÔN TẬP NGẪU NHIÊN</b>
 Bài: <a href="{note_url}">{note_title}</a>
 Trạng thái: 🔴 Cần xem lại
 """
