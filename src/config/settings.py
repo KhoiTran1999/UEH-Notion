@@ -12,6 +12,15 @@ class Config:
 
     # AI (Gemini)
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+    # Load all keys starting with GEMINI_API_KEY
+    GEMINI_API_KEYS = [
+        val for key, val in os.environ.items() 
+        if key.startswith("GEMINI_API_KEY") and val
+    ]
+    # Ensure the main key is in the list if not already (though the loop covers it)
+    if GEMINI_API_KEY and GEMINI_API_KEY not in GEMINI_API_KEYS:
+        GEMINI_API_KEYS.insert(0, GEMINI_API_KEY)
+        
     GEMINI_MODEL_FLASH = "gemini-3-flash-preview"
 
     # Telegram
@@ -28,7 +37,6 @@ class Config:
         """Check for critical missing variables"""
         missing = []
         if not cls.NOTION_TOKEN: missing.append("NOTION_TOKEN")
-        if not cls.GEMINI_API_KEY: missing.append("GEMINI_API_KEY")
         if not cls.TELEGRAM_BOT_TOKEN: missing.append("TELEGRAM_BOT_TOKEN")
         if not cls.TELEGRAM_CHAT_ID: missing.append("TELEGRAM_CHAT_ID")
         

@@ -6,26 +6,57 @@ from src.utils.logger import logger
 
 class AIService:
     def __init__(self):
-        if Config.GEMINI_API_KEY:
-            self.client = genai.Client(api_key=Config.GEMINI_API_KEY)
+        self.api_keys = Config.GEMINI_API_KEYS
+        self.current_key_index = 0
+        
+        if self.api_keys:
+            self.client = self._get_client()
         else:
-            logger.error("❌ GEMINI_API_KEY is missing!")
+            logger.error("❌ No GEMINI_API_KEYS found!")
             self.client = None
+
+    def _get_client(self):
+        """Initializes a client with the current API key."""
+        if not self.api_keys: return None
+        current_key = self.api_keys[self.current_key_index]
+        return genai.Client(api_key=current_key)
+
+    def _rotate_key(self):
+        """Switches to the next available API key."""
+        if not self.api_keys: return
+        
+        prev_index = self.current_key_index
+        self.current_key_index = (self.current_key_index + 1) % len(self.api_keys)
+        self.client = self._get_client()
+        
+        logger.warning(f"🔄 Rotating API Key: {prev_index} -> {self.current_key_index}")
 
     def _get_vn_time(self):
         return datetime.now(timezone(timedelta(hours=7))).strftime("%Y-%m-%d %H:%M:%S")
 
     def generate_content(self, prompt, model=Config.GEMINI_MODEL_FLASH):
         if not self.client: return "AI Service Unavailable"
-        try:
-            response = self.client.models.generate_content(
-                model=model,
-                contents=prompt
-            )
-            return response.text.strip()
-        except Exception as e:
-            logger.error(f"❌ AI Generation Error: {e}")
-            return f"Error: {str(e)}"
+        
+        # Try up to the number of available keys
+        max_attempts = len(self.api_keys)
+        
+        for attempt in range(max_attempts):
+            try:
+                response = self.client.models.generate_content(
+                    model=model,
+                    contents=prompt
+                )
+                return response.text.strip()
+            except Exception as e:
+                logger.error(f"❌ AI Generation Error (Key {self.current_key_index}): {e}")
+                
+                # Check if it is a quota error or if we have other keys to try
+                if attempt < max_attempts - 1:
+                    logger.info("⚠️ Retrying with a new API Key...")
+                    self._rotate_key()
+                else:
+                    logger.error("❌ All API keys failed.")
+                    return f"Error: All API keys failed. Last error: {str(e)}"
 
     def analyze_tasks(self, tasks, db_options=None):
         """Generates the daily report analysis."""
