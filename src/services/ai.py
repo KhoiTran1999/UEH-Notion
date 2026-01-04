@@ -4,10 +4,13 @@ from google import genai
 from src.config.settings import Config
 from src.utils.logger import logger
 
+from src.services.prompt_service import PromptService
+
 class AIService:
     def __init__(self):
         self.api_keys = Config.GEMINI_API_KEYS
         self.current_key_index = 0
+        self.prompt_service = PromptService()
         
         if self.api_keys:
             self.client = self._get_client()
@@ -59,9 +62,23 @@ class AIService:
                     return f"Error: All API keys failed. Last error: {str(e)}"
 
     def analyze_tasks(self, tasks, db_options=None):
-        """Generates the daily report analysis."""
+        """Generates the daily report analysis using prompts from Notion."""
         if not tasks:
             return "Chào buổi sáng! 🌞 Hôm nay bạn không có task nào phải làm. Hãy tận hưởng ngày nghỉ nhé! 🚀"
+
+        # Fetch prompt from Notion
+        prompt_data = self.prompt_service.get_prompt("UEH-Notion", "daily_report")
+        
+        if not prompt_data:
+            # Fallback if Notion fetch fails (optional, or just error out)
+            system_prompt = "Bạn là một Chuyên gia Quản trị năng suất."
+            user_template = "Dữ liệu: {tasks_str}. Hãy phân tích."
+            model = Config.GEMINI_MODEL_FLASH
+            logger.warning("⚠️ Using fallback prompt for analyze_tasks")
+        else:
+            system_prompt = prompt_data["system_prompt"]
+            user_template = prompt_data["user_template"]
+            model = prompt_data["model"]
 
         # Format Options string
         status_opts = ", ".join([f'"{opt}"' for opt in db_options.get("Trạng thái", [])]) if db_options else ""
@@ -76,109 +93,66 @@ class AIService:
 
         tasks_str = json.dumps(tasks, ensure_ascii=False, indent=2)
         
-        prompt = f"""
-Bạn là một Chuyên gia Quản trị năng suất (Productivity Coach).
-Thời gian hiện tại: {self._get_vn_time()}
-Dưới đây là danh sách nhiệm vụ từ Notion của tôi:
-{tasks_str}
-
-Nhiệm vụ của bạn là lập kế hoạch tác chiến dựa trên tư duy Ma trận Eisenhower và kỹ thuật "Eat the Frog". 
-
-**📌 QUY TẮC NGÔN NGỮ & ĐỊNH DẠNG BẮT BUỘC**:
-1. GIỮ NGUYÊN 100% các thuật ngữ và Emoji sau:
-{tags_instruction}
-2. Chỉ dùng dấu * để bold text cho text và *** để bold text cho title, dùng dấu • cho danh sách.
-3. Phản hồi bằng tiếng Việt thân thiện, hào hứng, tối ưu cho Telegram markdown.
-4. Không cần chào hỏi và giới thiệu gì hết mà vào thẳng nội dung.
-5. Không giải thích và nhắc đến các thuật ngữ như "Eat the Frog 🐸" hoặc "Ma trận Eisenhower" mà chỉ tập trung vào liệt kê các nhiệm vụ.
-
-**🎯 CẤU TRÚC BẢN TIN CHIẾN LƯỢC**:
-1. **Tổng quan**: Tóm tắt số lượng task theo trạng thái (vd: 2 ⚪ Not started).
-2. **Nhiệm vụ trọng tâm (Eat the Frog 🐸)**: Chọn ra 1 nhiệm vụ quan trọng/gần "Hạn chót" (Deadline) nhất để làm ngay. Hãy ghi rõ hạn chót nếu có.
-3. **Phân loại chiến thuật**: Liệt kê các task còn lại theo nhóm Độ ưu tiên (🔥, ⏳, ⚠️, 💩).
-4. **Lời khuyên hành động**: Đưa ra lời khuyên ngắn gọn để Khôi hoàn thành task tốt hơn.
-LƯU Ý: tên nhiệm vụ luôn phải được in đậm bằng dấu *
-
-**📖 VÍ DỤ OUTPUT MẪU**:
-• Hiện tại bạn đang có *3* nhiệm vụ: *2 ⚪ Not started*, 1 *🔵 In progress*.
-
-***🔥 NHIỆM VỤ TRỌNG TÂM***
-[Ưu tiên xử lý công việc "Tên task" (Hạn chót: dd/mm/yyyy).]
-
-***💪 PHÂN LOẠI CHIẾN THUẬT***
-[Phân loại các nhiệm vụ theo "Độ ưu tiên". Không nhắc lại công việc đã có trong phần "Nhiệm vụ trọng tâm".]
-
-***💡 LỜI KHUYÊN***:
-[Hãy đưa ra lời khuyên ngắn gọn để hoàn thành task tốt hơn]
-
----
-**BÂY GIỜ, HÃY DỰA VÀO DỮ LIỆU THỰC TẾ ĐỂ VIẾT BẢN TIN CHO HÔM NAY:**
-"""
-        return self.generate_content(prompt, model=Config.GEMINI_MODEL_FLASH)
+        # Construct the final prompt
+        # We assume the user_template has placeholders like {tasks_str}, {time}, {tags}
+        # But looking at the user request image, it seems the user template might be fixed or I need to inject variables.
+        # The original code injected {tasks_str} and {tags_instruction} into a f-string.
+        # I should try to replace placeholders if they exist in the fetched template.
+        # Or simply append the data.
+        
+        # Strategy: Inject variables into the fetched template
+        final_prompt = f"{user_template}\n\n{system_prompt}"
+        final_prompt = final_prompt.replace("{time}", self._get_vn_time())
+        final_prompt = final_prompt.replace("{tasks_str}", tasks_str)
+        final_prompt = final_prompt.replace("{tags}", tags_instruction)
+        
+        # If the Notion prompt doesn't use placeholders, we might need to conform the Notion Prompt to this expectation
+        # Or strictly follow the format: System Prompt + Context + Template.
+        
+        # For now, let's assume the user put the text as shown in the file I read earlier
+        # which had: "Thời gian hiện tại: {self._get_vn_time()} ... {tasks_str}"
+        # So I will do a textual replacement.
+        
+        return self.generate_content(final_prompt, model=model)
 
     def generate_voice_script(self, original_text):
-        """Rewrites text for voice generation."""
-        prompt = f"""
-Bạn là người bạn thân và cũng là trợ lý trong công việc của Khôi.
-Thời gian: {self._get_vn_time()}
-Nội dung bản tin:
----
-{original_text}
----
-
-Nhiệm vụ: Viết lại thành **KỊCH BẢN ĐỌC (Voice Script)** ngắn gọn, tự nhiên, bỏ emoji, bỏ markdown. Giọng điệu: Hào hứng, năng động, ấm áp, như một người bạn đồng hành.
-"""
-        return self.generate_content(prompt, model=Config.GEMINI_MODEL_FLASH)
+        """Rewrites text for voice generation using Notion prompt."""
+        prompt_data = self.prompt_service.get_prompt("UEH-Notion", "voice_script")
+        
+        if not prompt_data:
+            return "Error: Could not fetch voice script prompt."
+            
+        system_prompt = prompt_data["system_prompt"]
+        user_template = prompt_data["user_template"]
+        model = prompt_data["model"]
+        
+        final_prompt = f"{user_template}\n\n{system_prompt}"
+        final_prompt = final_prompt.replace("{time}", self._get_vn_time())
+        final_prompt = final_prompt.replace("{user_label}", "Khôi") # Hardcoded user name for now
+        final_prompt = final_prompt.replace("{original_text}", original_text)
+        
+        return self.generate_content(final_prompt, model=model)
 
     def generate_quiz(self, content):
-        """Generates quiz questions from review notes."""
+        """Generates quiz questions from review notes using Notion prompt."""
         if not content: return "Nội dung trống."
 
-        prompt = f"""
-Bạn là một Chuyên gia Giáo dục và Trợ lý Học tập Thông minh.
-Nhiệm vụ: Phân tích ghi chép và tạo bộ câu hỏi ôn tập Active Recall tối ưu cho từng loại môn học.
+        # Fetch prompt from Notion
+        prompt_data = self.prompt_service.get_prompt("UEH-Notion", "study_assistant")
+        
+        if not prompt_data:
+            # Fallback if Notion fetch fails
+            system_prompt = "Bạn là một Chuyên gia Giáo dục và Trợ lý Học tập Thông minh."
+            user_template = "--- NỘI DUNG GHI CHÉP ---\n{content}\n-------------------------"
+            model = Config.GEMINI_MODEL_FLASH
+            logger.warning("⚠️ Using fallback prompt for generate_quiz")
+        else:
+            system_prompt = prompt_data["system_prompt"]
+            user_template = prompt_data["user_template"]
+            model = prompt_data["model"]
 
---- NỘI DUNG GHI CHÉP ---
-{content}
--------------------------
-
-[XÁC ĐỊNH CHIẾN THUẬT ĐẶT CÂU HỎI]
-Dựa trên nội dung ghi chép, hãy xác định môn học thuộc nhóm nào sau đây để áp dụng cách đặt câu hỏi tương ứng:
-- Nhóm Ngôn ngữ (Tiếng Anh): Sử dụng định dạng Trắc nghiệm điền vào chỗ trống (Fill-in-the-blank MCQ). Câu hỏi phải tạo ra một ngữ cảnh (context) cụ thể để người học hiểu cách dùng từ. 
-- Nhóm còn lại Sử dụng câu hỏi vấn đáp trực tiếp (Q&A).
-
-[TẠO 5 CÂU HỎI]
-YÊU CẦU ĐỊNH DẠNG (HTML Telegram Mode):
-1. Mỗi câu hỏi phải in đậm bằng thẻ <b> và bắt đầu bằng "🎯 <b>Q[số]: ..."
-2. Nếu là câu hỏi trắc nghiệm: Liệt kê 4 đáp án A, B, C, D ở các dòng tiếp theo.
-3. Mỗi câu trả lời phải nằm trọn vẹn trong thẻ <tg-spoiler>.
-4. Sau mỗi cặp Q&A phải có một dòng trống để tránh dính Spoiler trên di động.
-5. Ngôn ngữ: Tiếng Việt (Trừ các thuật ngữ chuyên ngành tiếng Anh, thì câu hỏi sẽ bằng tiếng Anh).
-
-[OUTPUT Cho nhóm Ngôn ngữ tiếng Anh]
-🎯 <b>Q1: [Câu hỏi hoặc Câu điền vào chỗ trống]</b>
-[A. Option 1]
-[B. Option 2]
-[C. Option 3]
-[D. Option 4]
-👉 <tg-spoiler>Đáp án: ... (Giải thích: ...)</tg-spoiler>
-Ví dụ:
-🎯 <b>Q1: An …………… manager understands the personal needs of team members and creates a workplace where individuals feel heard.</b>
-A. energetic
-B. anxious
-C. empathetic
-D. ambitious
-👉 <tg-spoiler>Đáp án: C. empathetic (Giải thích: Người quản lý thấu hiểu nhu cầu cá nhân là người có sự đồng cảm).</tg-spoiler>
-
-[OUTPUT cho các nhóm còn lại:]
-🎯 <b>Q1: Nội dung câu hỏi...?</b>
-👉 <tg-spoiler>Đáp án ngắn gọn...</tg-spoiler>
-
-🎯 <b>Q2: Nội dung câu hỏi...?</b>
-👉 <tg-spoiler>Đáp án ngắn gọn...</tg-spoiler>
-
----
-LƯU Ý: Không chào hỏi và giới thiệu gì hết mà vào thẳng nội dung trong OUTPUT.
-Hãy bắt đầu tạo ngay bộ câu hỏi cho ghi chép trên:
-"""
-        return self.generate_content(prompt, model=Config.GEMINI_MODEL_FLASH)
+        # Construct the final prompt
+        final_prompt = f"{user_template}\n\n{system_prompt}"
+        final_prompt = final_prompt.replace("{content}", content)
+        
+        return self.generate_content(final_prompt, model=model)

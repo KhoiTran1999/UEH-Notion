@@ -29,6 +29,8 @@ jobs:
           GEMINI_API_KEY_1: ${{ secrets.GEMINI_API_KEY_1 }}
           GEMINI_API_KEY_2: ${{ secrets.GEMINI_API_KEY_2 }}
           GEMINI_API_KEY_3: ${{ secrets.GEMINI_API_KEY_3 }}
+          NOTION_PROMPT_DATABASE_ID: ${{ secrets.NOTION_PROMPT_DATABASE_ID }}
+          NOTION_PROMPT_TOKEN: ${{ secrets.NOTION_PROMPT_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python src/main.py run study-assistant

@@ -6,7 +6,9 @@ load_dotenv()
 class Config:
     # Notion
     NOTION_TOKEN = os.getenv("NOTION_TOKEN")
+    NOTION_PROMPT_TOKEN = os.getenv("NOTION_PROMPT_TOKEN") # Bypass: Second token for Prompt DB
     NOTION_DATABASE_ID = os.getenv("NOTION_DATABASE_ID")
+    NOTION_PROMPT_DATABASE_ID = os.getenv("NOTION_PROMPT_DATABASE_ID")
     NOTION_DB_GHI_CHEP_ID = os.getenv("NOTION_DB_GHI_CHEP_ID")
     NOTION_VERSION = os.getenv("NOTION_VERSION", "2025-09-03")
 
