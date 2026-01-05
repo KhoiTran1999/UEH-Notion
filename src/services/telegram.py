@@ -27,6 +27,11 @@ class TelegramService:
         except Exception as e:
             logger.error(f"❌ Telegram Exception: {e}")
 
+    def send_error_alert(self, message):
+        """Sends a critical error alert."""
+        alert_msg = f"🚨 **CRITICAL ERROR** 🚨\n\n{message}"
+        self.send_message(alert_msg)
+
     def send_voice(self, audio_path, caption=None):
         """Sends a voice note."""
         url = f"{self.base_url}/sendVoice"

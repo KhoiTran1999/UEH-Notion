@@ -1,6 +1,8 @@
 import sys
 import os
 import argparse
+import traceback
+from src.services.telegram import TelegramService
 
 # Ensure src is in python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -28,4 +30,13 @@ def main():
         parser.print_help()
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        error_msg = f"Script crashed: {str(e)}\n\nTraceback:\n{traceback.format_exc()}"
+        logger.error(error_msg)
+        try:
+            TelegramService().send_error_alert(error_msg)
+        except Exception as telegram_error:
+            logger.error(f"Failed to send Telegram alert: {telegram_error}")
+        sys.exit(1)
