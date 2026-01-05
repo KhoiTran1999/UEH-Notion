@@ -32,6 +32,30 @@ class TelegramService:
         alert_msg = f"🚨 **CRITICAL ERROR** 🚨\n\n{message}"
         self.send_message(alert_msg)
 
+    def send_photo(self, photo, caption=None, has_spoiler=False, disable_notification=False):
+        """Sends a photo to the default chat."""
+        url = f"{self.base_url}/sendPhoto"
+        
+        payload = {
+            "chat_id": self.chat_id,
+            "photo": photo,
+            "has_spoiler": has_spoiler,
+            "disable_notification": disable_notification
+        }
+        
+        if caption:
+            payload["caption"] = caption
+        
+        try:
+            with httpx.Client(timeout=30.0) as client:
+                resp = client.post(url, json=payload)
+                if resp.status_code == 200:
+                    logger.info("✅ Telegram photo sent.")
+                else:
+                    logger.error(f"❌ Telegram Photo Error {resp.status_code}: {resp.text}")
+        except Exception as e:
+            logger.error(f"❌ Telegram Photo Exception: {e}")
+
     def send_voice(self, audio_path, caption=None):
         """Sends a voice note."""
         url = f"{self.base_url}/sendVoice"

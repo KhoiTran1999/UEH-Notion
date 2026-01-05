@@ -152,7 +152,15 @@ class AIService:
             model = prompt_data["model"]
 
         # Construct the final prompt
-        final_prompt = f"{user_template}\n\n{system_prompt}"
+        additional_instructions = """
+        QUAN TRỌNG VỀ ĐỊNH DẠNG TOÁN HỌC:
+        1. BẮT BUỘC dùng định dạng LaTeX cho mọi công thức toán học.
+        2. BẮT BUỘC bao quanh công thức bằng dấu $ đơn. Ví dụ: $E_D = \frac{dQ}{dP}$
+        3. KHÔNG viết công thức dạng văn bản thường (như dQ/dP).
+        4. KHÔNG dùng dấu $ đôi ($$) hoặc block math (```math). Chỉ dùng $ đơn.
+        """
+        
+        final_prompt = f"{user_template}\n\n{system_prompt}\n\n{additional_instructions}"
         final_prompt = final_prompt.replace("{content}", content)
         
         return self.generate_content(final_prompt, model=model)
