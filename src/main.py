@@ -2,11 +2,10 @@ import sys
 import os
 import argparse
 import traceback
-from src.services.telegram import TelegramService
-
 # Ensure src is in python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
+from src.services.telegram import TelegramService
 from src.utils.logger import logger
 from src.jobs.daily_report import run_daily_report
 from src.jobs.study_assistant import run_study_assistant
