@@ -231,3 +231,32 @@ class NotionService:
             content = f"> {icon} {ex_text(block['callout'].get('rich_text', []))}"
             
         return f"{indent}{content}" if content.strip() else ""
+
+    def update_page_property(self, page_id, property_name, value, type_key="date"):
+        """Updates a property of a page."""
+        url = f"https://api.notion.com/v1/pages/{page_id}"
+        
+        # Construct the property object based on type
+        prop_body = {}
+        if type_key == "date":
+             prop_body = { "date": { "start": value } }
+        # Add other types if needed
+        
+        payload = {
+            "properties": {
+                property_name: prop_body
+            }
+        }
+        
+        try:
+            with httpx.Client(timeout=30.0) as client:
+                response = client.patch(url, headers=self.headers, json=payload)
+                if response.status_code == 200:
+                    logger.info(f"✅ Updated {property_name} for page {page_id}")
+                    return True
+                else:
+                    logger.error(f"❌ Update Error: {response.status_code} -Body: {response.text}")
+                    return False
+        except Exception as e:
+            logger.error(f"❌ Update Exception: {e}")
+            return False

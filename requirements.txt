@@ -1,5 +1,4 @@
 httpx
 python-dotenv
 google-genai
-edge-tts
-nest_asyncio
+pytz
