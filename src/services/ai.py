@@ -154,10 +154,11 @@ class AIService:
         # Construct the final prompt
         additional_instructions = """
         QUAN TRỌNG VỀ ĐỊNH DẠNG TOÁN HỌC:
-        1. BẮT BUỘC dùng định dạng LaTeX cho mọi công thức toán học.
-        2. BẮT BUỘC bao quanh công thức bằng dấu $ đơn. Ví dụ: $E_D = \frac{dQ}{dP}$
-        3. KHÔNG viết công thức dạng văn bản thường (như dQ/dP).
-        4. KHÔNG dùng dấu $ đôi ($$) hoặc block math (```math). Chỉ dùng $ đơn.
+        1. KHÔNG sử dụng định dạng LaTeX (dấu $).
+        2. SỬ DỤNG ký tự Unicode để viết công thức (ví dụ: ×, ÷, =, ≈, ≠, ≤, ≥, ², ³, √, ∑, ∫...).
+        3. Viết công thức liền mạch với văn bản, dễ đọc trên điện thoại.
+        4. Ví dụ: thay vì $A \times B$, hãy viết "Ma trận A nhân ma trận B" hoặc "A × B".
+        5. KHÔNG dùng dấu gạch dưới (_) gây lỗi định dạng Telegram.
         """
         
         final_prompt = f"{user_template}\n\n{system_prompt}\n\n{additional_instructions}"

@@ -82,20 +82,41 @@ Trạng thái: 🔴 Cần xem lại
     time.sleep(1)
 
     # Content
+    # Content
     raw_chunks = quiz_content.split("🎯")
-    questions = []
     
     for chunk in raw_chunks:
         clean = chunk.strip()
         if not clean: continue
-        questions.append(f"🎯 {clean}")
         
-    if not questions:
-        telegram.send_message(quiz_content, parse_mode="Markdown")
-    else:
-        for q in questions:
-            telegram.send_message(q, parse_mode="Markdown")
-            time.sleep(1)
+        # Split Question and Answer to ensure Spoiler works and LaTeX doesn't break Markdown
+        q_text = ""
+        ans_text = ""
+        
+        # Try splitting by "👉" first (visual separator)
+        if "👉" in clean:
+             parts = clean.split("👉", 1)
+             q_text = f"🎯 {parts[0].strip()}"
+             ans_text = f"👉 {parts[1].strip()}"
+        
+        # Fallback: Try splitting by <tg-spoiler> if 👉 is missing but spoiler exists
+        elif "<tg-spoiler>" in clean:
+             parts = clean.split("<tg-spoiler>", 1)
+             q_text = f"🎯 {parts[0].strip()}"
+             ans_text = f"<tg-spoiler>{parts[1].strip()}"
+        
+        else:
+             # valid plain text content
+             q_text = f"🎯 {clean}"
+             
+        # Send Question (Plain Text safest for LaTeX, but we switched to Unicode/HTML)
+        telegram.send_message(q_text, parse_mode="HTML")
+        
+        # Send Answer if exists (HTML for spoiler tag)
+        if ans_text:
+            telegram.send_message(ans_text, parse_mode="HTML")
+            
+        time.sleep(1)
 
     # Footer
     footer = """

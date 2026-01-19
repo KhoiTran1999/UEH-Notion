@@ -13,15 +13,27 @@ class TelegramService:
         payload = {
             "chat_id": self.chat_id,
             "text": message,
-            "parse_mode": parse_mode,
             "disable_notification": disable_notification
         }
+        
+        if parse_mode:
+            payload["parse_mode"] = parse_mode
         
         try:
             with httpx.Client(timeout=30.0) as client:
                 resp = client.post(url, json=payload)
                 if resp.status_code == 200:
                     logger.info("✅ Telegram message sent.")
+                elif resp.status_code == 400 and parse_mode:
+                    logger.warning(f"⚠️ Telegram Error 400 (Formatting issue): {resp.text}")
+                    logger.info("🔄 Retrying as plain text...")
+                    if "parse_mode" in payload:
+                        del payload["parse_mode"]
+                    resp_retry = client.post(url, json=payload)
+                    if resp_retry.status_code == 200:
+                        logger.info("✅ Telegram message sent (Plain Text).")
+                    else:
+                        logger.error(f"❌ Retry Failed {resp_retry.status_code}: {resp_retry.text}")
                 else:
                     logger.error(f"❌ Telegram Error {resp.status_code}: {resp.text}")
         except Exception as e:
