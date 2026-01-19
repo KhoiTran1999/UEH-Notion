@@ -59,7 +59,7 @@ Tạo file `.env` tại thư mục gốc và điền các thông tin sau:
 ```ini
 # Notion
 NOTION_TOKEN=secret_xxxxxxxx
-NOTION_DATABASE_ID=xxxxxxxx  # DB Task
+NOTION_DB_TASK=xxxxxxxx  # DB Task
 NOTION_DB_GHI_CHEP_ID=xxxxxxxx # DB Ghi chép bài học
 
 # AI

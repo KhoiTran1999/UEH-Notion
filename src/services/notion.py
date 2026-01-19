@@ -32,9 +32,9 @@ class NotionService:
 
     def get_tasks(self):
         """Fetches tasks from the main database."""
-        container_id = Config.NOTION_DATABASE_ID
+        container_id = Config.NOTION_DB_TASK
         if not container_id:
-            logger.error("❌ NOTION_DATABASE_ID missing")
+            logger.error("❌ NOTION_DB_TASK missing")
             return []
 
         try:
@@ -97,7 +97,7 @@ class NotionService:
 
     def get_database_options(self):
         """Fetches status/priority options."""
-        container_id = Config.NOTION_DATABASE_ID
+        container_id = Config.NOTION_DB_TASK
         if not container_id: return {}
         
         try:
