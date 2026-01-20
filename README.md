@@ -1,87 +1,75 @@
 # 🎓 UEH Notion Assistant
 
-**UEH Notion Assistant** là một trợ lý ảo cá nhân hóa, giúp tự động hóa việc quản lý học tập và công việc từ Notion sang Telegram. Hệ thống sử dụng AI (Google Gemini) để phân tích nhiệm vụ, lên kế hoạch trong ngày và tạo bộ câu hỏi ôn tập thông minh.
+**UEH Notion Assistant** là một trợ lý ảo cá nhân hóa, giúp tự động hóa và tối ưu quy trình học tập, quản lý công việc từ Notion kết hợp với sức mạnh của AI.
+
+Hệ thống tự động phân tích nhiệm vụ trong ngày, nhắc nhở ôn tập theo phương pháp **Spaced Repetition** (lặp lại ngắt quãng) và gửi thông báo trực tiếp qua Telegram.
 
 ---
 
 ## 🚀 Tính Năng Chính
 
-### 1. 📅 Daily Report (Báo Cáo Ngày)
--   **Tự động quét Notion**: Lấy danh sách task cần làm trong ngày.
--   **Phân tích AI**: Sử dụng Gemini để lập kế hoạch theo ma trận Eisenhower và "Eat the Frog".
--   **Gửi Telegram**: Gửi bản tin text và **Voice Note** (kịch bản AI + giọng đọc AI) vào mỗi sáng (7:15 AM).
+### 1. 📅 Daily Report (Báo Cáo Đầu Ngày)
+- **Tự động quét Notion**: Lấy danh sách task cần làm trong ngày.
+- **Phân tích AI**: Sử dụng Gemini để lập kế hoạch, sắp xếp công việc theo ma trận Eisenhower.
+- **Voice Briefing**: Gửi bản tin âm thanh (Voice Note) tóm tắt lịch trình để nghe vào buổi sáng.
+- **Lịch chạy**: 07:15 AM mỗi ngày.
 
 ### 2. 🧠 Study Assistant (Trợ Lý Ôn Tập)
--   **Active Recall**: Tìm các bài ghi chép có trạng thái `🔴 Cần xem lại`.
--   **Deep Dive**: Quét sâu nội dung bài học (bao gồm text, headings, list...).
--   **AI Quiz**: Tạo bộ câu hỏi trắc nghiệm/tự luận ngắn (có che đáp án spoiler) để ôn tập ngay trên Telegram.
--   **Chế độ yên lặng**: Gửi câu hỏi dồn dập nhưng không spam thông báo.
+- **Active Recall**: Tìm các bài ghi chép cũ cần ôn lại (dựa trên thuật toán Spaced Repetition).
+- **AI Quiz**: Tự động tạo câu hỏi trắc nghiệm/tự luận từ nội dung bài học.
+- **Tương tác Telegram**: Gửi câu hỏi và đáp án (dạng spoiler) để bạn tự kiểm tra kiến thức.
+- **Silent Mode**: Gửi câu hỏi dồn dập nhưng không làm phiền (chỉ thông báo tin đầu tiên).
+- **Lịch chạy**: 08:00, 12:00, 16:00, 20:00.
 
 ---
 
-## 🏗️ Kiến Trúc Hệ Thống
+## 🛠️ Yêu Cầu Hệ Thống
 
-Project được thiết kế theo mô hình **Service-Oriented** để dễ dàng mở rộng:
-
-```text
-UEH-Notion/
-├── src/
-│   ├── config/       # Quản lý biến môi trường (.env)
-│   ├── services/     # Tương tác với API bên ngoài
-│   │   ├── motion.py    # Notion API
-│   │   ├── ai.py        # Google Gemini AI
-│   │   ├── telegram.py  # Telegram Bot API
-│   │   └── voice.py     # Edge TTS (Voice Generation)
-│   ├── jobs/         # Logic nghiệp vụ chính
-│   │   ├── daily_report.py
-│   │   └── study_assistant.py
-│   └── main.py       # Điểm khởi chạy (CLI Entry Point)
-```
+- **Python**: 3.12 trở lên
+- **Tài khoản Notion**: Đã tạo Integration và share database.
+- **Google AI Studio**: API Key cho model Gemini.
+- **Telegram Bot**: Token bot và Chat ID của người nhận.
 
 ---
 
-## 🛠️ Cài Đặt và Cấu Hình
+## ⚙️ Cài Đặt
 
-### 1. Yêu cầu hệ thống
--   Python 3.12+
--   Tài khoản Notion (Integration Token)
--   Tài khoản Google AI Studio (Gemini API Key)
--   Telegram Bot (Token & Chat ID)
+1. **Clone project:**
+   ```bash
+   git clone <repo_url>
+   cd UEH-Notion
+   ```
 
-### 2. Cài đặt Dependencies
-```bash
-pip install -r requirements.txt
-```
+2. **Cài đặt thư viện:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-### 3. Cấu hình biến môi trường
-Tạo file `.env` tại thư mục gốc và điền các thông tin sau:
-
-```ini
-# Notion
-NOTION_TOKEN=secret_xxxxxxxx
-NOTION_DB_TASK=xxxxxxxx  # DB Task
-NOTION_DB_GHI_CHEP_ID=xxxxxxxx # DB Ghi chép bài học
-
-# AI
-GEMINI_API_KEY=AIzaSy...
-
-# Telegram
-TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
-TELEGRAM_CHAT_ID=123456789
-```
+3. **Cấu hình biến môi trường:**
+   Tạo file `.env` tại thư mục gốc và điền thông tin tương ứng (xem file `.env.example`):
+   ```ini
+   NOTION_TOKEN=secret_...
+   NOTION_DB_TASK=...
+   NOTION_DB_GHI_CHEP_ID=...
+   GEMINI_API_KEY=AIzaSy...
+   TELEGRAM_BOT_TOKEN=...
+   TELEGRAM_CHAT_ID=...
+   ```
 
 ---
 
-## 🎮 Hướng Dẫn Sử Dụng
+## 🎮 Hướng Dẫn Sử Dụng (Command Line)
 
-Project sử dụng một entry point duy nhất là `src/main.py`.
+Project sử dụng `src/main.py` làm điểm truy cập chính. Bạn có thể chạy thủ công các tác vụ thông qua dòng lệnh.
 
-### Chạy Daily Report
+### 1. Chạy Báo Cáo Ngày (Daily Report)
+Tác vụ này sẽ quét Notion task và gửi báo cáo + voice note.
 ```bash
 python src/main.py run daily-report
 ```
 
-### Chạy Study Assistant
+### 2. Chạy Trợ Lý Ôn Tập (Study Assistant)
+Tác vụ này sẽ chọn bài học cần ôn và gửi câu hỏi trắc nghiệm.
 ```bash
 python src/main.py run study-assistant
 ```
@@ -90,21 +78,28 @@ python src/main.py run study-assistant
 
 ## 🤖 Tự Động Hóa (GitHub Actions)
 
-Project đã tích hợp sẵn GitHub Actions để chạy định kỳ:
+Project đã được cấu hình sẵn với **GitHub Actions** để chạy hoàn toàn tự động trên cloud.
 
-| Workflow | Lịch chạy (Giờ VN) | Mô tả |
-| :--- | :--- | :--- |
-| **Daily Report** | 07:15 | Báo cáo công việc đầu ngày |
-| **Study Assistant** | 08:00, 12:00, 16:00, 20:00 | Nhắc nhở ôn bài rải rác trong ngày |
-
----
-
-## 📝 Nhật Ký Thay Đổi (Changelog)
-
--   **Refactor**: Chuyển đổi sang kiến trúc Service-Oriented (Modular).
--   **Study Assistant**: Thêm tính năng split tin nhắn Telegram và Silent Mode.
--   **AI**: Nâng cấp lên model `gemini-2.0-flash-exp` cho khả năng suy luận tốt hơn.
+Các file cấu hình workflow nằm trong thư mục `.github/workflows/`:
+- `daily_report.yml`: Chạy báo cáo hàng ngày.
+- `study_assistant.yml`: Chạy nhắc nhở ôn tập nhiều lần trong ngày.
 
 ---
 
-**Made with ❤️ by Khôi Trần for Productivity.**
+## 📂 Cấu Trúc Project
+
+```text
+UEH-Notion/
+├── src/
+│   ├── jobs/               # Chứa logic của từng tác vụ (Daily Report, Study Assistant)
+│   ├── services/           # Các module kết nối API (Notion, Telegram, AI, Voice)
+│   ├── config/             # Cấu hình hệ thống
+│   └── main.py             # Entry point của chương trình
+├── .github/workflows/      # Cấu hình tự động hóa GitHub Actions
+├── .env.example            # Mẫu file cấu hình
+├── requirements.txt        # Danh sách thư viện
+└── README.md               # Tài liệu hướng dẫn
+```
+
+---
+**Made with ❤️ for Productivity.**
