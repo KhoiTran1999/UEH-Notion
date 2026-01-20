@@ -110,11 +110,11 @@ Trạng thái: 🔴 Cần xem lại
              q_text = f"🎯 {clean}"
              
         # Send Question (Plain Text safest for LaTeX, but we switched to Unicode/HTML)
-        telegram.send_message(q_text, parse_mode="HTML")
+        telegram.send_message(q_text, parse_mode="HTML", disable_notification=True)
         
         # Send Answer if exists (HTML for spoiler tag)
         if ans_text:
-            telegram.send_message(ans_text, parse_mode="HTML")
+            telegram.send_message(ans_text, parse_mode="HTML", disable_notification=True)
             
         time.sleep(1)
 
