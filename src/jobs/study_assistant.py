@@ -69,8 +69,11 @@ def run_study_assistant():
 
     quiz_content = ai.generate_quiz(full_content)
 
-    # 5. Send to Telegram
+    # 5. Send to Telegram (Consolidated)
     logger.info("📨 Sending to Telegram...")
+    
+    # buffers for message accumulation
+    message_parts = []
     
     # Header
     header_msg = f"""
@@ -78,10 +81,8 @@ def run_study_assistant():
 Bài: <a href="{note_url}">{note_title}</a>
 Trạng thái: 🔴 Cần xem lại
 """
-    telegram.send_message(header_msg, parse_mode="HTML")
-    time.sleep(1)
+    message_parts.append(header_msg)
 
-    # Content
     # Content
     raw_chunks = quiz_content.split("🎯")
     
@@ -109,21 +110,44 @@ Trạng thái: 🔴 Cần xem lại
              # valid plain text content
              q_text = f"🎯 {clean}"
              
-        # Send Question (Plain Text safest for LaTeX, but we switched to Unicode/HTML)
-        telegram.send_message(q_text, parse_mode="HTML", disable_notification=True)
+        # Add Question
+        message_parts.append(q_text)
         
-        # Send Answer if exists (HTML for spoiler tag)
+        # Add Answer if exists
         if ans_text:
-            telegram.send_message(ans_text, parse_mode="HTML", disable_notification=True)
-            
-        time.sleep(1)
+            message_parts.append(ans_text)
 
     # Footer
     footer = """
 ---
 👉 <i>Bấm vào link bài học để tự sửa trạng thái thành 🟢 Đã nắm vững nếu bạn trả lời đúng hết nhé!</i>
 """
-    telegram.send_message(footer, parse_mode="HTML", disable_notification=True)
+    message_parts.append(footer)
+    
+    # Combine and Send
+    current_buffer = ""
+    MAX_LENGTH = 4096
+
+    for part in message_parts:
+        # Check if adding this part would exceed the limit
+        # Adding 2 for "\n\n" separator
+        if len(current_buffer) + len(part) + 2 > MAX_LENGTH:
+            # Send current buffer
+            if current_buffer:
+                telegram.send_message(current_buffer, parse_mode="HTML", disable_notification=True)
+                time.sleep(1) # Rate limit friendly
+            
+            # Start new buffer with current part
+            current_buffer = part
+        else:
+            if current_buffer:
+                current_buffer += "\n\n" + part
+            else:
+                current_buffer = part
+    
+    # Send remaining buffer
+    if current_buffer:
+         telegram.send_message(current_buffer, parse_mode="HTML", disable_notification=True)
     
     # 6. Update "Last Review At"
     try:
