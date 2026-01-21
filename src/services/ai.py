@@ -49,6 +49,8 @@ class AIService:
                     model=model,
                     contents=prompt
                 )
+                if not response.text:
+                    raise ValueError("Empty response from AI model (response.text is None)")
                 return response.text.strip()
             except Exception as e:
                 logger.error(f"❌ AI Generation Error (Key {self.current_key_index}): {e}")
