@@ -84,6 +84,38 @@ Các file cấu hình workflow nằm trong thư mục `.github/workflows/`:
 - `daily_report.yml`: Chạy báo cáo hàng ngày.
 - `study_assistant.yml`: Chạy nhắc nhở ôn tập nhiều lần trong ngày.
 
+## ⏰ Setup Cron Job (cron-job.org)
+
+Để chạy workflow theo lịch tùy chỉnh (hoặc miễn phí trigger không giới hạn), bạn có thể dùng **cron-job.org**.
+
+### 1. Tạo GitHub Personal Access Token (PAT)
+1. Vào **GitHub Settings** -> **Developer settings** -> **Personal access tokens** -> **Tokens (classic)**.
+2. Chọn **Generate new token (classic)**.
+3. Chọn scope `workflow` (để có quyền trigger workflow).
+4. Lưu lại token này (ví dụ: `ghp_...`).
+
+### 2. Cấu hình trên cron-job.org
+1. Đăng ký/Đăng nhập tại [cron-job.org](https://cron-job.org/).
+2. Chọn **Create Cronjob**.
+3. Điền thông tin:
+   - **URL**: `https://api.github.com/repos/<username>/<repo>/actions/workflows/study_assistant.yml/dispatches`
+     - Thay `<username>`: Tên tài khoản GitHub của bạn.
+     - Thay `<repo>`: Tên repository (ví dụ: `UEH-Notion`).
+   - **Execution schedule**: Chọn lịch chạy mong muốn (ví dụ: mỗi 4 tiếng).
+4. Trong phần **Advanced**:
+   - **HTTP Method**: `POST`
+   - **Headers**:
+     ```text
+     Accept: application/vnd.github.v3+json
+     Authorization: Bearer <YOUR_GITHUB_PAT>
+     User-Agent: cron-job
+     ```
+   - **Body (JSON)**:
+     ```json
+     {"ref": "main"}
+     ```
+5. Bấm **Create Cronjob**.
+
 ---
 
 ## 📂 Cấu Trúc Project
