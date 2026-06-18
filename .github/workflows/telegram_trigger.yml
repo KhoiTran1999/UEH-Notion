@@ -1,0 +1,40 @@
+name: Telegram On-Demand Trigger
+
+on:
+  repository_dispatch:
+    types: [telegram_command]
+
+jobs:
+  run-bot-command:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Bot Command
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DB_TASK: ${{ secrets.NOTION_DB_TASK }}
+          NOTION_DB_GHI_CHEP_ID: ${{ secrets.NOTION_DB_GHI_CHEP_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY_1: ${{ secrets.GEMINI_API_KEY_1 }}
+          GEMINI_API_KEY_2: ${{ secrets.GEMINI_API_KEY_2 }}
+          GEMINI_API_KEY_3: ${{ secrets.GEMINI_API_KEY_3 }}
+          NOTION_PROMPT_DATABASE_ID: ${{ secrets.NOTION_PROMPT_DATABASE_ID }}
+          NOTION_PROMPT_TOKEN: ${{ secrets.NOTION_PROMPT_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python src/main.py run \
+            ${{ github.event.client_payload.mode }} \
+            --chat_id "${{ github.event.client_payload.user_id }}"

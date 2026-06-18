@@ -17,10 +17,16 @@ def main():
     # Run command
     run_parser = subparsers.add_parser("run", help="Run a specific job")
     run_parser.add_argument("job", choices=["daily-report", "study-assistant"], help="Job name")
+    run_parser.add_argument("--chat_id", default=None, help="Telegram Chat ID (from Telegram trigger)")
 
     args = parser.parse_args()
 
     if args.command == "run":
+        # Override TELEGRAM_CHAT_ID if provided via Telegram trigger
+        if args.chat_id:
+            os.environ["TELEGRAM_CHAT_ID"] = args.chat_id
+            logger.info(f"🎯 Telegram trigger from chat_id: {args.chat_id}")
+
         if args.job == "daily-report":
             run_daily_report()
         elif args.job == "study-assistant":
