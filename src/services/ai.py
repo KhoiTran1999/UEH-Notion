@@ -69,7 +69,7 @@ class AIService:
             return "Chào buổi sáng! 🌞 Hôm nay bạn không có task nào phải làm. Hãy tận hưởng ngày nghỉ nhé! 🚀"
 
         # Fetch prompt from Notion
-        prompt_data = self.prompt_service.get_prompt("UEH-Notion", "daily_report")
+        prompt_data = self.prompt_service.get_prompt("UEH-Notion", "task_planner")
         
         if not prompt_data:
             # Fallback if Notion fetch fails (optional, or just error out)
