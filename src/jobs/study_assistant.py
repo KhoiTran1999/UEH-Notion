@@ -22,9 +22,10 @@ def run_study_assistant():
 
     # 1. Fetch Candidates (Assume this returns raw page objects)
     candidates = notion.get_review_notes()
-    
+
     if not candidates:
         logger.info("🎉 No review notes found today.")
+        telegram.send_message("🎉 Hôm nay không có bài nào cần ôn tập!")
         return
 
     # 2. Select Note based on Spaced Repetition (Oldest "Last Review At" first)
