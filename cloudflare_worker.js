@@ -61,8 +61,8 @@ async function processCommand(env, chatId, text) {
             "✅ Bot đã sẵn sàng!\nChọn chức năng bên dưới hoặc gõ lệnh tương ứng:",
             {
                 inline_keyboard: [
-                    [{ text: "📊 Báo cáo Task (/taskreport)", callback_data: "/taskreport" }],
-                    [{ text: "🎓 Ôn tập khắc sâu (/study)", callback_data: "/study" }]
+                    [{ text: "📊 Báo cáo Task", callback_data: "/taskreport" }],
+                    [{ text: "🎓 Ôn tập khắc sâu", callback_data: "/study" }]
                 ]
             }
         );
