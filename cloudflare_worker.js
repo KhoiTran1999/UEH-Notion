@@ -42,10 +42,10 @@ async function processCommand(env, chatId, text) {
 
     if (text === "/taskreport") {
         mode = "daily-report";
-        await sendMessage(env, chatId, "📊 Đang tạo báo cáo task...");
+        await sendMessage(env, chatId, "🚀 Đã nhận lệnh! Bắt đầu tạo báo cáo ngày cho bạn...");
     } else if (text === "/study") {
         mode = "study-assistant";
-        await sendMessage(env, chatId, "🎓 Đang lấy danh sách bài ôn tập...");
+        await sendMessage(env, chatId, "🔍 Đã nhận lệnh! Chờ chút, mình đang tìm các bài cần ôn...");
     } else if (text.startsWith("/study_")) {
         mode = "study-assistant";
         topicId = text.replace("/study_", "");
@@ -55,7 +55,7 @@ async function processCommand(env, chatId, text) {
             topicId = `${topicId.substr(0, 8)}-${topicId.substr(8, 4)}-${topicId.substr(12, 4)}-${topicId.substr(16, 4)}-${topicId.substr(20)}`;
         }
 
-        await sendMessage(env, chatId, "🧠 Đang tạo trắc nghiệm cho bài học này...");
+        await sendMessage(env, chatId, "🎯 Đã chọn bài! Bắt đầu quá trình tạo trắc nghiệm...");
     } else if (text === "/start" || text === "/help") {
         await sendMessage(env, chatId,
             "✅ Bot đã sẵn sàng!\nChọn chức năng bên dưới hoặc gõ lệnh tương ứng:",
