@@ -76,15 +76,29 @@ python src/main.py run study-assistant
 
 ---
 
-## 🤖 Tự Động Hóa (GitHub Actions)
+## 🤖 Tự Động Hóa (GitHub Actions & Cloudflare Worker)
 
-Project đã được cấu hình sẵn với **GitHub Actions** để chạy hoàn toàn tự động trên cloud.
+Project được cấu hình với **GitHub Actions** để chạy trên cloud. Kết hợp với **Cloudflare Worker** để nhận lệnh trực tiếp từ Telegram Bot thông qua Webhook.
 
-Các file cấu hình workflow nằm trong thư mục `.github/workflows/`:
-- `daily_report.yml`: Chạy báo cáo hàng ngày.
-- `study_assistant.yml`: Chạy nhắc nhở ôn tập nhiều lần trong ngày.
+### Lệnh Telegram hỗ trợ
+- `/start` hoặc `/help`: Hiển thị menu chức năng dưới dạng nút bấm (Inline Keyboard).
+- `/taskreport`: Chạy báo cáo ngày ngay lập tức.
+- `/study`: Gọi danh sách bài cần ôn (tối đa 5 bài cũ nhất). Bạn bấm chọn bài nào, bot sẽ soạn trắc nghiệm bài đó.
 
-## ⏰ Setup Cron Job (cron-job.org)
+### Cài đặt Cloudflare Worker (Telegram Webhook)
+1. Tạo một Worker trên Cloudflare.
+2. Copy toàn bộ code trong file `cloudflare_worker.js` dán vào.
+3. Thiết lập các Environment Variables sau trên Cloudflare:
+   - `TG_BOT_TOKEN`: Token của bot Telegram.
+   - `GITHUB_TOKEN`: GitHub Personal Access Token (PAT) có quyền `repo` và `workflow`.
+   - `GITHUB_OWNER`: Tên username GitHub của bạn.
+   - `GITHUB_REPO`: Tên repository (vd: `UEH-Notion`).
+4. Set Webhook cho Telegram Bot trỏ về URL của Cloudflare Worker:
+   ```bash
+   curl -X POST "https://api.telegram.org/bot<TG_BOT_TOKEN>/setWebhook" -d "url=<CLOUDFLARE_WORKER_URL>"
+   ```
+
+## ⏰ Setup Cron Job (Tự động chạy theo giờ)
 
 Để chạy workflow theo lịch tùy chỉnh (hoặc miễn phí trigger không giới hạn), bạn có thể dùng **cron-job.org**.
 
