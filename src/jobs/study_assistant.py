@@ -22,6 +22,7 @@ def run_study_assistant(topic_id=None):
 
     if topic_id:
         logger.info(f"🎯 Explicit topic_id provided: {topic_id}")
+        telegram.send_message("⏳ Đang đọc nội dung bài học từ Notion...", disable_notification=True)
 
         # 1. Fetch content specifically for this topic
         content_lines = notion.fetch_page_content(topic_id)
@@ -110,6 +111,7 @@ def run_study_assistant(topic_id=None):
 
     # 4. Generate Quiz
     logger.info("🧠 Generating Quiz...")
+    telegram.send_message("🧠 Đang dùng AI biên soạn câu hỏi trắc nghiệm...", disable_notification=True)
 
     quiz_content = ai.generate_quiz(full_content)
 

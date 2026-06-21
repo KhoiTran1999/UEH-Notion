@@ -17,6 +17,8 @@ def run_daily_report():
     ai = AIService()
     telegram = TelegramService()
 
+    telegram.send_message("⏳ Đang lấy dữ liệu task từ Notion...", disable_notification=True)
+
     # 1. Fetch Tasks
     tasks = notion.get_tasks()
     db_options = notion.get_database_options()
@@ -26,6 +28,7 @@ def run_daily_report():
 
     # 2. Analyze
     logger.info("🧠 Analyzing tasks...")
+    telegram.send_message("🧠 Đang dùng AI phân tích và lập kế hoạch...", disable_notification=True)
     summary = ai.analyze_tasks(tasks, db_options)
     
     # 3. Send Text
@@ -35,6 +38,7 @@ def run_daily_report():
     # 4. Voice Generation
     if tasks:
         logger.info("🎙️ Generating Voice...")
+        telegram.send_message("🎙️ Đang tạo audio tóm tắt...", disable_notification=True)
         voice_script = ai.generate_voice_script(summary)
         
         output_file = "daily_voice.mp3"
