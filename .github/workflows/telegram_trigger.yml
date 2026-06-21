@@ -35,6 +35,13 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          python src/main.py run \
-            ${{ github.event.client_payload.mode }} \
-            --chat_id "${{ github.event.client_payload.user_id }}"
+          # Xây dựng lệnh chạy dựa trên payload
+          CMD="python src/main.py run ${{ github.event.client_payload.mode }} --chat_id \"${{ github.event.client_payload.user_id }}\""
+
+          # Thêm topic_id nếu có
+          if [ "${{ github.event.client_payload.topic_id }}" != "" ]; then
+            CMD="$CMD --topic_id \"${{ github.event.client_payload.topic_id }}\""
+          fi
+
+          echo "Running command: $CMD"
+          eval $CMD

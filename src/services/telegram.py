@@ -7,7 +7,7 @@ class TelegramService:
         self.base_url = f"https://api.telegram.org/bot{Config.TELEGRAM_BOT_TOKEN}"
         self.chat_id = Config.TELEGRAM_CHAT_ID
 
-    def send_message(self, message, parse_mode="Markdown", disable_notification=False):
+    def send_message(self, message, parse_mode="Markdown", disable_notification=False, reply_markup=None):
         """Sends a text message to the default chat."""
         url = f"{self.base_url}/sendMessage"
         payload = {
@@ -15,10 +15,13 @@ class TelegramService:
             "text": message,
             "disable_notification": disable_notification
         }
-        
+
         if parse_mode:
             payload["parse_mode"] = parse_mode
-        
+
+        if reply_markup:
+            payload["reply_markup"] = reply_markup
+
         try:
             with httpx.Client(timeout=30.0) as client:
                 resp = client.post(url, json=payload)

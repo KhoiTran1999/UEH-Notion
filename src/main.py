@@ -18,6 +18,7 @@ def main():
     run_parser = subparsers.add_parser("run", help="Run a specific job")
     run_parser.add_argument("job", choices=["daily-report", "study-assistant"], help="Job name")
     run_parser.add_argument("--chat_id", default=None, help="Telegram Chat ID (from Telegram trigger)")
+    run_parser.add_argument("--topic_id", default=None, help="Specific Notion Page ID to study")
 
     args = parser.parse_args()
 
@@ -30,7 +31,7 @@ def main():
         if args.job == "daily-report":
             run_daily_report()
         elif args.job == "study-assistant":
-            run_study_assistant()
+            run_study_assistant(topic_id=args.topic_id)
     else:
         parser.print_help()
 
