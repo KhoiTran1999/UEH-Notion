@@ -240,6 +240,8 @@ class NotionService:
         prop_body = {}
         if type_key == "date":
              prop_body = { "date": { "start": value } }
+        elif type_key == "select":
+             prop_body = { "select": { "name": value } }
         # Add other types if needed
         
         payload = {

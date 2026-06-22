@@ -20,7 +20,12 @@ class TelegramService:
             payload["parse_mode"] = parse_mode
 
         if reply_markup:
-            payload["reply_markup"] = reply_markup
+            import json
+            # Ensure it's not double dumped
+            if isinstance(reply_markup, dict):
+                payload["reply_markup"] = json.dumps(reply_markup)
+            else:
+                payload["reply_markup"] = reply_markup
 
         try:
             with httpx.Client(timeout=30.0) as client:
@@ -32,6 +37,7 @@ class TelegramService:
                     logger.info("🔄 Retrying as plain text...")
                     if "parse_mode" in payload:
                         del payload["parse_mode"]
+                    # Fix: Make sure to keep the reply_markup during retry
                     resp_retry = client.post(url, json=payload)
                     if resp_retry.status_code == 200:
                         logger.info("✅ Telegram message sent (Plain Text).")

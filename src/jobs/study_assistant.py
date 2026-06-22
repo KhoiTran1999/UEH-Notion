@@ -166,7 +166,7 @@ Trạng thái: 🔴 Cần xem lại
     # Footer
     footer = """
 ---
-👉 <i>Bấm vào link bài học để tự sửa trạng thái thành 🟢 Đã nắm vững nếu bạn trả lời đúng hết nhé!</i>
+👉 <i>Hãy tự đánh giá mức độ hiểu bài của bạn sau khi trả lời:</i>
 """
     message_parts.append(footer)
     
@@ -182,7 +182,7 @@ Trạng thái: 🔴 Cần xem lại
             if current_buffer:
                 telegram.send_message(current_buffer, parse_mode="HTML", disable_notification=True)
                 time.sleep(1) # Rate limit friendly
-            
+
             # Start new buffer with current part
             current_buffer = part
         else:
@@ -190,10 +190,21 @@ Trạng thái: 🔴 Cần xem lại
                 current_buffer += "\n\n" + part
             else:
                 current_buffer = part
-    
+
+    # Build Inline Keyboard for "Độ hiểu bài" status
+    short_id = note_id.replace("-", "")
+    reply_markup = {
+        "inline_keyboard": [
+            [
+                {"text": "🟢 Đã nắm vững", "callback_data": f"/mastered_{short_id}"},
+                {"text": "🔴 Chưa nắm vững", "callback_data": f"/review_{short_id}"}
+            ]
+        ]
+    }
+
     # Send remaining buffer
     if current_buffer:
-         telegram.send_message(current_buffer, parse_mode="HTML", disable_notification=True)
+         telegram.send_message(current_buffer, parse_mode="HTML", reply_markup=reply_markup, disable_notification=True)
     
     # 6. Update "Last Review At"
     try:

@@ -9,6 +9,7 @@ from src.services.telegram import TelegramService
 from src.utils.logger import logger
 from src.jobs.daily_report import run_daily_report
 from src.jobs.study_assistant import run_study_assistant
+from src.jobs.update_study_status import run_update_study_status
 
 def main():
     parser = argparse.ArgumentParser(description="UEH Notion Bot CLI")
@@ -16,7 +17,7 @@ def main():
 
     # Run command
     run_parser = subparsers.add_parser("run", help="Run a specific job")
-    run_parser.add_argument("job", choices=["daily-report", "study-assistant"], help="Job name")
+    run_parser.add_argument("job", choices=["daily-report", "study-assistant", "mark-mastered", "mark-review"], help="Job name")
     run_parser.add_argument("--chat_id", default=None, help="Telegram Chat ID (from Telegram trigger)")
     run_parser.add_argument("--topic_id", default=None, help="Specific Notion Page ID to study")
 
@@ -32,6 +33,10 @@ def main():
             run_daily_report()
         elif args.job == "study-assistant":
             run_study_assistant(topic_id=args.topic_id)
+        elif args.job == "mark-mastered":
+            run_update_study_status(topic_id=args.topic_id, status="🟢 Đã nắm vững")
+        elif args.job == "mark-review":
+            run_update_study_status(topic_id=args.topic_id, status="🔴 Chưa nắm vững")
     else:
         parser.print_help()
 
