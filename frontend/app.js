@@ -74,10 +74,7 @@ async function startQuiz(topic) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                telegram_id: telegramData.id,
-                page_id: topic.id,
-                title: topic.title,
-                url: topic.url
+                topic_id: topic.id
             })
         });
 
