@@ -5,13 +5,15 @@ from src.config.settings import Config
 from src.utils.logger import logger
 
 from src.services.prompt_service import PromptService
+from src.services.telegram import TelegramService
 
 class AIService:
     def __init__(self):
         self.api_keys = Config.GEMINI_API_KEYS
         self.current_key_index = 0
         self.prompt_service = PromptService()
-        
+        self.telegram = TelegramService()
+
         if self.api_keys:
             self.client = self._get_client()
         else:
@@ -54,13 +56,15 @@ class AIService:
                 return response.text.strip()
             except Exception as e:
                 logger.error(f"❌ AI Generation Error (Key {self.current_key_index}): {e}")
-                
+
                 # Check if it is a quota error or if we have other keys to try
                 if attempt < max_attempts - 1:
                     logger.info("⚠️ Retrying with a new API Key...")
+                    self.telegram.send_message("🔄 Bot đang bị quá tải quota AI, đợi mình đổi Key phụ và thử lại ngay nhé...", disable_notification=True)
                     self._rotate_key()
                 else:
                     logger.error("❌ All API keys failed.")
+                    self.telegram.send_message("❌ Hệ thống đã thử toàn bộ API Key dự phòng nhưng đều thất bại (hết Quota). Vui lòng thử lại sau!", disable_notification=True)
                     return f"Error: All API keys failed. Last error: {str(e)}"
 
     def analyze_tasks(self, tasks, db_options=None):

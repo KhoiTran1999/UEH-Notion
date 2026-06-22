@@ -2,3 +2,6 @@ httpx
 python-dotenv
 google-genai
 pytz
+fastapi
+uvicorn
+pydantic
