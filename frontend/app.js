@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://study-assistant-api.onrender.com';
+const API_BASE_URL = 'https://ueh-notion.onrender.com';
 
 // DOM Elements
 const views = {
