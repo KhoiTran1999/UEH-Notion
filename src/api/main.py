@@ -96,6 +96,7 @@ def process_telegram_command(text: str, chat_id: str, background_tasks: Backgrou
         telegram.send_message("⚠️ Chức năng này hiện được xử lý qua Web App.")
 
 @app.post("/webhook/telegram")
+@app.post("/webhook/telegram/")
 async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
     try:
         update = await request.json()
