@@ -1,6 +1,6 @@
 httpx
 python-dotenv
-google-genai
+openai
 pytz
 fastapi
 uvicorn

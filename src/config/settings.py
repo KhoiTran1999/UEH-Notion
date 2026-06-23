@@ -12,7 +12,13 @@ class Config:
     NOTION_DB_GHI_CHEP_ID = os.getenv("NOTION_DB_GHI_CHEP_ID")
     NOTION_VERSION = os.getenv("NOTION_VERSION", "2025-09-03")
 
-    # AI (Gemini)
+    # Custom AI Router
+    USE_CUSTOM_AI = True
+    CUSTOM_AI_BASE_URL = os.getenv("CUSTOM_AI_BASE_URL", "https://khoitran1999-claude-server.hf.space/v1")
+    CUSTOM_AI_API_KEY = os.getenv("CUSTOM_AI_API_KEY", "sk-bee8fcb1aa3ec5f7-dw6gps-18d2aec7")
+    CUSTOM_AI_MODEL = os.getenv("CUSTOM_AI_MODEL", "my-combo")
+
+    # AI (Gemini - Legacy)
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
     # Load all keys starting with GEMINI_API_KEY
     GEMINI_API_KEYS = [
