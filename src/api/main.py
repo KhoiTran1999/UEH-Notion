@@ -1,8 +1,9 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from src.services.study_logic import get_candidates, generate_quiz, update_status
+from src.jobs.daily_report import run_daily_report
 
 app = FastAPI(title="Study Quiz API")
 
@@ -55,3 +56,11 @@ def api_update_status(request: StatusRequest):
         return {"success": True, "message": "Status updated successfully"}
     else:
         raise HTTPException(status_code=500, detail="Failed to update status")
+
+class ReportRequest(BaseModel):
+    telegram_id: str | None = None
+
+@app.post("/api/tasks/report")
+def api_generate_report(request: ReportRequest, background_tasks: BackgroundTasks):
+    background_tasks.add_task(run_daily_report)
+    return {"success": True, "message": "Report generation started"}

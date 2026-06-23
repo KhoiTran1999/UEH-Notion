@@ -96,6 +96,19 @@ async function processCommand(env, chatId, text) {
         return new Response("OK");
     }
 
+    if (mode === "daily-report") {
+        const apiUrl = env.API_BASE_URL || "https://ueh-notion.onrender.com";
+        const resp = await fetch(`${apiUrl}/api/tasks/report`, {
+            method: 'POST',
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ telegram_id: chatId })
+        });
+        if (!resp.ok) {
+            await sendMessage(env, chatId, "⚠️ Lỗi khi gọi API báo cáo ngày.");
+        }
+        return new Response("OK");
+    }
+
     if (mode !== "") {
         const success = await triggerGitHub(env, mode, chatId, topicId);
         if (!success) {
