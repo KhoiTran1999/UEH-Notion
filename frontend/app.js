@@ -13,9 +13,10 @@ const ui = {
     loadingText: document.getElementById('loading-text'),
     quizTopicTitle: document.getElementById('quiz-topic-title'),
     quizProgress: document.getElementById('quiz-progress'),
-    flashcard: document.getElementById('flashcard'),
     questionText: document.getElementById('question-text'),
-    answerText: document.getElementById('answer-text'),
+    optionsContainer: document.getElementById('options-container'),
+    explanationBox: document.getElementById('explanation-box'),
+    prevBtn: document.getElementById('prev-btn'),
     nextBtn: document.getElementById('next-btn'),
     statusBtns: document.getElementById('status-btns'),
     btnChua: document.getElementById('status-chua-btn'),
@@ -173,29 +174,87 @@ function renderTopics(topics) {
 function renderQuestion() {
     const q = currentQuiz[currentQuestionIndex];
 
-    // Reset card state
-    ui.flashcard.classList.remove('flipped');
-    ui.nextBtn.classList.add('hidden');
-    ui.statusBtns.classList.add('hidden');
-
-    // Set content
     ui.questionText.textContent = q.question || q.q || 'Question text missing';
-    ui.answerText.textContent = q.answer || q.a || 'Answer text missing';
+    ui.optionsContainer.innerHTML = '';
+    ui.explanationBox.classList.add('hidden');
     ui.quizProgress.textContent = `${currentQuestionIndex + 1}/${currentQuiz.length}`;
+
+    const options = q.options || [];
+    options.forEach((opt, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'w-full text-left bg-gray-100 p-3 rounded-lg border border-gray-200 hover:bg-gray-200 transition';
+        btn.textContent = opt;
+        btn.onclick = () => {
+            if (q.selected !== undefined) return;
+            q.selected = idx;
+
+            if (idx === q.correct) {
+                btn.classList.replace('bg-gray-100', 'bg-green-100');
+                btn.classList.replace('border-gray-200', 'border-green-500');
+            } else {
+                btn.classList.replace('bg-gray-100', 'bg-red-100');
+                btn.classList.replace('border-gray-200', 'border-red-500');
+                const correctBtn = ui.optionsContainer.children[q.correct];
+                if (correctBtn) {
+                    correctBtn.classList.replace('bg-gray-100', 'bg-green-100');
+                    correctBtn.classList.replace('border-gray-200', 'border-green-500');
+                }
+            }
+
+            if (q.explanation) {
+                ui.explanationBox.textContent = q.explanation;
+                ui.explanationBox.classList.remove('hidden');
+            }
+
+            if (currentQuestionIndex < currentQuiz.length - 1) {
+                ui.nextBtn.classList.remove('hidden');
+            } else {
+                ui.statusBtns.classList.remove('hidden');
+            }
+        };
+
+        if (q.selected !== undefined) {
+            if (idx === q.correct) {
+                btn.classList.replace('bg-gray-100', 'bg-green-100');
+                btn.classList.replace('border-gray-200', 'border-green-500');
+            } else if (idx === q.selected) {
+                btn.classList.replace('bg-gray-100', 'bg-red-100');
+                btn.classList.replace('border-gray-200', 'border-red-500');
+            }
+        }
+        ui.optionsContainer.appendChild(btn);
+    });
+
+    if (q.selected !== undefined && q.explanation) {
+        ui.explanationBox.textContent = q.explanation;
+        ui.explanationBox.classList.remove('hidden');
+    }
+
+    if (currentQuestionIndex > 0) {
+        ui.prevBtn.classList.remove('hidden');
+    } else {
+        ui.prevBtn.classList.add('hidden');
+    }
+
+    if (q.selected !== undefined) {
+        if (currentQuestionIndex < currentQuiz.length - 1) {
+            ui.nextBtn.classList.remove('hidden');
+            ui.statusBtns.classList.add('hidden');
+        } else {
+            ui.nextBtn.classList.add('hidden');
+            ui.statusBtns.classList.remove('hidden');
+        }
+    } else {
+        ui.nextBtn.classList.add('hidden');
+        ui.statusBtns.classList.add('hidden');
+    }
 }
 
 // Event Listeners
-ui.flashcard.addEventListener('click', () => {
-    // Only allow flip if we haven't reached the end or it's not already flipped
-    if (!ui.flashcard.classList.contains('flipped')) {
-        ui.flashcard.classList.add('flipped');
-
-        // Show appropriate controls after flipping
-        if (currentQuestionIndex < currentQuiz.length - 1) {
-            ui.nextBtn.classList.remove('hidden');
-        } else {
-            ui.statusBtns.classList.remove('hidden');
-        }
+ui.prevBtn.addEventListener('click', () => {
+    if (currentQuestionIndex > 0) {
+        currentQuestionIndex--;
+        renderQuestion();
     }
 });
 
