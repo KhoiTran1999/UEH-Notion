@@ -34,6 +34,9 @@ class Config:
     GEMINI_VOICE_MODEL = "gemini-2.5-flash-preview-tts"
     GEMINI_VOICE_NAME = "Sadachbia"
 
+    # Redis
+    REDIS_URL = os.getenv("REDIS_URL")
+
     @classmethod
     def validate(cls):
         """Check for critical missing variables"""

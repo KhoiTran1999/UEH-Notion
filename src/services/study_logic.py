@@ -42,6 +42,24 @@ def generate_quiz(topic_id):
     notion = NotionService()
     ai = AIService()
     
+    import re
+    import json
+    import redis
+
+    # Try checking cache first
+    try:
+        from src.config.settings import Config
+        redis_url = Config.REDIS_URL
+        if redis_url:
+            r = redis.from_url(redis_url)
+            cache_key = f"quiz_{topic_id}"
+            cached = r.get(cache_key)
+            if cached:
+                logger.info(f"Using cached quiz for topic {topic_id}")
+                return json.loads(cached)
+    except Exception as e:
+        logger.warning(f"Redis cache check failed: {e}")
+
     # 1. Fetch content
     content_lines = notion.fetch_page_content(topic_id)
     full_content = "\n".join(content_lines)
@@ -96,12 +114,26 @@ def generate_quiz(topic_id):
             "explanation": "No JSON array found in AI response"
         }]
 
-    return {
+    result = {
         "id": topic_id,
         "title": note_title,
         "url": note_url,
         "questions": questions
     }
+
+    # Try saving to cache
+    try:
+        from src.config.settings import Config
+        redis_url = Config.REDIS_URL
+        if redis_url:
+            r = redis.from_url(redis_url)
+            cache_key = f"quiz_{topic_id}"
+            r.setex(cache_key, 1209600, json.dumps(result))
+            logger.info(f"Saved quiz to cache for topic {topic_id}")
+    except Exception as e:
+        logger.warning(f"Redis cache save failed: {e}")
+
+    return result
 
 def update_status(topic_id, status=None):
     """Update 'Last Review At' and possibly status in Notion."""
