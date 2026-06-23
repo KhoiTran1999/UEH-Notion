@@ -23,7 +23,7 @@ class StatusRequest(BaseModel):
     topic_id: str
     status: str | None = None
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def read_root():
     """Health check endpoint for UptimeRobot"""
     return {"status": "alive"}
