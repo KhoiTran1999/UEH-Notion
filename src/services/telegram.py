@@ -48,6 +48,26 @@ class TelegramService:
         except Exception as e:
             logger.error(f"❌ Telegram Exception: {e}")
 
+    def answer_callback_query(self, callback_query_id, text=None, show_alert=False):
+        """Answers a callback query to remove loading state on button."""
+        url = f"{self.base_url}/answerCallbackQuery"
+        payload = {
+            "callback_query_id": callback_query_id,
+            "show_alert": show_alert
+        }
+        if text:
+            payload["text"] = text
+
+        try:
+            with httpx.Client(timeout=30.0) as client:
+                resp = client.post(url, json=payload)
+                if resp.status_code == 200:
+                    logger.info(f"✅ Telegram answer_callback_query success: {callback_query_id}")
+                else:
+                    logger.error(f"❌ Telegram answerCallbackQuery Error {resp.status_code}: {resp.text}")
+        except Exception as e:
+            logger.error(f"❌ Telegram answerCallbackQuery Exception: {e}")
+
     def send_error_alert(self, message):
         """Sends a critical error alert."""
         alert_msg = f"🚨 **CRITICAL ERROR** 🚨\n\n{message}"

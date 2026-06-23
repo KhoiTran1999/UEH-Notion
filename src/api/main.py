@@ -1,9 +1,12 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from src.services.study_logic import get_candidates, generate_quiz, update_status
 from src.jobs.daily_report import run_daily_report
+from src.services.telegram import TelegramService
+from src.config.settings import Config
+import json
 
 app = FastAPI(title="Study Quiz API")
 
@@ -64,3 +67,51 @@ class ReportRequest(BaseModel):
 def api_generate_report(request: ReportRequest, background_tasks: BackgroundTasks):
     background_tasks.add_task(run_daily_report)
     return {"success": True, "message": "Report generation started"}
+
+def process_telegram_command(text: str, chat_id: str, background_tasks: BackgroundTasks):
+    telegram = TelegramService()
+    if text in ["/start", "/help"]:
+        telegram.send_message(
+            "✅ Bot đã sẵn sàng!\nChọn chức năng bên dưới hoặc gõ lệnh tương ứng:",
+            reply_markup={
+                "inline_keyboard": [
+                    [{"text": "📊 Báo cáo Task", "callback_data": "/taskreport"}],
+                    [{"text": "🎓 Ôn tập khắc sâu", "callback_data": "/study"}]
+                ]
+            }
+        )
+    elif text == "/taskreport":
+        telegram.send_message("🚀 Đã nhận lệnh! Bắt đầu tạo báo cáo ngày cho bạn...")
+        background_tasks.add_task(run_daily_report)
+    elif text == "/study":
+        telegram.send_message(
+            "📚 Mở góc ôn tập bằng Web App bên dưới nhé:",
+            reply_markup={
+                "inline_keyboard": [
+                    [{"text": "Mở Góc Ôn Tập", "web_app": {"url": Config.WEBAPP_URL}}]
+                ]
+            }
+        )
+    elif text.startswith("/study_") or text.startswith("/mastered_") or text.startswith("/review_"):
+        telegram.send_message("⚠️ Chức năng này hiện được xử lý qua Web App.")
+
+@app.post("/webhook/telegram")
+async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
+    try:
+        update = await request.json()
+    except json.JSONDecodeError:
+        return {"status": "error"}
+
+    if "callback_query" in update:
+        chat_id = str(update["callback_query"]["message"]["chat"]["id"])
+        data = update["callback_query"]["data"]
+        cb_id = update["callback_query"]["id"]
+
+        TelegramService().answer_callback_query(cb_id)
+        process_telegram_command(data, chat_id, background_tasks)
+    elif "message" in update and "text" in update["message"]:
+        chat_id = str(update["message"]["chat"]["id"])
+        text = update["message"]["text"].strip()
+        process_telegram_command(text, chat_id, background_tasks)
+
+    return {"status": "ok"}
