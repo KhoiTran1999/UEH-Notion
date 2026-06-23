@@ -37,28 +37,29 @@ def get_candidates():
         
     return results
 
-def generate_quiz(topic_id):
+def generate_quiz(topic_id, force_refresh=False):
     """Fetch content from Notion, call AI to generate quiz, parse into JSON/Dict format."""
     notion = NotionService()
     ai = AIService()
-    
+
     import re
     import json
     import redis
 
     # Try checking cache first
-    try:
-        from src.config.settings import Config
-        redis_url = Config.REDIS_URL
-        if redis_url:
-            r = redis.from_url(redis_url)
-            cache_key = f"quiz_{topic_id}"
-            cached = r.get(cache_key)
-            if cached:
-                logger.info(f"Using cached quiz for topic {topic_id}")
-                return json.loads(cached)
-    except Exception as e:
-        logger.warning(f"Redis cache check failed: {e}")
+    if not force_refresh:
+        try:
+            from src.config.settings import Config
+            redis_url = Config.REDIS_URL
+            if redis_url:
+                r = redis.from_url(redis_url)
+                cache_key = f"quiz_{topic_id}"
+                cached = r.get(cache_key)
+                if cached:
+                    logger.info(f"Using cached quiz for topic {topic_id}")
+                    return json.loads(cached)
+        except Exception as e:
+            logger.warning(f"Redis cache check failed: {e}")
 
     # 1. Fetch content
     content_lines = notion.fetch_page_content(topic_id)

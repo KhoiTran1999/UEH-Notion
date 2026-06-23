@@ -20,7 +20,8 @@ const ui = {
     nextBtn: document.getElementById('next-btn'),
     statusBtns: document.getElementById('status-btns'),
     btnChua: document.getElementById('status-chua-btn'),
-    btnNam: document.getElementById('status-nam-btn')
+    btnNam: document.getElementById('status-nam-btn'),
+    forceRefreshBtn: document.getElementById('force-refresh-btn')
 };
 
 // State
@@ -66,7 +67,7 @@ async function fetchTopics() {
     }
 }
 
-async function startQuiz(topic) {
+async function startQuiz(topic, forceRefresh = false) {
     currentTopic = topic;
     showLoading(`Generating quiz for "${topic.title}"...`);
 
@@ -75,7 +76,8 @@ async function startQuiz(topic) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                topic_id: topic.id
+                topic_id: topic.id,
+                force_refresh: forceRefresh
             })
         });
 
@@ -265,6 +267,11 @@ ui.nextBtn.addEventListener('click', () => {
 
 ui.btnChua.addEventListener('click', () => updateStatus('chua_nam_vung'));
 ui.btnNam.addEventListener('click', () => updateStatus('da_nam_vung'));
+ui.forceRefreshBtn.addEventListener('click', () => {
+    if (currentTopic) {
+        startQuiz(currentTopic, true);
+    }
+});
 
 // App Start
 document.addEventListener('DOMContentLoaded', () => {

@@ -17,6 +17,7 @@ app.add_middleware(
 
 class QuizRequest(BaseModel):
     topic_id: str
+    force_refresh: bool = False
 
 class StatusRequest(BaseModel):
     topic_id: str
@@ -38,7 +39,7 @@ def api_get_candidates():
 @app.post("/api/study/quiz")
 def api_generate_quiz(request: QuizRequest):
     try:
-        quiz_data = generate_quiz(request.topic_id)
+        quiz_data = generate_quiz(request.topic_id, force_refresh=request.force_refresh)
         if not quiz_data:
             raise HTTPException(status_code=404, detail="Topic not found or content empty")
         return quiz_data
