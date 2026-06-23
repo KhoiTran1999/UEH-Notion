@@ -13,10 +13,10 @@ class Config:
     NOTION_VERSION = os.getenv("NOTION_VERSION", "2025-09-03")
 
     # Custom AI Router
-    USE_CUSTOM_AI = True
-    CUSTOM_AI_BASE_URL = os.getenv("CUSTOM_AI_BASE_URL", "https://khoitran1999-claude-server.hf.space/v1")
-    CUSTOM_AI_API_KEY = os.getenv("CUSTOM_AI_API_KEY", "sk-bee8fcb1aa3ec5f7-dw6gps-18d2aec7")
-    CUSTOM_AI_MODEL = os.getenv("CUSTOM_AI_MODEL", "my-combo")
+    USE_CUSTOM_AI = os.getenv("USE_CUSTOM_AI", "false").lower() == "true"
+    CUSTOM_AI_BASE_URL = os.getenv("CUSTOM_AI_BASE_URL")
+    CUSTOM_AI_API_KEY = os.getenv("CUSTOM_AI_API_KEY")
+    CUSTOM_AI_MODEL = os.getenv("CUSTOM_AI_MODEL", "gpt-3.5-turbo")
 
     # AI (Gemini - Legacy)
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
