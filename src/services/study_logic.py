@@ -71,29 +71,31 @@ def generate_quiz(topic_id):
     
     # 3. Parse into structured Dict format
     questions = []
-    raw_chunks = raw_content.split("🎯")
-    
-    for chunk in raw_chunks:
-        clean = chunk.strip()
-        if not clean: continue
-        
-        q_text = clean
-        ans_text = ""
-        
-        if "👉" in clean:
-             parts = clean.split("👉", 1)
-             q_text = parts[0].strip()
-             ans_text = parts[1].strip()
-        elif "<tg-spoiler>" in clean:
-             parts = clean.split("<tg-spoiler>", 1)
-             q_text = parts[0].strip()
-             ans_text = parts[1].strip()
-             
-        questions.append({
-            "question": q_text,
-            "answer": ans_text
-        })
-        
+
+    import re
+    import json
+
+    match = re.search(r'\[\s*\{.*\}\s*\]', raw_content, re.DOTALL)
+    if match:
+        try:
+            questions = json.loads(match.group(0))
+        except Exception as e:
+            logger.error(f"Failed to parse JSON quiz: {e}")
+            questions = [{
+                "q": "Error generating quiz",
+                "options": ["A. Error"],
+                "correct": 0,
+                "explanation": "Could not parse AI response"
+            }]
+    else:
+        logger.error("No JSON array found in AI response")
+        questions = [{
+            "q": "Error generating quiz",
+            "options": ["A. Error"],
+            "correct": 0,
+            "explanation": "No JSON array found in AI response"
+        }]
+
     return {
         "id": topic_id,
         "title": note_title,
