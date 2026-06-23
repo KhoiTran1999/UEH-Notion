@@ -174,6 +174,13 @@ function renderTopics(topics) {
 }
 
 function renderQuestion() {
+    const quizContent = document.getElementById('quiz-content');
+    if (quizContent) {
+        quizContent.classList.remove('fade-in');
+        void quizContent.offsetWidth; // trigger reflow
+        quizContent.classList.add('fade-in');
+    }
+
     const q = currentQuiz[currentQuestionIndex];
 
     ui.questionText.textContent = q.question || q.q || 'Question text missing';
@@ -184,22 +191,24 @@ function renderQuestion() {
     const options = q.options || [];
     options.forEach((opt, idx) => {
         const btn = document.createElement('button');
-        btn.className = 'w-full text-left bg-gray-100 p-3 rounded-lg border border-gray-200 hover:bg-gray-200 transition';
+        const defaultClasses = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out active:scale-95 shadow-sm border-gray-200 bg-white hover:border-blue-400 hover:shadow-md text-gray-700';
+        btn.className = defaultClasses;
         btn.textContent = opt;
         btn.onclick = () => {
             if (q.selected !== undefined) return;
             q.selected = idx;
 
             if (idx === q.correct) {
-                btn.classList.replace('bg-gray-100', 'bg-green-100');
-                btn.classList.replace('border-gray-200', 'border-green-500');
+                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-green-500 bg-gradient-to-r from-green-50 to-green-100 text-green-800 font-bold';
+                btn.textContent = '✅ ' + opt;
             } else {
-                btn.classList.replace('bg-gray-100', 'bg-red-100');
-                btn.classList.replace('border-gray-200', 'border-red-500');
+                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-red-500 bg-gradient-to-r from-red-50 to-red-100 text-red-800 font-bold line-through';
+                btn.textContent = '❌ ' + opt;
+
                 const correctBtn = ui.optionsContainer.children[q.correct];
                 if (correctBtn) {
-                    correctBtn.classList.replace('bg-gray-100', 'bg-green-100');
-                    correctBtn.classList.replace('border-gray-200', 'border-green-500');
+                    correctBtn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-green-500 bg-green-50 text-green-800 font-bold';
+                    correctBtn.textContent = '✅ ' + options[q.correct];
                 }
             }
 
@@ -217,11 +226,13 @@ function renderQuestion() {
 
         if (q.selected !== undefined) {
             if (idx === q.correct) {
-                btn.classList.replace('bg-gray-100', 'bg-green-100');
-                btn.classList.replace('border-gray-200', 'border-green-500');
+                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-green-500 bg-gradient-to-r from-green-50 to-green-100 text-green-800 font-bold';
+                btn.textContent = '✅ ' + opt;
             } else if (idx === q.selected) {
-                btn.classList.replace('bg-gray-100', 'bg-red-100');
-                btn.classList.replace('border-gray-200', 'border-red-500');
+                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-red-500 bg-gradient-to-r from-red-50 to-red-100 text-red-800 font-bold line-through';
+                btn.textContent = '❌ ' + opt;
+            } else {
+                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-gray-200 bg-white text-gray-700 opacity-50';
             }
         }
         ui.optionsContainer.appendChild(btn);
