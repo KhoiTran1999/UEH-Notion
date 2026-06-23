@@ -110,13 +110,12 @@ class PromptService(NotionService):
 
                 prompt_data = {
                     "system_prompt": get_rich_text("System Prompt"),
-                    "user_template": get_rich_text("User Template"),
-                    "model": get_select("Model") or Config.GEMINI_MODEL_FLASH
+                    "user_template": get_rich_text("User Template")
                 }
 
                 # Save to cache
                 self._cache[cache_key] = prompt_data
-                logger.info(f"✅ Loaded prompt: {prompt_name} ({prompt_data['model']})")
+                logger.info(f"✅ Loaded prompt: {prompt_name}")
                 return prompt_data
 
         except Exception as e:
