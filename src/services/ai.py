@@ -125,11 +125,9 @@ class AIService:
         # Construct the final prompt
         additional_instructions = """
         QUAN TRỌNG VỀ ĐỊNH DẠNG TOÁN HỌC:
-        1. KHÔNG sử dụng định dạng LaTeX (dấu $).
-        2. SỬ DỤNG ký tự Unicode để viết công thức (ví dụ: ×, ÷, =, ≈, ≠, ≤, ≥, ², ³, √, ∑, ∫...).
-        3. Viết công thức liền mạch với văn bản, dễ đọc trên điện thoại.
-        4. Ví dụ: thay vì $A \\times B$, hãy viết "Ma trận A nhân ma trận B" hoặc "A × B".
-        5. KHÔNG dùng dấu gạch dưới (_) gây lỗi định dạng Telegram.
+        1. SỬ DỤNG định dạng LaTeX (kẹp giữa ký tự $ cho công thức cùng dòng và $$ cho công thức nằm riêng dòng) để viết các công thức toán học, tài chính, thống kê, ma trận phức tạp.
+        2. Đảm bảo cú pháp LaTeX chính xác và chuẩn chỉnh để bộ thư viện KaTeX có thể render được.
+        3. Đối với các biểu thức cực kỳ đơn giản, có thể dùng ký tự thường hoặc Unicode nếu muốn, nhưng ưu tiên sử dụng LaTeX ($...$) cho các công thức, ký hiệu toán học để hiển thị chuyên nghiệp nhất.
         """
 
         final_prompt = f"{user_template}\n\n{system_prompt}\n\n{additional_instructions}"

@@ -455,6 +455,8 @@ function renderQuestion() {
             } else {
                 ui.showResultsBtn.classList.remove('hidden');
             }
+
+            renderMath();
         };
 
         if (q.selected !== undefined) {
@@ -500,6 +502,8 @@ function renderQuestion() {
         ui.nextBtn.classList.add('hidden');
         ui.showResultsBtn.classList.add('hidden');
     }
+
+    renderMath();
 }
 
 function showQuizResults() {
@@ -581,6 +585,19 @@ ui.courseFilter.addEventListener('change', filterAndRenderTopics);
 ui.quickReviewBtn.addEventListener('click', () => startQuickReview());
 ui.quizDoneBtn.addEventListener('click', () => showView('topics'));
 ui.refreshCandidatesBtn.addEventListener('click', () => fetchTopics(true));
+
+// Helper: Render LaTeX math in element using KaTeX
+function renderMath() {
+    if (typeof renderMathInElement === 'function') {
+        renderMathInElement(document.getElementById('quiz-view'), {
+            delimiters: [
+                {left: '$$', right: '$$', display: true},
+                {left: '$', right: '$', display: false}
+            ],
+            throwOnError: false
+        });
+    }
+}
 
 // App Start
 document.addEventListener('DOMContentLoaded', () => {
