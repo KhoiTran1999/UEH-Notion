@@ -32,7 +32,9 @@ const ui = {
     courseFilter: document.getElementById('course-filter'),
     quickReviewBtn: document.getElementById('quick-review-btn'),
     quizDoneBtn: document.getElementById('quiz-done-btn'),
-    refreshCandidatesBtn: document.getElementById('refresh-candidates-btn')
+    refreshCandidatesBtn: document.getElementById('refresh-candidates-btn'),
+    progressBar: document.getElementById('quiz-progress-bar'),
+    progressContainer: document.getElementById('quiz-progress-container')
 };
 
 // State
@@ -157,6 +159,9 @@ async function startQuickReview() {
         document.getElementById('quiz-content').classList.remove('hidden');
         ui.quizResults.classList.add('hidden');
         ui.quizProgress.classList.remove('hidden');
+        if (ui.progressContainer) {
+            ui.progressContainer.classList.remove('hidden');
+        }
         ui.forceRefreshBtn.classList.add('hidden');
         ui.showResultsBtn.classList.add('hidden');
         ui.quizDoneBtn.classList.add('hidden');
@@ -216,6 +221,9 @@ async function startQuiz(topic, forceRefresh = false) {
         document.getElementById('quiz-content').classList.remove('hidden');
         ui.quizResults.classList.add('hidden');
         ui.quizProgress.classList.remove('hidden');
+        if (ui.progressContainer) {
+            ui.progressContainer.classList.remove('hidden');
+        }
         ui.forceRefreshBtn.classList.remove('hidden');
         ui.showResultsBtn.classList.add('hidden');
         ui.quizDoneBtn.classList.add('hidden');
@@ -387,6 +395,12 @@ function renderQuestion() {
     ui.explanationBox.classList.add('hidden');
     ui.quizProgress.textContent = `${currentQuestionIndex + 1}/${currentQuiz.length}`;
 
+    // Update progress bar
+    if (ui.progressBar && ui.progressContainer) {
+        const progressPercent = ((currentQuestionIndex + 1) / currentQuiz.length) * 100;
+        ui.progressBar.style.width = `${progressPercent}%`;
+    }
+
     const options = q.options || [];
     options.forEach((opt, idx) => {
         const btn = document.createElement('button');
@@ -426,7 +440,13 @@ function renderQuestion() {
             }
 
             if (q.explanation) {
-                ui.explanationBox.textContent = q.explanation;
+                ui.explanationBox.innerHTML = `<div class="flex items-start gap-2.5">
+                    <span class="text-xl select-none">💡</span>
+                    <div>
+                        <div class="font-bold text-blue-800 dark:text-blue-400 mb-0.5 text-xs uppercase tracking-wider">Giải thích chi tiết</div>
+                        <div>${q.explanation}</div>
+                    </div>
+                </div>`;
                 ui.explanationBox.classList.remove('hidden');
             }
 
@@ -452,7 +472,13 @@ function renderQuestion() {
     });
 
     if (q.selected !== undefined && q.explanation) {
-        ui.explanationBox.textContent = q.explanation;
+        ui.explanationBox.innerHTML = `<div class="flex items-start gap-2.5">
+            <span class="text-xl select-none">💡</span>
+            <div>
+                <div class="font-bold text-blue-800 dark:text-blue-400 mb-0.5 text-xs uppercase tracking-wider">Giải thích chi tiết</div>
+                <div>${q.explanation}</div>
+            </div>
+        </div>`;
         ui.explanationBox.classList.remove('hidden');
     }
 
@@ -488,6 +514,10 @@ function showQuizResults() {
 
     document.getElementById('quiz-content').classList.add('hidden');
     ui.quizResults.classList.remove('hidden');
+
+    if (ui.progressContainer) {
+        ui.progressContainer.classList.add('hidden');
+    }
 
     ui.quizProgress.classList.add('hidden');
     ui.prevBtn.classList.add('hidden');
