@@ -29,7 +29,9 @@ const ui = {
     resultsPercentage: document.getElementById('results-percentage'),
     resultsFeedback: document.getElementById('results-feedback'),
     searchInput: document.getElementById('search-input'),
-    courseFilter: document.getElementById('course-filter')
+    courseFilter: document.getElementById('course-filter'),
+    quickReviewBtn: document.getElementById('quick-review-btn'),
+    quizDoneBtn: document.getElementById('quiz-done-btn')
 };
 
 // State
@@ -139,6 +141,34 @@ async function fetchTopics() {
     }
 }
 
+async function startQuickReview() {
+    showLoading('Đang chuẩn bị bộ câu hỏi tổng hợp...');
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/study/quick-review`);
+        if (!res.ok) throw new Error('Failed to fetch quick review');
+        const data = await res.json();
+
+        currentTopic = { id: 'quick_review', title: 'Ôn tập tổng hợp' };
+        currentQuiz = data.questions || [];
+        currentQuestionIndex = 0;
+
+        document.getElementById('quiz-content').classList.remove('hidden');
+        ui.quizResults.classList.add('hidden');
+        ui.quizProgress.classList.remove('hidden');
+        ui.forceRefreshBtn.classList.add('hidden');
+        ui.showResultsBtn.classList.add('hidden');
+        ui.quizDoneBtn.classList.add('hidden');
+
+        ui.quizTopicTitle.textContent = 'Ôn tập tổng hợp';
+        renderQuestion();
+        showView('quiz');
+    } catch (error) {
+        console.error(error);
+        alert('Lỗi tải câu hỏi ôn tập nhanh. Có thể danh sách chủ đề đang trống.');
+        showView('topics');
+    }
+}
+
 async function startQuiz(topic, forceRefresh = false) {
     currentTopic = topic;
     showLoading(`Đang tạo câu hỏi cho "${topic.title}"...`);
@@ -186,6 +216,7 @@ async function startQuiz(topic, forceRefresh = false) {
         ui.quizProgress.classList.remove('hidden');
         ui.forceRefreshBtn.classList.remove('hidden');
         ui.showResultsBtn.classList.add('hidden');
+        ui.quizDoneBtn.classList.add('hidden');
 
         ui.quizTopicTitle.textContent = topic.title;
         renderQuestion();
@@ -338,7 +369,15 @@ function renderQuestion() {
 
     const q = currentQuiz[currentQuestionIndex];
 
-    ui.questionText.textContent = q.question || q.q || 'Question text missing';
+    const questionText = q.question || q.q || 'Question text missing';
+    if (currentTopic.id === 'quick_review' && q.topic_title) {
+        ui.questionText.innerHTML = `
+            <div class="text-[10px] text-blue-500 font-bold uppercase tracking-wider mb-2">📌 Chủ đề: ${q.topic_title}</div>
+            <div>${questionText}</div>
+        `;
+    } else {
+        ui.questionText.textContent = questionText;
+    }
     ui.optionsContainer.innerHTML = '';
     ui.explanationBox.classList.add('hidden');
     ui.quizProgress.textContent = `${currentQuestionIndex + 1}/${currentQuiz.length}`;
@@ -470,7 +509,13 @@ function showQuizResults() {
     }
     ui.resultsFeedback.textContent = feedback;
 
-    ui.statusBtns.classList.remove('hidden');
+    if (currentTopic.id === 'quick_review') {
+        ui.statusBtns.classList.add('hidden');
+        ui.quizDoneBtn.classList.remove('hidden');
+    } else {
+        ui.statusBtns.classList.remove('hidden');
+        ui.quizDoneBtn.classList.add('hidden');
+    }
 }
 
 // Event Listeners
@@ -498,6 +543,8 @@ ui.showResultsBtn.addEventListener('click', showQuizResults);
 
 ui.searchInput.addEventListener('input', filterAndRenderTopics);
 ui.courseFilter.addEventListener('change', filterAndRenderTopics);
+ui.quickReviewBtn.addEventListener('click', () => startQuickReview());
+ui.quizDoneBtn.addEventListener('click', () => showView('topics'));
 
 // App Start
 document.addEventListener('DOMContentLoaded', () => {

@@ -218,14 +218,14 @@ def generate_quiz(topic_id, force_refresh=False):
 def update_status(topic_id, status=None):
     """Update 'Last Review At' and possibly status in Notion."""
     notion = NotionService()
-    
+
     try:
         vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
         now_iso = datetime.datetime.now(vn_tz).isoformat()
-        
+
         logger.info(f"🗓 Updating Last Review At to: {now_iso}")
         notion.update_page_property(topic_id, "Last Review At", now_iso, type_key="date")
-        
+
         # If status is provided, we might want to update it too
         if status:
              status_map = {
@@ -235,8 +235,49 @@ def update_status(topic_id, status=None):
              if status in status_map:
                  logger.info(f"🏷 Updating Độ hiểu bài to: {status_map[status]}")
                  notion.update_page_property(topic_id, "Độ hiểu bài", status_map[status], type_key="select")
-             
+
         return True
     except Exception as e:
         logger.error(f"❌ Failed to update Last Review At: {e}")
         return False
+
+def generate_quick_review():
+    """Fetch all candidate topics, generate/fetch their quizzes in parallel, and combine them."""
+    candidates = get_candidates()
+    if not candidates:
+        return None
+
+    from concurrent.futures import ThreadPoolExecutor
+    import random
+
+    def fetch_topic_quiz(topic):
+        try:
+            quiz = generate_quiz(topic["id"])
+            if quiz and quiz.get("questions"):
+                # Tag each question with its source topic title and ID for context
+                for q in quiz["questions"]:
+                    q["topic_title"] = topic["title"]
+                    q["topic_id"] = topic["id"]
+                return quiz["questions"]
+        except Exception as e:
+            logger.error(f"Error fetching quiz for topic {topic['id']}: {e}")
+        return []
+
+    all_questions = []
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        results = executor.map(fetch_topic_quiz, candidates)
+        for questions in results:
+            all_questions.extend(questions)
+
+    if not all_questions:
+        return None
+
+    # Shuffle and pick up to 10 questions
+    random.shuffle(all_questions)
+    selected_questions = all_questions[:10]
+
+    return {
+        "id": "quick_review",
+        "title": "Ôn tập tổng hợp",
+        "questions": selected_questions
+    }

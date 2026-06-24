@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from src.services.study_logic import get_candidates, generate_quiz, update_status
+from src.services.study_logic import get_candidates, generate_quiz, update_status, generate_quick_review
 from src.jobs.daily_report import run_daily_report
 from src.services.telegram import TelegramService
 from src.config.settings import Config
@@ -59,6 +59,16 @@ def api_update_status(request: StatusRequest):
         return {"success": True, "message": "Status updated successfully"}
     else:
         raise HTTPException(status_code=500, detail="Failed to update status")
+
+@app.get("/api/study/quick-review")
+def api_quick_review():
+    try:
+        quiz_data = generate_quick_review()
+        if not quiz_data:
+            raise HTTPException(status_code=404, detail="No topics or questions found for quick review")
+        return quiz_data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 class ReportRequest(BaseModel):
     telegram_id: str | None = None
