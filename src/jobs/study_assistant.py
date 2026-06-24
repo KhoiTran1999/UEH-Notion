@@ -8,6 +8,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'
 from src.services.telegram import TelegramService
 from src.utils.logger import logger
 from src.services.study_logic import get_candidates, generate_quiz, update_status
+from src.config.settings import Config
 
 def run_study_assistant(topic_id=None):
     logger.info("🎓 Starting Study Assistant Job...")
@@ -91,11 +92,10 @@ Trạng thái: 🔴 Cần xem lại
 
         buttons = []
         for c in candidates:
-            short_id = c["id"].replace("-", "")
-            buttons.append([{"text": c["title"], "callback_data": f"/study_{short_id}"}])
+            buttons.append([{"text": c["title"], "web_app": {"url": Config.WEBAPP_URL}}])
 
         reply_markup = {"inline_keyboard": buttons}
-        msg = "📚 **Dưới đây là các bài học cần ôn tập:**\n\nBạn muốn làm trắc nghiệm bài nào?"
+        msg = "📚 **Dưới đây là các bài học cần ôn tập:**\n\nNhấp vào bài học để mở Web App ôn tập trắc nghiệm:"
         telegram.send_message(msg, parse_mode="Markdown", reply_markup=reply_markup)
         logger.info("Sent topic selection to Telegram.")
         return
