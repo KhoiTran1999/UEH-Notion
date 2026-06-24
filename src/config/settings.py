@@ -17,6 +17,8 @@ class Config:
     CUSTOM_AI_BASE_URL = os.getenv("CUSTOM_AI_BASE_URL")
     CUSTOM_AI_API_KEY = os.getenv("CUSTOM_AI_API_KEY")
     CUSTOM_AI_MODEL = os.getenv("CUSTOM_AI_MODEL", "gpt-3.5-turbo")
+    MODEL_BRAIN = os.getenv("MODEL_BRAIN", CUSTOM_AI_MODEL)
+    MODEL_WORKER = os.getenv("MODEL_WORKER", CUSTOM_AI_MODEL)
     CUSTOM_AI_VOICE_MODEL = os.getenv("CUSTOM_AI_VOICE_MODEL", "google-tts/vi")
 
     # AI (Gemini - Legacy)
