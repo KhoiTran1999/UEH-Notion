@@ -167,12 +167,31 @@ def clean_json_string(json_str):
                     i += 1
                 continue
             if content[i] == '\\':
-                if i + 1 < n:
-                    next_char = content[i+1]
-                    if in_math:
-                        fixed.append('\\\\')
-                        i += 1
+                is_double = False
+                if i + 1 < n and content[i+1] == '\\':
+                    is_double = True
+
+                if in_math:
+                    if is_double:
+                        if i + 2 < n and content[i+2].isalpha():
+                            fixed.append('\\\\')
+                            i += 2
+                        else:
+                            fixed.append('\\\\\\\\')
+                            i += 2
                     else:
+                        if i + 1 < n and content[i+1].isalpha():
+                            fixed.append('\\\\')
+                            i += 1
+                        else:
+                            fixed.append('\\\\\\\\')
+                            i += 1
+                else:
+                    if is_double:
+                        fixed.append('\\\\')
+                        i += 2
+                    else:
+                        next_char = content[i+1] if i + 1 < n else ''
                         if next_char in ['"', '\\', '/', 'b', 'f', 'n', 'r', 't']:
                             fixed.append('\\')
                             fixed.append(next_char)
@@ -190,9 +209,6 @@ def clean_json_string(json_str):
                         else:
                             fixed.append('\\\\')
                             i += 1
-                else:
-                    fixed.append('\\\\')
-                    i += 1
             elif content[i] == '\n':
                 fixed.append('\\n')
                 i += 1
