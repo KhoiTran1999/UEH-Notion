@@ -43,9 +43,28 @@ class AIService:
             return content.strip()
 
         except Exception as e:
-            logger.error(f"❌ AI Generation Error: {e}")
-            self.telegram.send_message(f"❌ Lỗi khi gọi AI Router: {str(e)}", disable_notification=True)
-            return f"Error: {str(e)}"
+            logger.warning(f"⚠️ Generation failed for model {model}: {e}. Retrying with CUSTOM_AI_MODEL ({Config.CUSTOM_AI_MODEL})...")
+            if model != Config.CUSTOM_AI_MODEL:
+                try:
+                    response = self.client.chat.completions.create(
+                        model=Config.CUSTOM_AI_MODEL,
+                        messages=[
+                            {"role": "user", "content": prompt}
+                        ],
+                        stream=False
+                    )
+                    content = response.choices[0].message.content
+                    if not content:
+                        raise ValueError("Empty response from fallback model")
+                    return content.strip()
+                except Exception as fe:
+                    logger.error(f"❌ Fallback generation also failed: {fe}")
+                    self.telegram.send_message(f"❌ Lỗi khi gọi AI Router: {str(fe)}", disable_notification=True)
+                    return f"Error: {str(fe)}"
+            else:
+                logger.error(f"❌ AI Generation Error: {e}")
+                self.telegram.send_message(f"❌ Lỗi khi gọi AI Router: {str(e)}", disable_notification=True)
+                return f"Error: {str(e)}"
 
     def _execute_tool(self, name, arguments):
         logger.info(f"[Tool] Execution: {name} with args {arguments}")
@@ -193,8 +212,15 @@ class AIService:
 
         except Exception as e:
             logger.error(f"[Error] Agent Execution Error: {e}")
-            self.telegram.send_message(f"❌ Lỗi khi chạy AI Agent: {str(e)}", disable_notification=True)
-            return f"Error: {str(e)}"
+            logger.warning(f"⚠️ Falling back to simple content generation using CUSTOM_AI_MODEL ({Config.CUSTOM_AI_MODEL})...")
+            try:
+                # Combine system prompt and user prompt
+                fallback_prompt = f"{system_prompt}\n\n{user_prompt}"
+                return self.generate_content(fallback_prompt, model=Config.CUSTOM_AI_MODEL)
+            except Exception as fe:
+                logger.error(f"❌ Fallback also failed: {fe}")
+                self.telegram.send_message(f"❌ Lỗi khi chạy AI Agent và Fallback: {str(fe)}", disable_notification=True)
+                return f"Error: {str(e)}"
 
     def analyze_tasks(self, tasks, db_options=None):
         """Generates the daily report analysis using prompts from Notion."""
