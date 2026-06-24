@@ -232,6 +232,21 @@ class NotionService:
             
         return f"{indent}{content}" if content.strip() else ""
 
+    def retrieve_page(self, page_id):
+        """Retrieves a page by ID."""
+        url = f"https://api.notion.com/v1/pages/{page_id}"
+        try:
+            with httpx.Client(timeout=30.0) as client:
+                response = client.get(url, headers=self.headers)
+                if response.status_code == 200:
+                    return response.json()
+                else:
+                    logger.error(f"❌ Retrieve Page Error: {response.status_code} -Body: {response.text}")
+                    return None
+        except Exception as e:
+            logger.error(f"❌ Retrieve Page Exception: {e}")
+            return None
+
     def update_page_property(self, page_id, property_name, value, type_key="date"):
         """Updates a property of a page."""
         url = f"https://api.notion.com/v1/pages/{page_id}"

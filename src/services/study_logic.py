@@ -144,6 +144,67 @@ def get_candidates(force_refresh=False):
 
     return results
 
+def clean_json_string(json_str):
+    """Clean unescaped LaTeX backslashes and invalid escape sequences inside JSON string literals."""
+    import re
+    pattern = re.compile(r'"(?:[^"\\]|\\.)*"')
+    def replace_string(match):
+        s = match.group(0)
+        content = s[1:-1]
+        fixed = []
+        i = 0
+        n = len(content)
+        in_math = False
+        while i < n:
+            if content[i] == '$':
+                if i + 1 < n and content[i+1] == '$':
+                    in_math = not in_math
+                    fixed.append('$$')
+                    i += 2
+                else:
+                    in_math = not in_math
+                    fixed.append('$')
+                    i += 1
+                continue
+            if content[i] == '\\':
+                if i + 1 < n:
+                    next_char = content[i+1]
+                    if in_math:
+                        fixed.append('\\\\')
+                        i += 1
+                    else:
+                        if next_char in ['"', '\\', '/', 'b', 'f', 'n', 'r', 't']:
+                            fixed.append('\\')
+                            fixed.append(next_char)
+                            i += 2
+                        elif next_char == 'u':
+                            if i + 5 < n and all(c in '0123456789abcdefABCDEF' for c in content[i+2:i+6]):
+                                fixed.append('\\')
+                                fixed.append('u')
+                                fixed.extend(content[i+2:i+6])
+                                i += 6
+                            else:
+                                fixed.append('\\\\')
+                                fixed.append('u')
+                                i += 2
+                        else:
+                            fixed.append('\\\\')
+                            i += 1
+                else:
+                    fixed.append('\\\\')
+                    i += 1
+            elif content[i] == '\n':
+                fixed.append('\\n')
+                i += 1
+            elif content[i] == '\t':
+                fixed.append('\\t')
+                i += 1
+            else:
+                fixed.append(content[i])
+                i += 1
+        return '"' + "".join(fixed) + '"'
+    return pattern.sub(replace_string, json_str)
+
 def generate_quiz(topic_id, force_refresh=False):
     """Fetch content from Notion, call AI to generate quiz, parse into JSON/Dict format."""
     notion = NotionService()
@@ -180,21 +241,21 @@ def generate_quiz(topic_id, force_refresh=False):
     note_title = "Bài học đã chọn"
     
     try:
-        page_info = notion.client.pages.retrieve(page_id=topic_id)
-        if page_info.get("url"):
+        page_info = notion.retrieve_page(topic_id)
+        if page_info and page_info.get("url"):
             note_url = page_info["url"]
-        props = page_info.get("properties", {})
-        
+        props = page_info.get("properties", {}) if page_info else {}
+
         for key, val in props.items():
             if val.get("type") == "title" and val["title"]:
                 note_title = val["title"][0]["plain_text"]
                 break
     except Exception as e:
         logger.warning(f"Could not fetch full page info for title: {e}")
-        
+
     # 2. Call AI
     raw_content = ai.generate_quiz(full_content)
-    
+
     # 3. Parse into structured Dict format
     questions = []
 
@@ -204,7 +265,7 @@ def generate_quiz(topic_id, force_refresh=False):
     match = re.search(r'\[\s*\{.*\}\s*\]', raw_content, re.DOTALL)
     if match:
         try:
-            questions = json.loads(match.group(0))
+            questions = json.loads(clean_json_string(match.group(0)))
         except Exception as e:
             logger.error(f"Failed to parse JSON quiz: {e}")
             questions = [{
