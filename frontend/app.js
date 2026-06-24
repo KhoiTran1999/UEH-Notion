@@ -185,11 +185,24 @@ function renderTopics(topics) {
 
     topics.forEach(topic => {
         const btn = document.createElement('button');
-        btn.className = 'w-full text-left bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:border-blue-500 hover:shadow-md transition duration-200 flex flex-col';
+        btn.className = 'w-full text-left bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:border-blue-500 hover:shadow-md transition duration-200 flex flex-col space-y-2';
+
+        let metaHtml = '';
+        if (topic.course || topic.chapter) {
+            metaHtml += `<div class="flex flex-wrap gap-1.5 w-full">`;
+            if (topic.course) {
+                metaHtml += `<span class="bg-blue-50 text-blue-700 text-[10px] font-semibold px-2 py-0.5 rounded border border-blue-100 truncate max-w-[150px]">🔹 ${topic.course}</span>`;
+            }
+            if (topic.chapter) {
+                metaHtml += `<span class="bg-gray-100 text-gray-600 text-[10px] font-semibold px-2 py-0.5 rounded border border-gray-200 truncate max-w-[200px]">📍 ${topic.chapter}</span>`;
+            }
+            metaHtml += `</div>`;
+        }
 
         btn.innerHTML = `
-            <span class="font-semibold text-gray-800">${topic.title}</span>
-            <div class="flex justify-end items-center mt-2 text-xs text-blue-500 font-medium w-full">
+            <span class="font-semibold text-gray-800 text-sm md:text-base leading-tight">${topic.title}</span>
+            ${metaHtml}
+            <div class="flex justify-end items-center mt-1 text-[11px] text-blue-500 font-semibold w-full">
                 <span>Nhấn để ôn tập &rarr;</span>
             </div>
         `;

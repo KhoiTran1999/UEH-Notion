@@ -4,14 +4,53 @@ from src.services.notion import NotionService
 from src.services.ai import AIService
 from src.utils.logger import logger
 
+def get_page_title(page_id):
+    """Retrieve title of a page by ID, using Redis cache if available."""
+    import redis
+    import httpx
+    from src.config.settings import Config
+    from src.services.notion import NotionService
+
+    cache_key = f"page_title_{page_id}"
+    r = None
+    try:
+        if Config.REDIS_URL:
+            r = redis.from_url(Config.REDIS_URL)
+            cached = r.get(cache_key)
+            if cached:
+                return cached.decode('utf-8')
+    except Exception as e:
+        logger.warning(f"Redis get error for {cache_key}: {e}")
+
+    notion = NotionService()
+    try:
+        url = f"https://api.notion.com/v1/pages/{page_id}"
+        with httpx.Client(timeout=10.0) as client:
+            resp = client.get(url, headers=notion.headers)
+            if resp.status_code == 200:
+                props = resp.json().get("properties", {})
+                for key, val in props.items():
+                    if val.get("type") == "title" and val["title"]:
+                        title = val["title"][0]["plain_text"]
+                        if r:
+                            try:
+                                r.setex(cache_key, 2592000, title)
+                            except Exception as ce:
+                                logger.warning(f"Redis set error: {ce}")
+                        return title
+    except Exception as e:
+        logger.error(f"Error fetching page title for {page_id}: {e}")
+
+    return None
+
 def get_candidates():
-    """Fetch review notes, sort by 'Last Review At', return top 5 with id and title."""
+    """Fetch review notes, sort by 'Last Review At', return top 5 with metadata."""
     notion = NotionService()
     candidates = notion.get_review_notes()
-    
+
     if not candidates:
         return []
-        
+
     def get_last_review_sort_key(note):
         try:
             props = note.get("properties", {})
@@ -21,20 +60,60 @@ def get_candidates():
         except:
             pass
         return ""
-        
+
     candidates.sort(key=get_last_review_sort_key)
     top_candidates = candidates[:5]
-    
+
     results = []
-    for c in top_candidates:
+    relation_tasks = [] # list of (idx, prop_name, page_id)
+
+    for idx, c in enumerate(top_candidates):
         c_id = c["id"]
         title = "Unknown Note"
-        for key, val in c.get("properties", {}).items():
+        props = c.get("properties", {})
+
+        for key, val in props.items():
             if val.get("type") == "title" and val["title"]:
                 title = val["title"][0]["plain_text"]
                 break
-        results.append({"id": c_id, "title": title})
-        
+
+        chapter_id = None
+        course_id = None
+
+        chapter_prop = props.get("📍DB Chương", {})
+        if chapter_prop.get("type") == "relation" and chapter_prop.get("relation"):
+            chapter_id = chapter_prop["relation"][0]["id"]
+
+        course_prop = props.get("🔹 DB Học Phần - UEH", {})
+        if course_prop.get("type") == "relation" and course_prop.get("relation"):
+            course_id = course_prop["relation"][0]["id"]
+
+        results.append({
+            "id": c_id,
+            "title": title,
+            "chapter": None,
+            "course": None
+        })
+
+        if chapter_id:
+            relation_tasks.append((idx, "chapter", chapter_id))
+        if course_id:
+            relation_tasks.append((idx, "course", course_id))
+
+    if relation_tasks:
+        from concurrent.futures import ThreadPoolExecutor
+
+        def fetch_task(task):
+            res_idx, prop_name, page_id = task
+            t_title = get_page_title(page_id)
+            return res_idx, prop_name, t_title
+
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            task_results = executor.map(fetch_task, relation_tasks)
+            for res_idx, prop_name, t_title in task_results:
+                if t_title:
+                    results[res_idx][prop_name] = t_title
+
     return results
 
 def generate_quiz(topic_id, force_refresh=False):
