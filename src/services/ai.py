@@ -233,8 +233,10 @@ class AIService:
 
         agent_system_prompt = (
             f"{system_prompt}\n\n"
-            "Bạn là MODEL_BRAIN, mô hình AI điều phối chính. Bạn có quyền truy cập vào các công cụ lấy dữ liệu Notion và giao việc cho MODEL_WORKER (`delegate_to_worker`). "
-            "Hãy phân tích danh sách công việc và nếu cần xử lý/tóm tắt hoặc viết lại các nội dung đơn giản không yêu cầu logic phức tạp, hãy giao việc đó cho MODEL_WORKER để tiết kiệm tài nguyên và nâng cao hiệu quả."
+            "QUY TẮC PHÂN CHIA VAI TRÒ:\n"
+            "- Bạn là MODEL_BRAIN: Chịu trách nhiệm thực hiện các tác vụ tư duy, tính toán, lên kế hoạch, lập luận logic và sáng tạo.\n"
+            "- Bạn có quyền điều phối MODEL_WORKER thông qua công cụ `delegate_to_worker` để xử lý các việc không cần suy nghĩ sâu như: tóm tắt văn bản thô, trích xuất thông tin đơn giản, định dạng lại dữ liệu thành Markdown/HTML, hoặc xử lý chuyển đổi chữ viết.\n"
+            "Hãy giữ vai trò điều phối tối cao, tập trung tư duy chiến lược và giao phó triệt để việc cơ khí cho MODEL_WORKER."
         )
 
         return self.run_agent(system_prompt=agent_system_prompt, user_prompt=user_prompt, model=Config.MODEL_BRAIN)
@@ -284,8 +286,10 @@ class AIService:
         user_prompt = user_template.replace("{content}", content)
         agent_system_prompt = (
             f"{system_prompt}\n\n{additional_instructions}\n\n"
-            "Bạn là MODEL_BRAIN, mô hình AI điều phối chính. Bạn có quyền truy cập các công cụ của hệ thống và công cụ `delegate_to_worker`. "
-            "Hãy soạn câu hỏi trắc nghiệm ôn tập. Bạn có thể sử dụng MODEL_WORKER để thực hiện các công việc trích xuất thô hoặc định dạng lại văn bản thô nếu cần thiết."
+            "QUY TẮC PHÂN CHIA VAI TRÒ:\n"
+            "- Bạn là MODEL_BRAIN: Tập trung hoàn toàn vào việc tư duy, phân tích kiến thức sâu, tính toán bài tập, sáng tạo các câu hỏi trắc nghiệm chất lượng.\n"
+            "- Bạn có công cụ `delegate_to_worker` để sai khiến MODEL_WORKER làm việc cơ học như: trích xuất từ khóa thô từ bài học, định dạng lại công thức hoặc cấu trúc đề thi thô, hay tóm tắt sơ bộ.\n"
+            "Hãy giữ vai trò thiết kế và tư duy logic, giao phó việc định dạng hoặc xử lý dữ liệu thô cho MODEL_WORKER."
         )
 
         return self.run_agent(system_prompt=agent_system_prompt, user_prompt=user_prompt, model=Config.MODEL_BRAIN)
