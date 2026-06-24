@@ -309,6 +309,7 @@ function renderTopics(topics) {
     if (topics.length === 0) {
         ui.topicsList.classList.add('hidden');
         ui.noTopics.classList.remove('hidden');
+        showView('topics');
         return;
     }
 
@@ -355,6 +356,8 @@ function renderTopics(topics) {
 
         ui.topicsList.appendChild(card);
     });
+
+    showView('topics');
 }
 
 function renderQuestion() {
