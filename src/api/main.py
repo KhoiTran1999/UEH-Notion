@@ -71,6 +71,9 @@ def api_generate_report(request: ReportRequest, background_tasks: BackgroundTask
 def process_telegram_command(text: str, chat_id: str, background_tasks: BackgroundTasks):
     telegram = TelegramService()
     if text in ["/start", "/help"]:
+        # Set Menu Button dynamically to open Web App directly
+        telegram.set_menu_button(chat_id, "🎓 Ôn tập", Config.WEBAPP_URL)
+
         telegram.send_message(
             "✅ Bot đã sẵn sàng!\nChọn chức năng bên dưới hoặc gõ lệnh tương ứng:",
             reply_markup={

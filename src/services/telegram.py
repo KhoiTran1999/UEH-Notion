@@ -73,6 +73,29 @@ class TelegramService:
         alert_msg = f"🚨 **CRITICAL ERROR** 🚨\n\n{message}"
         self.send_message(alert_msg)
 
+    def set_menu_button(self, chat_id, text, web_app_url):
+        """Configures the chat menu button to open Web App directly."""
+        url = f"{self.base_url}/setChatMenuButton"
+        payload = {
+            "chat_id": chat_id,
+            "menu_button": {
+                "type": "web_app",
+                "text": text,
+                "web_app": {
+                    "url": web_app_url
+                }
+            }
+        }
+        try:
+            with httpx.Client(timeout=30.0) as client:
+                resp = client.post(url, json=payload)
+                if resp.status_code == 200:
+                    logger.info(f"✅ Telegram menu button configured for chat {chat_id}")
+                else:
+                    logger.error(f"❌ Telegram setChatMenuButton Error {resp.status_code}: {resp.text}")
+        except Exception as e:
+            logger.error(f"❌ Telegram setChatMenuButton Exception: {e}")
+
     def send_photo(self, photo, caption=None, has_spoiler=False, disable_notification=False):
         """Sends a photo to the default chat."""
         url = f"{self.base_url}/sendPhoto"
