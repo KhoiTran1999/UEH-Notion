@@ -21,7 +21,13 @@ const ui = {
     statusBtns: document.getElementById('status-btns'),
     btnChua: document.getElementById('status-chua-btn'),
     btnNam: document.getElementById('status-nam-btn'),
-    forceRefreshBtn: document.getElementById('force-refresh-btn')
+    forceRefreshBtn: document.getElementById('force-refresh-btn'),
+    closeQuizBtn: document.getElementById('close-quiz-btn'),
+    showResultsBtn: document.getElementById('show-results-btn'),
+    quizResults: document.getElementById('quiz-results'),
+    resultsScore: document.getElementById('results-score'),
+    resultsPercentage: document.getElementById('results-percentage'),
+    resultsFeedback: document.getElementById('results-feedback')
 };
 
 // State
@@ -39,12 +45,28 @@ function initTelegram() {
     if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
         telegramData = tg.initDataUnsafe.user;
     }
+
+    // Bind Telegram native BackButton
+    if (tg.BackButton) {
+        tg.BackButton.onClick(() => {
+            showView('topics');
+        });
+    }
 }
 
 // Navigation
 function showView(viewName) {
     Object.values(views).forEach(v => v.classList.add('hidden'));
     views[viewName].classList.remove('hidden');
+
+    const tg = window.Telegram.WebApp;
+    if (tg && tg.BackButton) {
+        if (viewName === 'quiz') {
+            tg.BackButton.show();
+        } else {
+            tg.BackButton.hide();
+        }
+    }
 }
 
 function showLoading(text) {
@@ -54,7 +76,7 @@ function showLoading(text) {
 
 // API Calls
 async function fetchTopics() {
-    showLoading('Loading topics...');
+    showLoading('Đang tải danh sách chủ đề...');
     try {
         const res = await fetch(`${API_BASE_URL}/api/study/candidates?telegram_id=${telegramData.id}`);
         if (!res.ok) throw new Error('Failed to fetch topics');
@@ -62,14 +84,14 @@ async function fetchTopics() {
         renderTopics(data.candidates || []);
     } catch (error) {
         console.error(error);
-        alert('Error loading topics. Ensure backend is running.');
+        alert('Lỗi tải chủ đề. Vui lòng kiểm tra kết nối.');
         renderTopics([]); // Show empty state on error for now
     }
 }
 
 async function startQuiz(topic, forceRefresh = false) {
     currentTopic = topic;
-    showLoading(`Generating quiz for "${topic.title}"...`);
+    showLoading(`Đang tạo câu hỏi cho "${topic.title}"...`);
 
     try {
         const res = await fetch(`${API_BASE_URL}/api/study/quiz`, {
@@ -96,11 +118,11 @@ async function startQuiz(topic, forceRefresh = false) {
             questions = data.quiz;
         } else {
             // Fallback parsing if it's just raw text
-            questions = [{ question: "Could not parse quiz format.", answer: JSON.stringify(data) }];
+            questions = [{ question: "Không thể đọc cấu trúc câu hỏi.", answer: JSON.stringify(data) }];
         }
 
         if (questions.length === 0) {
-            alert('No questions generated.');
+            alert('Không có câu hỏi nào được tạo ra.');
             showView('topics');
             return;
         }
@@ -108,13 +130,20 @@ async function startQuiz(topic, forceRefresh = false) {
         currentQuiz = questions;
         currentQuestionIndex = 0;
 
+        // Reset results UI to initial quiz state
+        document.getElementById('quiz-content').classList.remove('hidden');
+        ui.quizResults.classList.add('hidden');
+        ui.quizProgress.classList.remove('hidden');
+        ui.forceRefreshBtn.classList.remove('hidden');
+        ui.showResultsBtn.classList.add('hidden');
+
         ui.quizTopicTitle.textContent = topic.title;
         renderQuestion();
         showView('quiz');
 
     } catch (error) {
         console.error(error);
-        alert('Error generating quiz.');
+        alert('Lỗi khi tạo bộ câu hỏi.');
         showView('topics');
     }
 }
@@ -127,7 +156,7 @@ async function updateStatus(status) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 telegram_id: telegramData.id,
-                page_id: currentTopic.id,
+                topic_id: currentTopic.id,
                 status: status
             })
         });
@@ -160,9 +189,8 @@ function renderTopics(topics) {
 
         btn.innerHTML = `
             <span class="font-semibold text-gray-800">${topic.title}</span>
-            <div class="flex justify-between items-center mt-2 text-xs text-gray-500">
-                <span class="bg-gray-100 px-2 py-1 rounded">Score: ${Math.round(topic.score * 100) / 100 || 'N/A'}</span>
-                <span>Tap to review &rarr;</span>
+            <div class="flex justify-end items-center mt-2 text-xs text-blue-500 font-medium w-full">
+                <span>Nhấn để ôn tập &rarr;</span>
             </div>
         `;
 
@@ -174,6 +202,8 @@ function renderTopics(topics) {
 }
 
 function renderQuestion() {
+    ui.statusBtns.classList.add('hidden');
+
     const quizContent = document.getElementById('quiz-content');
     if (quizContent) {
         quizContent.classList.remove('fade-in');
@@ -191,23 +221,37 @@ function renderQuestion() {
     const options = q.options || [];
     options.forEach((opt, idx) => {
         const btn = document.createElement('button');
-        const defaultClasses = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out active:scale-95 shadow-sm border-gray-200 bg-white hover:border-blue-400 hover:shadow-md text-gray-700';
+        const defaultClasses = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out active:scale-95 shadow-sm border-gray-200 bg-white hover:border-blue-400 hover:shadow-md text-gray-700 whitespace-normal break-words';
         btn.className = defaultClasses;
         btn.textContent = opt;
         btn.onclick = () => {
             if (q.selected !== undefined) return;
             q.selected = idx;
 
+            // Trigger Telegram Web App Haptic Feedback
+            const tg = window.Telegram?.WebApp;
+            if (tg?.HapticFeedback) {
+                try {
+                    if (idx === q.correct) {
+                        tg.HapticFeedback.notificationOccurred('success');
+                    } else {
+                        tg.HapticFeedback.notificationOccurred('error');
+                    }
+                } catch (e) {
+                    console.warn("Haptic feedback error:", e);
+                }
+            }
+
             if (idx === q.correct) {
-                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-green-500 bg-gradient-to-r from-green-50 to-green-100 text-green-800 font-bold';
+                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-green-500 bg-gradient-to-r from-green-50 to-green-100 text-green-800 font-bold whitespace-normal break-words';
                 btn.textContent = '✅ ' + opt;
             } else {
-                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-red-500 bg-gradient-to-r from-red-50 to-red-100 text-red-800 font-bold line-through';
+                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-red-500 bg-gradient-to-r from-red-50 to-red-100 text-red-800 font-bold line-through whitespace-normal break-words';
                 btn.textContent = '❌ ' + opt;
 
                 const correctBtn = ui.optionsContainer.children[q.correct];
                 if (correctBtn) {
-                    correctBtn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-green-500 bg-green-50 text-green-800 font-bold';
+                    correctBtn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-green-500 bg-green-50 text-green-800 font-bold whitespace-normal break-words';
                     correctBtn.textContent = '✅ ' + options[q.correct];
                 }
             }
@@ -220,19 +264,19 @@ function renderQuestion() {
             if (currentQuestionIndex < currentQuiz.length - 1) {
                 ui.nextBtn.classList.remove('hidden');
             } else {
-                ui.statusBtns.classList.remove('hidden');
+                ui.showResultsBtn.classList.remove('hidden');
             }
         };
 
         if (q.selected !== undefined) {
             if (idx === q.correct) {
-                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-green-500 bg-gradient-to-r from-green-50 to-green-100 text-green-800 font-bold';
+                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-green-500 bg-gradient-to-r from-green-50 to-green-100 text-green-800 font-bold whitespace-normal break-words';
                 btn.textContent = '✅ ' + opt;
             } else if (idx === q.selected) {
-                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-red-500 bg-gradient-to-r from-red-50 to-red-100 text-red-800 font-bold line-through';
+                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-red-500 bg-gradient-to-r from-red-50 to-red-100 text-red-800 font-bold line-through whitespace-normal break-words';
                 btn.textContent = '❌ ' + opt;
             } else {
-                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-gray-200 bg-white text-gray-700 opacity-50';
+                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-gray-200 bg-white text-gray-700 opacity-50 whitespace-normal break-words';
             }
         }
         ui.optionsContainer.appendChild(btn);
@@ -252,15 +296,56 @@ function renderQuestion() {
     if (q.selected !== undefined) {
         if (currentQuestionIndex < currentQuiz.length - 1) {
             ui.nextBtn.classList.remove('hidden');
-            ui.statusBtns.classList.add('hidden');
+            ui.showResultsBtn.classList.add('hidden');
         } else {
             ui.nextBtn.classList.add('hidden');
-            ui.statusBtns.classList.remove('hidden');
+            ui.showResultsBtn.classList.remove('hidden');
         }
     } else {
         ui.nextBtn.classList.add('hidden');
-        ui.statusBtns.classList.add('hidden');
+        ui.showResultsBtn.classList.add('hidden');
     }
+}
+
+function showQuizResults() {
+    const tg = window.Telegram?.WebApp;
+    if (tg?.HapticFeedback) {
+        try {
+            tg.HapticFeedback.notificationOccurred('success');
+        } catch (e) {
+            console.warn("Haptic feedback error:", e);
+        }
+    }
+
+    document.getElementById('quiz-content').classList.add('hidden');
+    ui.quizResults.classList.remove('hidden');
+
+    ui.quizProgress.classList.add('hidden');
+    ui.prevBtn.classList.add('hidden');
+    ui.nextBtn.classList.add('hidden');
+    ui.showResultsBtn.classList.add('hidden');
+    ui.forceRefreshBtn.classList.add('hidden');
+
+    const total = currentQuiz.length;
+    const correct = currentQuiz.filter(q => q.selected === q.correct).length;
+    const percentage = Math.round((correct / total) * 100);
+
+    ui.resultsScore.textContent = `${correct} / ${total}`;
+    ui.resultsPercentage.textContent = `${percentage}%`;
+
+    let feedback = '';
+    if (percentage === 100) {
+        feedback = 'Xuất sắc! Bạn đã trả lời đúng tất cả các câu hỏi. Hãy tiếp tục phát huy!';
+    } else if (percentage >= 80) {
+        feedback = 'Rất tốt! Bạn nắm vững hầu hết các kiến thức trong chủ đề này.';
+    } else if (percentage >= 50) {
+        feedback = 'Khá tốt! Hãy cố gắng ôn tập thêm một chút để đạt điểm tối đa nhé.';
+    } else {
+        feedback = 'Cần cố gắng thêm! Hãy đọc kỹ phần giải thích của mỗi câu hỏi để nắm vững kiến thức.';
+    }
+    ui.resultsFeedback.textContent = feedback;
+
+    ui.statusBtns.classList.remove('hidden');
 }
 
 // Event Listeners
@@ -283,6 +368,8 @@ ui.forceRefreshBtn.addEventListener('click', () => {
         startQuiz(currentTopic, true);
     }
 });
+ui.closeQuizBtn.addEventListener('click', () => showView('topics'));
+ui.showResultsBtn.addEventListener('click', showQuizResults);
 
 // App Start
 document.addEventListener('DOMContentLoaded', () => {

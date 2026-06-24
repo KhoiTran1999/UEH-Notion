@@ -149,8 +149,13 @@ def update_status(topic_id, status=None):
         
         # If status is provided, we might want to update it too
         if status:
-             # Map status if necessary (e.g. from mastered/review to actual Notion status)
-             pass
+             status_map = {
+                 "da_nam_vung": "🟢 Đã nắm vững",
+                 "chua_nam_vung": "🔴 Chưa nắm vững"
+             }
+             if status in status_map:
+                 logger.info(f"🏷 Updating Độ hiểu bài to: {status_map[status]}")
+                 notion.update_page_property(topic_id, "Độ hiểu bài", status_map[status], type_key="select")
              
         return True
     except Exception as e:
