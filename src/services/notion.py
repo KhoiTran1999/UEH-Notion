@@ -185,28 +185,70 @@ class NotionService:
             return []
 
     def fetch_page_content(self, page_id):
-        """Recursively fetches all content blocks of a page."""
-        with httpx.Client(timeout=60.0) as client:
-            return self._fetch_children_recursive(client, page_id)
+        """Recursively fetches all content blocks of a page in parallel using BFS to avoid deadlocks."""
+        from concurrent.futures import ThreadPoolExecutor
+        import time
 
-    def _fetch_children_recursive(self, client, block_id, depth=0):
-        url = f"https://api.notion.com/v1/blocks/{block_id}/children"
+        class BlockNode:
+            def __init__(self, block_id, depth=0):
+                self.block_id = block_id
+                self.depth = depth
+                self.text = ""
+                self.child_nodes = []
+
+        root_node = BlockNode(page_id, depth=-1)
+        pending_nodes = [root_node]
+
+        with httpx.Client(timeout=60.0) as client:
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                while pending_nodes:
+                    def fetch_node_children(node):
+                        url = f"https://api.notion.com/v1/blocks/{node.block_id}/children"
+                        try:
+                            retries = 3
+                            backoff = 0.5
+                            response = None
+                            for attempt in range(retries):
+                                response = client.get(url, headers=self.headers)
+                                if response.status_code == 429:
+                                    retry_after = float(response.headers.get("Retry-After", backoff))
+                                    time.sleep(retry_after)
+                                    backoff *= 2
+                                    continue
+                                break
+                            if response and response.status_code == 200:
+                                return response.json().get("results", [])
+                        except Exception as e:
+                            logger.error(f"Error fetching children for block {node.block_id}: {e}")
+                        return []
+
+                    future_to_node = {
+                        executor.submit(fetch_node_children, node): node
+                        for node in pending_nodes
+                    }
+
+                    next_pending = []
+                    for future in future_to_node:
+                        node = future_to_node[future]
+                        results = future.result()
+                        for block in results:
+                            text = self._process_block(block, node.depth + 1)
+                            child = BlockNode(block["id"], depth=node.depth + 1)
+                            child.text = text
+                            node.child_nodes.append(child)
+                            if block.get("has_children", False):
+                                next_pending.append(child)
+
+                    pending_nodes = next_pending
+
         all_content = []
-        
-        try:
-            response = client.get(url, headers=self.headers)
-            if response.status_code != 200: return []
-            
-            blocks = response.json().get("results", [])
-            for block in blocks:
-                text = self._process_block(block, depth)
-                if text: all_content.append(text)
-                
-                if block.get("has_children", False):
-                    children = self._fetch_children_recursive(client, block["id"], depth + 1)
-                    all_content.extend(children)
-        except:
-            pass
+        def dfs(node):
+            if node.text:
+                all_content.append(node.text)
+            for child in node.child_nodes:
+                dfs(child)
+
+        dfs(root_node)
         return all_content
 
     def _process_block(self, block, depth=0):
