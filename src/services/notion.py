@@ -184,7 +184,7 @@ class NotionService:
             logger.error(f"❌ Review Notes Error: {e}")
             return []
 
-    def fetch_page_content(self, page_id):
+    def fetch_page_content(self, page_id, progress_callback=None):
         """Recursively fetches all content blocks of a page in parallel using BFS to avoid deadlocks."""
         from concurrent.futures import ThreadPoolExecutor
         import time
@@ -198,10 +198,17 @@ class NotionService:
 
         root_node = BlockNode(page_id, depth=-1)
         pending_nodes = [root_node]
+        level = 1
 
         with httpx.Client(timeout=60.0) as client:
             with ThreadPoolExecutor(max_workers=10) as executor:
                 while pending_nodes:
+                    if progress_callback:
+                        if level == 1:
+                            progress_callback("fetching_notion", 10, "📖 Đang tải cấu trúc bài viết từ Notion...")
+                        else:
+                            progress_callback("fetching_notion", 15 if level == 2 else 30, f"📖 Đang tải song song {len(pending_nodes)} khối nội dung từ Notion...")
+
                     def fetch_node_children(node):
                         url = f"https://api.notion.com/v1/blocks/{node.block_id}/children"
                         try:
@@ -240,6 +247,7 @@ class NotionService:
                                 next_pending.append(child)
 
                     pending_nodes = next_pending
+                    level += 1
 
         all_content = []
         def dfs(node):

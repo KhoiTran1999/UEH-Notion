@@ -45,7 +45,9 @@ const ui = {
     quizDoneBtn: document.getElementById('quiz-done-btn'),
     refreshCandidatesBtn: document.getElementById('refresh-candidates-btn'),
     progressBar: document.getElementById('quiz-progress-bar'),
-    progressContainer: document.getElementById('quiz-progress-container')
+    progressContainer: document.getElementById('quiz-progress-container'),
+    loadingProgressBar: document.getElementById('loading-progress-bar'),
+    loadingPercentage: document.getElementById('loading-percentage')
 };
 
 // State
@@ -135,6 +137,8 @@ function filterAndRenderTopics() {
 
 function showLoading(text) {
     ui.loadingText.textContent = text;
+    if (ui.loadingProgressBar) ui.loadingProgressBar.style.width = '0%';
+    if (ui.loadingPercentage) ui.loadingPercentage.textContent = '0%';
     showView('loading');
 }
 
@@ -191,6 +195,16 @@ async function startQuiz(topic, forceRefresh = false) {
     currentTopic = topic;
     showLoading(`Đang tạo câu hỏi cho "${topic.title}"...`);
 
+    let aiTimer = null;
+    let currentPercent = 0;
+
+    function updateProgress(percentage, text) {
+        currentPercent = percentage;
+        if (ui.loadingProgressBar) ui.loadingProgressBar.style.width = `${percentage}%`;
+        if (ui.loadingPercentage) ui.loadingPercentage.textContent = `${percentage}%`;
+        if (ui.loadingText) ui.loadingText.textContent = text;
+    }
+
     try {
         const res = await fetch(`${API_BASE_URL}/api/study/quiz`, {
             method: 'POST',
@@ -220,23 +234,47 @@ async function startQuiz(topic, forceRefresh = false) {
                 if (!line.trim()) continue;
                 const event = JSON.parse(line);
                 if (event.type === 'progress') {
-                    let msg = `Đang tạo câu hỏi cho "${topic.title}"...`;
-                    if (event.status === 'checking_cache') {
-                        msg = '🔍 Đang kiểm tra bộ nhớ đệm...';
-                    } else if (event.status === 'fetching_notion') {
-                        msg = '📖 Đang tải nội dung ghi chép từ Notion...';
-                    } else if (event.status === 'calling_ai') {
-                        msg = '🧠 Đang dùng AI biên soạn câu hỏi trắc nghiệm...';
-                    } else if (event.status === 'parsing_quiz') {
-                        msg = '✨ Đang chuẩn bị hiển thị câu hỏi...';
+                    if (event.status === 'calling_ai') {
+                        if (aiTimer) clearInterval(aiTimer);
+                        let aiSeconds = 0;
+                        updateProgress(event.percentage || 45, event.details || '🧠 Trợ lý AI đang kết nối...');
+                        aiTimer = setInterval(() => {
+                            aiSeconds += 1;
+                            if (currentPercent < 90) {
+                                currentPercent += 2;
+                                if (ui.loadingProgressBar) ui.loadingProgressBar.style.width = `${currentPercent}%`;
+                                if (ui.loadingPercentage) ui.loadingPercentage.textContent = `${currentPercent}%`;
+                            }
+                            let detail = '🧠 Trợ lý AI đang tiếp nhận nội dung...';
+                            if (aiSeconds >= 4 && aiSeconds < 8) {
+                                detail = '🧠 Trợ lý AI đang đọc hiểu bài học...';
+                            } else if (aiSeconds >= 8 && aiSeconds < 13) {
+                                detail = '🧠 Trợ lý AI đang biên soạn câu hỏi...';
+                            } else if (aiSeconds >= 13 && aiSeconds < 19) {
+                                detail = '🧠 Trợ lý AI đang tối ưu hóa các đáp án nhiễu...';
+                            } else if (aiSeconds >= 19) {
+                                detail = `🧠 Trợ lý AI đang hoàn tất việc tạo đề... (giây thứ ${aiSeconds})`;
+                            }
+                            if (ui.loadingText) ui.loadingText.textContent = detail;
+                        }, 1000);
+                    } else {
+                        if (aiTimer) {
+                            clearInterval(aiTimer);
+                            aiTimer = null;
+                        }
+                        updateProgress(event.percentage || 0, event.details || '');
                     }
-                    ui.loadingText.textContent = msg;
                 } else if (event.type === 'result') {
                     quizData = event.data;
                 } else if (event.type === 'error') {
                     throw new Error(event.message);
                 }
             }
+        }
+
+        if (aiTimer) {
+            clearInterval(aiTimer);
+            aiTimer = null;
         }
 
         if (!quizData) {
@@ -280,6 +318,10 @@ async function startQuiz(topic, forceRefresh = false) {
         showView('quiz');
 
     } catch (error) {
+        if (aiTimer) {
+            clearInterval(aiTimer);
+            aiTimer = null;
+        }
         console.error(error);
         alert('Lỗi khi tạo bộ câu hỏi.');
         showView('topics');

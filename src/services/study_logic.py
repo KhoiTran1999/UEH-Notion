@@ -305,7 +305,7 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
 
     # Try checking cache first
     if progress_callback:
-        progress_callback("checking_cache")
+        progress_callback("checking_cache", 5, "🔍 Đang kiểm tra bộ nhớ đệm...")
 
     if not force_refresh:
         try:
@@ -317,15 +317,14 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
                 cached = r.get(cache_key)
                 if cached:
                     logger.info(f"Using cached quiz for topic {topic_id}")
+                    if progress_callback:
+                        progress_callback("parsing_quiz", 100, "✨ Đã tải trắc nghiệm thành công!")
                     return json.loads(cached)
         except Exception as e:
             logger.warning(f"Redis cache check failed: {e}")
 
     # 1. Fetch content
-    if progress_callback:
-        progress_callback("fetching_notion")
-
-    content_lines = notion.fetch_page_content(topic_id)
+    content_lines = notion.fetch_page_content(topic_id, progress_callback=progress_callback)
     full_content = "\n".join(content_lines)
 
     if not full_content.strip():
@@ -334,6 +333,9 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
     # Default info
     note_url = f"https://notion.so/{topic_id.replace('-', '')}"
     note_title = "Bài học đã chọn"
+
+    if progress_callback:
+        progress_callback("page_info", 40, "📖 Đang đồng bộ thông tin tiêu đề...")
 
     try:
         page_info = notion.retrieve_page(topic_id)
@@ -350,13 +352,13 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
 
     # 2. Call AI
     if progress_callback:
-        progress_callback("calling_ai")
+        progress_callback("calling_ai", 45, "🧠 Đang gửi nội dung bài học tới AI...")
 
     raw_content = ai.generate_quiz(full_content)
 
     # 3. Parse into structured Dict format
     if progress_callback:
-        progress_callback("parsing_quiz")
+        progress_callback("parsing_quiz", 95, "✨ Đang kiểm tra cấu trúc câu hỏi...")
 
     questions = []
 
@@ -413,8 +415,13 @@ def generate_quiz_stream(topic_id, force_refresh=False):
 
     q = queue.Queue()
 
-    def callback(status):
-        q.put({"type": "progress", "status": status})
+    def callback(status, percentage, details):
+        q.put({
+            "type": "progress",
+            "status": status,
+            "percentage": percentage,
+            "details": details
+        })
 
     def worker():
         try:
