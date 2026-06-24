@@ -169,6 +169,56 @@ async function updateStatus(status) {
     }
 }
 
+async function markTopicAsMastered(topicId, cardElement) {
+    const masteredBtn = cardElement.querySelector('.mastered-btn');
+    if (masteredBtn) {
+        masteredBtn.disabled = true;
+        masteredBtn.innerHTML = '⏱ Đang lưu...';
+    }
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/study/status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                telegram_id: telegramData.id,
+                topic_id: topicId,
+                status: 'da_nam_vung'
+            })
+        });
+
+        if (!res.ok) throw new Error('Failed to update status');
+
+        const tg = window.Telegram?.WebApp;
+        if (tg?.HapticFeedback) {
+            try {
+                tg.HapticFeedback.notificationOccurred('success');
+            } catch (e) {
+                console.warn("Haptic feedback error:", e);
+            }
+        }
+
+        cardElement.style.transition = 'all 0.3s ease-out';
+        cardElement.style.opacity = '0';
+        cardElement.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+            cardElement.remove();
+            if (ui.topicsList.children.length === 0) {
+                ui.topicsList.classList.add('hidden');
+                ui.noTopics.classList.remove('hidden');
+            }
+        }, 300);
+
+    } catch (error) {
+        console.error(error);
+        alert('Lỗi khi cập nhật trạng thái.');
+        if (masteredBtn) {
+            masteredBtn.disabled = false;
+            masteredBtn.innerHTML = '✅ Đã nắm vững';
+        }
+    }
+}
+
 // UI Rendering
 function renderTopics(topics) {
     ui.topicsList.innerHTML = '';
@@ -184,8 +234,8 @@ function renderTopics(topics) {
     ui.noTopics.classList.add('hidden');
 
     topics.forEach(topic => {
-        const btn = document.createElement('button');
-        btn.className = 'w-full text-left bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:border-blue-500 hover:shadow-md transition duration-200 flex flex-col space-y-2';
+        const card = document.createElement('div');
+        card.className = 'w-full bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition duration-200 flex flex-col space-y-3';
 
         let metaHtml = '';
         if (topic.course || topic.chapter) {
@@ -199,16 +249,29 @@ function renderTopics(topics) {
             metaHtml += `</div>`;
         }
 
-        btn.innerHTML = `
-            <span class="font-semibold text-gray-800 text-sm md:text-base leading-tight">${topic.title}</span>
-            ${metaHtml}
-            <div class="flex justify-end items-center mt-1 text-[11px] text-blue-500 font-semibold w-full">
-                <span>Nhấn để ôn tập &rarr;</span>
+        card.innerHTML = `
+            <div class="topic-content cursor-pointer flex-1 flex flex-col space-y-2">
+                <span class="font-semibold text-gray-800 text-sm md:text-base leading-tight">${topic.title}</span>
+                ${metaHtml}
+            </div>
+            <div class="flex justify-between items-center pt-2 border-t border-gray-100 mt-1">
+                <span class="text-[11px] text-blue-500 font-semibold cursor-pointer topic-link">Ôn tập &rarr;</span>
+                <button class="mastered-btn bg-green-50 hover:bg-green-100 text-green-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-green-200 transition duration-150 flex items-center gap-1">
+                    ✅ Đã nắm vững
+                </button>
             </div>
         `;
 
-        btn.onclick = () => startQuiz(topic);
-        ui.topicsList.appendChild(btn);
+        const openQuiz = () => startQuiz(topic);
+        card.querySelector('.topic-content').onclick = openQuiz;
+        card.querySelector('.topic-link').onclick = openQuiz;
+
+        card.querySelector('.mastered-btn').onclick = (e) => {
+            e.stopPropagation();
+            markTopicAsMastered(topic.id, card);
+        };
+
+        ui.topicsList.appendChild(card);
     });
 
     showView('topics');
