@@ -111,7 +111,8 @@ function filterAndRenderTopics() {
         const matchesCourse = !selectedCourse || topic.course === selectedCourse;
         const matchesSearch = !searchQuery ||
             topic.title.toLowerCase().includes(searchQuery) ||
-            (topic.chapter && topic.chapter.toLowerCase().includes(searchQuery));
+            (topic.chapter && topic.chapter.toLowerCase().includes(searchQuery)) ||
+            (topic.course && topic.course.toLowerCase().includes(searchQuery));
         return matchesCourse && matchesSearch;
     });
 
