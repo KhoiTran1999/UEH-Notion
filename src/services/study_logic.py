@@ -144,6 +144,78 @@ def get_candidates(force_refresh=False):
 
     return results
 
+def replace_currency_dollars(text):
+    """Replace standalone currency $ signs (e.g. $50 or 50$) with 'USD ' or ' USD' to prevent KaTeX rendering issues."""
+    parts = list(text)
+    n = len(parts)
+    i = 0
+    while i < n:
+        if parts[i] == '$':
+            is_escaped = False
+            if i > 0 and parts[i-1] == '\\':
+                bs_count = 0
+                k = i - 1
+                while k >= 0 and parts[k] == '\\':
+                    bs_count += 1
+                    k -= 1
+                if bs_count % 2 == 1:
+                    is_escaped = True
+
+            if is_escaped:
+                i += 1
+                continue
+
+            next_dollar_idx = -1
+            j = i + 1
+            while j < n:
+                if parts[j] == '$':
+                    next_is_escaped = False
+                    if parts[j-1] == '\\':
+                        bs_count = 0
+                        k = j - 1
+                        while k >= 0 and parts[k] == '\\':
+                            bs_count += 1
+                            k -= 1
+                        if bs_count % 2 == 1:
+                            next_is_escaped = True
+                    if not next_is_escaped:
+                        next_dollar_idx = j
+                        break
+                j += 1
+
+            if next_dollar_idx == -1:
+                if i + 1 < n and parts[i+1].isdigit():
+                    parts[i] = 'USD '
+                else:
+                    parts[i] = ' USD'
+                i += 1
+                continue
+
+            math_content = "".join(parts[i+1:next_dollar_idx])
+
+            is_math = True
+            if '\n' in math_content:
+                is_math = False
+            elif len(math_content) > 100:
+                is_math = False
+            else:
+                has_math_chars = any(c in math_content for c in ['\\', '_', '^', '=', '+', '*', '/', '{', '}'])
+                if math_content.count(' ') > 3 and not has_math_chars:
+                    is_math = False
+
+            if not is_math:
+                if i + 1 < n and parts[i+1].isdigit():
+                    parts[i] = 'USD '
+                else:
+                    parts[i] = ' USD'
+                i += 1
+            else:
+                i = next_dollar_idx + 1
+        else:
+            i += 1
+
+    return "".join(parts)
+
 def clean_json_string(json_str):
     """Clean unescaped LaTeX backslashes and invalid escape sequences inside JSON string literals."""
     import re
@@ -151,6 +223,7 @@ def clean_json_string(json_str):
     def replace_string(match):
         s = match.group(0)
         content = s[1:-1]
+        content = replace_currency_dollars(content)
         fixed = []
         i = 0
         n = len(content)
