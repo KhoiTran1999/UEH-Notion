@@ -1,5 +1,16 @@
 const API_BASE_URL = 'https://ueh-notion.onrender.com';
 
+function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
+    return text
+        .toString()
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 // DOM Elements
 const views = {
     loading: document.getElementById('loading-view'),
@@ -370,17 +381,17 @@ function renderTopics(topics) {
         if (topic.course || topic.chapter) {
             metaHtml += `<div class="flex flex-wrap gap-1.5 w-full">`;
             if (topic.course) {
-                metaHtml += `<span class="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-[10px] font-semibold px-2 py-0.5 rounded border border-blue-100 dark:border-blue-900/50 truncate max-w-[150px]">🔹 ${topic.course}</span>`;
+                metaHtml += `<span class="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-[10px] font-semibold px-2 py-0.5 rounded border border-blue-100 dark:border-blue-900/50 truncate max-w-[150px]">🔹 ${escapeHtml(topic.course)}</span>`;
             }
             if (topic.chapter) {
-                metaHtml += `<span class="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-[10px] font-semibold px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700 truncate max-w-[200px]">📍 ${topic.chapter}</span>`;
+                metaHtml += `<span class="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-[10px] font-semibold px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700 truncate max-w-[200px]">📍 ${escapeHtml(topic.chapter)}</span>`;
             }
             metaHtml += `</div>`;
         }
 
         card.innerHTML = `
             <div class="topic-content cursor-pointer flex-1 flex flex-col space-y-2">
-                <span class="font-semibold text-gray-800 dark:text-gray-100 text-sm md:text-base leading-tight">${topic.title}</span>
+                <span class="font-semibold text-gray-800 dark:text-gray-100 text-sm md:text-base leading-tight">${escapeHtml(topic.title)}</span>
                 ${metaHtml}
             </div>
             <div class="flex justify-between items-center pt-2 border-t border-gray-100 dark:border-gray-800 mt-1">
@@ -421,8 +432,8 @@ function renderQuestion() {
     const questionText = q.question || q.q || 'Question text missing';
     if (currentTopic.id === 'quick_review' && q.topic_title) {
         ui.questionText.innerHTML = `
-            <div class="text-[10px] text-blue-500 font-bold uppercase tracking-wider mb-2">📌 Chủ đề: ${q.topic_title}</div>
-            <div>${questionText}</div>
+            <div class="text-[10px] text-blue-500 font-bold uppercase tracking-wider mb-2">📌 Chủ đề: ${escapeHtml(q.topic_title)}</div>
+            <div>${escapeHtml(questionText)}</div>
         `;
     } else {
         ui.questionText.textContent = questionText;
@@ -480,7 +491,7 @@ function renderQuestion() {
                     <span class="text-xl select-none">💡</span>
                     <div>
                         <div class="font-bold text-blue-800 dark:text-blue-400 mb-0.5 text-xs uppercase tracking-wider">Giải thích chi tiết</div>
-                        <div>${q.explanation}</div>
+                        <div>${escapeHtml(q.explanation)}</div>
                     </div>
                 </div>`;
                 ui.explanationBox.classList.remove('hidden');
@@ -514,7 +525,7 @@ function renderQuestion() {
             <span class="text-xl select-none">💡</span>
             <div>
                 <div class="font-bold text-blue-800 dark:text-blue-400 mb-0.5 text-xs uppercase tracking-wider">Giải thích chi tiết</div>
-                <div>${q.explanation}</div>
+                <div>${escapeHtml(q.explanation)}</div>
             </div>
         </div>`;
         ui.explanationBox.classList.remove('hidden');
