@@ -1,8 +1,9 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from src.services.study_logic import get_candidates, generate_quiz, update_status, generate_quick_review
+from src.services.study_logic import get_candidates, generate_quiz, generate_quiz_stream, update_status, generate_quick_review
 from src.jobs.daily_report import run_daily_report
 from src.services.telegram import TelegramService
 from src.config.settings import Config
@@ -43,12 +44,10 @@ def api_get_candidates(force_refresh: bool = False):
 @app.post("/api/study/quiz")
 def api_generate_quiz(request: QuizRequest):
     try:
-        quiz_data = generate_quiz(request.topic_id, force_refresh=request.force_refresh)
-        if not quiz_data:
-            raise HTTPException(status_code=404, detail="Topic not found or content empty")
-        return quiz_data
-    except HTTPException:
-        raise
+        return StreamingResponse(
+            generate_quiz_stream(request.topic_id, force_refresh=request.force_refresh),
+            media_type="application/x-ndjson"
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

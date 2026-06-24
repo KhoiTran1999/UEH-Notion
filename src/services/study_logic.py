@@ -221,7 +221,7 @@ def clean_json_string(json_str):
         return '"' + "".join(fixed) + '"'
     return pattern.sub(replace_string, json_str)
 
-def generate_quiz(topic_id, force_refresh=False):
+def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
     """Fetch content from Notion, call AI to generate quiz, parse into JSON/Dict format."""
     notion = NotionService()
     ai = AIService()
@@ -231,6 +231,9 @@ def generate_quiz(topic_id, force_refresh=False):
     import redis
 
     # Try checking cache first
+    if progress_callback:
+        progress_callback("checking_cache")
+
     if not force_refresh:
         try:
             from src.config.settings import Config
@@ -246,16 +249,19 @@ def generate_quiz(topic_id, force_refresh=False):
             logger.warning(f"Redis cache check failed: {e}")
 
     # 1. Fetch content
+    if progress_callback:
+        progress_callback("fetching_notion")
+
     content_lines = notion.fetch_page_content(topic_id)
     full_content = "\n".join(content_lines)
-    
+
     if not full_content.strip():
         return None
-        
+
     # Default info
     note_url = f"https://notion.so/{topic_id.replace('-', '')}"
     note_title = "Bài học đã chọn"
-    
+
     try:
         page_info = notion.retrieve_page(topic_id)
         if page_info and page_info.get("url"):
@@ -270,9 +276,15 @@ def generate_quiz(topic_id, force_refresh=False):
         logger.warning(f"Could not fetch full page info for title: {e}")
 
     # 2. Call AI
+    if progress_callback:
+        progress_callback("calling_ai")
+
     raw_content = ai.generate_quiz(full_content)
 
     # 3. Parse into structured Dict format
+    if progress_callback:
+        progress_callback("parsing_quiz")
+
     questions = []
 
     import re
@@ -319,6 +331,36 @@ def generate_quiz(topic_id, force_refresh=False):
         logger.warning(f"Redis cache save failed: {e}")
 
     return result
+
+def generate_quiz_stream(topic_id, force_refresh=False):
+    """Generate quiz with progress callbacks and yield progress updates as JSON lines."""
+    import queue
+    import threading
+    import json
+
+    q = queue.Queue()
+
+    def callback(status):
+        q.put({"type": "progress", "status": status})
+
+    def worker():
+        try:
+            res = generate_quiz(topic_id, force_refresh=force_refresh, progress_callback=callback)
+            if res:
+                q.put({"type": "result", "data": res})
+            else:
+                q.put({"type": "error", "message": "Topic not found or content empty"})
+        except Exception as e:
+            q.put({"type": "error", "message": str(e)})
+
+    t = threading.Thread(target=worker)
+    t.start()
+
+    while True:
+        item = q.get()
+        yield json.dumps(item, ensure_ascii=False) + "\n"
+        if item["type"] in ["result", "error"]:
+            break
 
 def update_status(topic_id, status=None):
     """Update 'Last Review At' and possibly status in Notion."""

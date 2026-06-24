@@ -191,21 +191,57 @@ async function startQuiz(topic, forceRefresh = false) {
         });
 
         if (!res.ok) throw new Error('Failed to generate quiz');
-        const data = await res.json();
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+        let quizData = null;
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+
+            for (const line of lines) {
+                if (!line.trim()) continue;
+                const event = JSON.parse(line);
+                if (event.type === 'progress') {
+                    let msg = `Đang tạo câu hỏi cho "${topic.title}"...`;
+                    if (event.status === 'checking_cache') {
+                        msg = '🔍 Đang kiểm tra bộ nhớ đệm...';
+                    } else if (event.status === 'fetching_notion') {
+                        msg = '📖 Đang tải nội dung ghi chép từ Notion...';
+                    } else if (event.status === 'calling_ai') {
+                        msg = '🧠 Đang dùng AI biên soạn câu hỏi trắc nghiệm...';
+                    } else if (event.status === 'parsing_quiz') {
+                        msg = '✨ Đang chuẩn bị hiển thị câu hỏi...';
+                    }
+                    ui.loadingText.textContent = msg;
+                } else if (event.type === 'result') {
+                    quizData = event.data;
+                } else if (event.type === 'error') {
+                    throw new Error(event.message);
+                }
+            }
+        }
+
+        if (!quizData) {
+            throw new Error('Failed to parse quiz response');
+        }
 
         // Handle varying response formats. Assuming array of Q&A objects.
-        // E.g. [{question: "...", answer: "..."}, ...]
-        // The exact format depends on your AI backend, adjust as needed.
         let questions = [];
-        if (Array.isArray(data)) {
-            questions = data;
-        } else if (data.questions) {
-            questions = data.questions;
-        } else if (data.quiz) {
-            questions = data.quiz;
+        if (Array.isArray(quizData)) {
+            questions = quizData;
+        } else if (quizData.questions) {
+            questions = quizData.questions;
+        } else if (quizData.quiz) {
+            questions = quizData.quiz;
         } else {
-            // Fallback parsing if it's just raw text
-            questions = [{ question: "Không thể đọc cấu trúc câu hỏi.", answer: JSON.stringify(data) }];
+            questions = [{ question: "Không thể đọc cấu trúc câu hỏi.", answer: JSON.stringify(quizData) }];
         }
 
         if (questions.length === 0) {
