@@ -43,8 +43,25 @@ def get_page_title(page_id):
 
     return None
 
-def get_candidates():
+def get_candidates(force_refresh=False):
     """Fetch review notes, sort by 'Last Review At', return top 5 with metadata."""
+    import redis
+    import json
+    from src.config.settings import Config
+
+    cache_key = "study_candidates"
+    r = None
+    if not force_refresh:
+        try:
+            if Config.REDIS_URL:
+                r = redis.from_url(Config.REDIS_URL)
+                cached = r.get(cache_key)
+                if cached:
+                    logger.info("Using cached study candidates list")
+                    return json.loads(cached)
+        except Exception as e:
+            logger.warning(f"Redis get candidates cache error: {e}")
+
     notion = NotionService()
     candidates = notion.get_review_notes()
 
@@ -113,6 +130,17 @@ def get_candidates():
             for res_idx, prop_name, t_title in task_results:
                 if t_title:
                     results[res_idx][prop_name] = t_title
+
+    # Save to Redis cache
+    if results:
+        try:
+            if not r and Config.REDIS_URL:
+                r = redis.from_url(Config.REDIS_URL)
+            if r:
+                r.setex(cache_key, 86400, json.dumps(results)) # Cache for 24 hours
+                logger.info("Saved study candidates list to cache")
+        except Exception as e:
+            logger.warning(f"Redis set candidates cache error: {e}")
 
     return results
 
@@ -235,6 +263,15 @@ def update_status(topic_id, status=None):
              if status in status_map:
                  logger.info(f"🏷 Updating Độ hiểu bài to: {status_map[status]}")
                  notion.update_page_property(topic_id, "Độ hiểu bài", status_map[status], type_key="select")
+
+        # Clear candidates list cache in Redis since database changed
+        try:
+            if Config.REDIS_URL:
+                r = redis.from_url(Config.REDIS_URL)
+                r.delete("study_candidates")
+                logger.info("Cleared study_candidates cache due to status update")
+        except Exception as e:
+            logger.warning(f"Failed to clear study_candidates cache: {e}")
 
         return True
     except Exception as e:

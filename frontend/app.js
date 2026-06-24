@@ -31,7 +31,8 @@ const ui = {
     searchInput: document.getElementById('search-input'),
     courseFilter: document.getElementById('course-filter'),
     quickReviewBtn: document.getElementById('quick-review-btn'),
-    quizDoneBtn: document.getElementById('quiz-done-btn')
+    quizDoneBtn: document.getElementById('quiz-done-btn'),
+    refreshCandidatesBtn: document.getElementById('refresh-candidates-btn')
 };
 
 // State
@@ -125,10 +126,10 @@ function showLoading(text) {
 }
 
 // API Calls
-async function fetchTopics() {
+async function fetchTopics(forceRefresh = false) {
     showLoading('Đang tải danh sách chủ đề...');
     try {
-        const res = await fetch(`${API_BASE_URL}/api/study/candidates?telegram_id=${telegramData.id}`);
+        const res = await fetch(`${API_BASE_URL}/api/study/candidates?telegram_id=${telegramData.id}&force_refresh=${forceRefresh}`);
         if (!res.ok) throw new Error('Failed to fetch topics');
         const data = await res.json();
         allTopics = data.candidates || [];
@@ -549,6 +550,7 @@ ui.searchInput.addEventListener('input', filterAndRenderTopics);
 ui.courseFilter.addEventListener('change', filterAndRenderTopics);
 ui.quickReviewBtn.addEventListener('click', () => startQuickReview());
 ui.quizDoneBtn.addEventListener('click', () => showView('topics'));
+ui.refreshCandidatesBtn.addEventListener('click', () => fetchTopics(true));
 
 // App Start
 document.addEventListener('DOMContentLoaded', () => {

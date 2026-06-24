@@ -33,9 +33,9 @@ def read_root():
     return {"status": "alive"}
 
 @app.get("/api/study/candidates")
-def api_get_candidates():
+def api_get_candidates(force_refresh: bool = False):
     try:
-        candidates = get_candidates()
+        candidates = get_candidates(force_refresh=force_refresh)
         return {"candidates": candidates}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
