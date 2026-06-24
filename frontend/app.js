@@ -27,11 +27,14 @@ const ui = {
     quizResults: document.getElementById('quiz-results'),
     resultsScore: document.getElementById('results-score'),
     resultsPercentage: document.getElementById('results-percentage'),
-    resultsFeedback: document.getElementById('results-feedback')
+    resultsFeedback: document.getElementById('results-feedback'),
+    searchInput: document.getElementById('search-input'),
+    courseFilter: document.getElementById('course-filter')
 };
 
 // State
 let telegramData = { id: 123456789 }; // Mock for local testing
+let allTopics = [];
 let currentTopic = null;
 let currentQuiz = [];
 let currentQuestionIndex = 0;
@@ -45,6 +48,22 @@ function initTelegram() {
     if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
         telegramData = tg.initDataUnsafe.user;
     }
+
+    // Apply dark mode theme if set in Telegram
+    if (tg.colorScheme === 'dark') {
+        document.documentElement.classList.add('dark');
+    } else {
+        document.documentElement.classList.remove('dark');
+    }
+
+    // Listen to Telegram theme changes
+    tg.onEvent('themeChanged', () => {
+        if (tg.colorScheme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    });
 
     // Bind Telegram native BackButton
     if (tg.BackButton) {
@@ -69,6 +88,34 @@ function showView(viewName) {
     }
 }
 
+// Helper: Populate Course Dropdown
+function populateCourseFilter() {
+    const courses = [...new Set(allTopics.map(t => t.course).filter(Boolean))];
+    ui.courseFilter.innerHTML = '<option value="">Tất cả môn học</option>';
+    courses.forEach(course => {
+        const opt = document.createElement('option');
+        opt.value = course;
+        opt.textContent = course;
+        ui.courseFilter.appendChild(opt);
+    });
+}
+
+// Helper: Filter & Render Topics
+function filterAndRenderTopics() {
+    const searchQuery = ui.searchInput.value.toLowerCase().trim();
+    const selectedCourse = ui.courseFilter.value;
+
+    const filtered = allTopics.filter(topic => {
+        const matchesCourse = !selectedCourse || topic.course === selectedCourse;
+        const matchesSearch = !searchQuery ||
+            topic.title.toLowerCase().includes(searchQuery) ||
+            (topic.chapter && topic.chapter.toLowerCase().includes(searchQuery));
+        return matchesCourse && matchesSearch;
+    });
+
+    renderTopics(filtered);
+}
+
 function showLoading(text) {
     ui.loadingText.textContent = text;
     showView('loading');
@@ -81,11 +128,14 @@ async function fetchTopics() {
         const res = await fetch(`${API_BASE_URL}/api/study/candidates?telegram_id=${telegramData.id}`);
         if (!res.ok) throw new Error('Failed to fetch topics');
         const data = await res.json();
-        renderTopics(data.candidates || []);
+        allTopics = data.candidates || [];
+        populateCourseFilter();
+        filterAndRenderTopics();
     } catch (error) {
         console.error(error);
         alert('Lỗi tải chủ đề. Vui lòng kiểm tra kết nối.');
-        renderTopics([]); // Show empty state on error for now
+        allTopics = [];
+        filterAndRenderTopics();
     }
 }
 
@@ -198,6 +248,8 @@ async function markTopicAsMastered(topicId, cardElement) {
             }
         }
 
+        allTopics = allTopics.filter(t => t.id !== topicId);
+
         cardElement.style.transition = 'all 0.3s ease-out';
         cardElement.style.opacity = '0';
         cardElement.style.transform = 'scale(0.95)';
@@ -226,7 +278,6 @@ function renderTopics(topics) {
     if (topics.length === 0) {
         ui.topicsList.classList.add('hidden');
         ui.noTopics.classList.remove('hidden');
-        showView('topics');
         return;
     }
 
@@ -235,28 +286,28 @@ function renderTopics(topics) {
 
     topics.forEach(topic => {
         const card = document.createElement('div');
-        card.className = 'w-full bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition duration-200 flex flex-col space-y-3';
+        card.className = 'w-full bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 hover:shadow-md transition duration-200 flex flex-col space-y-3';
 
         let metaHtml = '';
         if (topic.course || topic.chapter) {
             metaHtml += `<div class="flex flex-wrap gap-1.5 w-full">`;
             if (topic.course) {
-                metaHtml += `<span class="bg-blue-50 text-blue-700 text-[10px] font-semibold px-2 py-0.5 rounded border border-blue-100 truncate max-w-[150px]">🔹 ${topic.course}</span>`;
+                metaHtml += `<span class="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-[10px] font-semibold px-2 py-0.5 rounded border border-blue-100 dark:border-blue-900/50 truncate max-w-[150px]">🔹 ${topic.course}</span>`;
             }
             if (topic.chapter) {
-                metaHtml += `<span class="bg-gray-100 text-gray-600 text-[10px] font-semibold px-2 py-0.5 rounded border border-gray-200 truncate max-w-[200px]">📍 ${topic.chapter}</span>`;
+                metaHtml += `<span class="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-[10px] font-semibold px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700 truncate max-w-[200px]">📍 ${topic.chapter}</span>`;
             }
             metaHtml += `</div>`;
         }
 
         card.innerHTML = `
             <div class="topic-content cursor-pointer flex-1 flex flex-col space-y-2">
-                <span class="font-semibold text-gray-800 text-sm md:text-base leading-tight">${topic.title}</span>
+                <span class="font-semibold text-gray-800 dark:text-gray-100 text-sm md:text-base leading-tight">${topic.title}</span>
                 ${metaHtml}
             </div>
-            <div class="flex justify-between items-center pt-2 border-t border-gray-100 mt-1">
-                <span class="text-[11px] text-blue-500 font-semibold cursor-pointer topic-link">Ôn tập &rarr;</span>
-                <button class="mastered-btn bg-green-50 hover:bg-green-100 text-green-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-green-200 transition duration-150 flex items-center gap-1">
+            <div class="flex justify-between items-center pt-2 border-t border-gray-100 dark:border-gray-800 mt-1">
+                <span class="text-[11px] text-blue-500 dark:text-blue-400 font-semibold cursor-pointer topic-link">Ôn tập &rarr;</span>
+                <button class="mastered-btn bg-green-50 hover:bg-green-100 dark:bg-green-950/40 dark:hover:bg-green-950/60 text-green-700 dark:text-green-400 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-green-200 dark:border-green-900/50 transition duration-150 flex items-center gap-1">
                     ✅ Đã nắm vững
                 </button>
             </div>
@@ -273,8 +324,6 @@ function renderTopics(topics) {
 
         ui.topicsList.appendChild(card);
     });
-
-    showView('topics');
 }
 
 function renderQuestion() {
@@ -297,7 +346,7 @@ function renderQuestion() {
     const options = q.options || [];
     options.forEach((opt, idx) => {
         const btn = document.createElement('button');
-        const defaultClasses = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out active:scale-95 shadow-sm border-gray-200 bg-white hover:border-blue-400 hover:shadow-md text-gray-700 whitespace-normal break-words';
+        const defaultClasses = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out active:scale-95 shadow-sm border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md text-gray-700 dark:text-gray-300 whitespace-normal break-words';
         btn.className = defaultClasses;
         btn.textContent = opt;
         btn.onclick = () => {
@@ -319,15 +368,15 @@ function renderQuestion() {
             }
 
             if (idx === q.correct) {
-                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-green-500 bg-gradient-to-r from-green-50 to-green-100 text-green-800 font-bold whitespace-normal break-words';
+                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-green-500 dark:border-green-600 bg-gradient-to-r from-green-50 to-green-100 dark:from-green-950/20 dark:to-green-950/40 text-green-800 dark:text-green-300 font-bold whitespace-normal break-words';
                 btn.textContent = '✅ ' + opt;
             } else {
-                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-red-500 bg-gradient-to-r from-red-50 to-red-100 text-red-800 font-bold line-through whitespace-normal break-words';
+                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-red-500 dark:border-red-600 bg-gradient-to-r from-red-50 to-red-100 dark:from-red-950/20 dark:to-red-950/40 text-red-800 dark:text-red-300 font-bold line-through whitespace-normal break-words';
                 btn.textContent = '❌ ' + opt;
 
                 const correctBtn = ui.optionsContainer.children[q.correct];
                 if (correctBtn) {
-                    correctBtn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-green-500 bg-green-50 text-green-800 font-bold whitespace-normal break-words';
+                    correctBtn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-green-500 dark:border-green-600 bg-green-50 dark:bg-green-950/20 text-green-800 dark:text-green-300 font-bold whitespace-normal break-words';
                     correctBtn.textContent = '✅ ' + options[q.correct];
                 }
             }
@@ -346,13 +395,13 @@ function renderQuestion() {
 
         if (q.selected !== undefined) {
             if (idx === q.correct) {
-                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-green-500 bg-gradient-to-r from-green-50 to-green-100 text-green-800 font-bold whitespace-normal break-words';
+                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-green-500 dark:border-green-600 bg-gradient-to-r from-green-50 to-green-100 dark:from-green-950/20 dark:to-green-950/40 text-green-800 dark:text-green-300 font-bold whitespace-normal break-words';
                 btn.textContent = '✅ ' + opt;
             } else if (idx === q.selected) {
-                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-red-500 bg-gradient-to-r from-red-50 to-red-100 text-red-800 font-bold line-through whitespace-normal break-words';
+                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-red-500 dark:border-red-600 bg-gradient-to-r from-red-50 to-red-100 dark:from-red-950/20 dark:to-red-950/40 text-red-800 dark:text-red-300 font-bold line-through whitespace-normal break-words';
                 btn.textContent = '❌ ' + opt;
             } else {
-                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-gray-200 bg-white text-gray-700 opacity-50 whitespace-normal break-words';
+                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-400 opacity-50 whitespace-normal break-words';
             }
         }
         ui.optionsContainer.appendChild(btn);
@@ -446,6 +495,9 @@ ui.forceRefreshBtn.addEventListener('click', () => {
 });
 ui.closeQuizBtn.addEventListener('click', () => showView('topics'));
 ui.showResultsBtn.addEventListener('click', showQuizResults);
+
+ui.searchInput.addEventListener('input', filterAndRenderTopics);
+ui.courseFilter.addEventListener('change', filterAndRenderTopics);
 
 // App Start
 document.addEventListener('DOMContentLoaded', () => {
