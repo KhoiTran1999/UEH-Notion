@@ -404,12 +404,35 @@ Hãy đánh giá, chỉnh sửa, bổ sung và xuất ra danh sách {num_questio
         return self.generate_content(final_prompt, model=model)
 
     def final_review_quiz(self, questions_json, content):
-        """Final review of merged quiz questions: normalize format, fix LaTeX, ensure correctness."""
+        """Final review and polish of merged quiz questions: use MODEL_BRAIN to fix errors and enhance quality."""
         if not questions_json or not content: return questions_json
 
-        prompt = f"""Bạn là Chuyên gia Kiểm định Chất lượng Học tập. Dưới đây là danh sách câu hỏi trắc nghiệm đã được tạo từ nội dung bài học.
+        system_prompt = """Bạn là Chuyên gia Kiểm định Chất lượng Học tập — MODEL_BRAIN.
 
---- NỘI DUNG BÀI HỌC ---
+Nhiệm vụ của bạn là duyệt danh sách câu hỏi trắc nghiệm đã được tạo tự động, và sử dụng tư duy phản biện để:
+
+1. KIỂM TRA & SỬA LỖI:
+   - Mỗi câu hỏi phải có đúng 4 đáp án A, B, C, D
+   - Chỉ có duy nhất 1 đáp án đúng mỗi câu
+   - Sửa lỗi chính tả, lỗi hành văn, lỗi logic
+   - Sửa lỗi LaTeX (đảm bảo KaTeX render được)
+
+2. CẢI THIỆN CHẤT LƯỢNG (tư duy BRAIN):
+   - Làm cho câu hỏi rõ ràng, sắc bén hơn
+   - Nếu đáp án nhiễu quá ngớ ngẩn hoặc dễ đoán, hãy thay bằng đáp án nhiễu tinh vi hơn
+   - Đảm bảo câu hỏi không bị mập mờ, có duy nhất một cách hiểu đúng
+   - Nếu cần, hãy bổ sung hoặc nâng cấp explanation để giải thích sâu hơn
+
+3. PHẠM VI:
+   - LUÔN dựa trên nội dung bài học. KHÔNG được thêm kiến thức bên ngoài.
+   - KHÔNG bỏ qua câu hỏi nào — giải quyết tất cả.
+   - Đầu ra PHẢI là một mảng JSON hợp lệ duy nhất, KHÔNG có text bên ngoài.
+
+QUY TẮC PHÂN CHIA VAI TRÒ:
+- Bạn là MODEL_BRAIN: Tập trung hoàn toàn vào việc tư duy phản biện, đánh giá chất lượng và cải thiện câu hỏi.
+- Bạn có công cụ `delegate_to_worker` để sai khiến MODEL_WORKER làm việc cơ học như: định dạng lại JSON, kiểm tra cú pháp chuỗi, chuẩn hoá LaTeX đơn giản. Hãy giao phó việc cơ khí, tập trung tư duy sáng tạo.
+"""
+        user_prompt = f"""--- NỘI DUNG BÀI HỌC ---
 {content}
 -------------------------
 
@@ -417,13 +440,6 @@ Hãy đánh giá, chỉnh sửa, bổ sung và xuất ra danh sách {num_questio
 {questions_json}
 -----------------------------------------
 
-Hãy kiểm tra và chuẩn hóa toàn bộ danh sách theo các tiêu chuẩn sau:
-1. Mỗi câu hỏi phải có đúng 4 đáp án A, B, C, D
-2. Chỉ có duy nhất 1 đáp án đúng mỗi câu
-3. Sửa lỗi chính tả, lỗi hành văn, lỗi LaTeX (đảm bảo KaTeX render được)
-4. Nội dung câu hỏi và đáp án phải dựa trên nội dung bài học
-5. Đầu ra PHẢI là một mảng JSON hợp lệ, KHÔNG có text bên ngoài.
+Hãy kiểm tra, sửa lỗi và nâng cấp chất lượng toàn bộ danh sách. Trả về mảng JSON duy nhất."""
 
-Trả về mảng JSON đã được chuẩn hóa."""
-
-        return self.generate_content(prompt, model=Config.MODEL_WORKER)
+        return self.run_agent(system_prompt=system_prompt, user_prompt=user_prompt, model=Config.MODEL_BRAIN)
