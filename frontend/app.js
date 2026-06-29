@@ -576,13 +576,6 @@ function renderQuestion() {
                         correctBtn.textContent = '✅ ' + options[q.correct];
                     }
 
-                    // Show which answer is correct
-                    const correctLetter = String.fromCharCode(65 + q.correct);
-                    const correctText = options[q.correct].replace(/^[A-D]\.\s*/, '');
-                    const hint = document.createElement('p');
-                    hint.className = 'text-green-600 dark:text-green-400 text-sm font-semibold mt-2';
-                    hint.textContent = `💡 Đáp án đúng: ${correctLetter}. ${correctText}`;
-                    ui.optionsContainer.appendChild(hint);
                 }
 
                 if (q.explanation) {
