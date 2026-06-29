@@ -316,39 +316,6 @@ class AIService:
 
         return self.run_agent(system_prompt=agent_system_prompt, user_prompt=user_prompt, model=Config.MODEL_BRAIN)
 
-    def generate_quiz_batch(self, content, num_questions=10, batch_index=0):
-        """Generate a batch of quiz questions, avoiding duplicates if batch_index > 0."""
-        if not content: return "Nội dung trống."
-
-        prompt_data = self.prompt_service.get_prompt("UEH-Notion", "study_assistant")
-        if not prompt_data:
-            system_prompt = f"Bạn là một Chuyên gia Giáo dục và Trợ lý Học tập Thông minh. Hãy tạo chính xác {num_questions} câu hỏi trắc nghiệm từ nội dung bên dưới."
-            user_template = "--- NỘI DUNG GHI CHÉP ---\n{content}\n-------------------------"
-            model = Config.MODEL_WORKER
-        else:
-            system_prompt = prompt_data["system_prompt"]
-            user_template = prompt_data["user_template"]
-            model = Config.MODEL_WORKER
-
-        anti_dupe = ""
-        if batch_index > 0:
-            anti_dupe = "\nQUAN TRỌNG: Các câu hỏi KHÔNG được trùng lặp với bất kỳ câu hỏi nào đã tạo ở các batch trước. Hãy tạo các câu hỏi hoàn toàn mới, khác chủ đề con, khác góc nhìn."
-
-        additional_instructions = f"""
-        QUAN TRỌNG VỀ SỐ LƯỢNG:
-        - Phải tạo chính xác {num_questions} câu hỏi trắc nghiệm.{anti_dupe}
-
-        QUAN TRỌNG VỀ ĐỊNH DẠNG TOÁN HỌC:
-        1. SỬ DỤNG định dạng LaTeX (kẹp giữa ký tự $ cho công thức cùng dòng và $$ cho công thức nằm riêng dòng) để viết các công thức toán học, tài chính, thống kê, ma trận phức tạp.
-        2. Đảm bảo cú pháp LaTeX chính xác và chuẩn chỉnh để bộ thư viện KaTeX có thể render được.
-        """
-
-        final_prompt = f"{user_template}\n\n{system_prompt}\n\n{additional_instructions}"
-        final_prompt = final_prompt.replace("{content}", content)
-        final_prompt = final_prompt.replace("{num_questions}", str(num_questions))
-
-        return self.generate_content(final_prompt, model=model)
-
     def review_quiz(self, raw_quiz, content, num_questions=10):
         """Reviews and self-corrects the generated quiz using Notion prompt or a robust fallback."""
         if not raw_quiz or not content: return raw_quiz

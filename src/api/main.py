@@ -26,20 +26,12 @@ app.add_middleware(
 class QuizRequest(BaseModel):
     topic_id: str
     force_refresh: bool = False
-    num_questions: int = 10
 
     @field_validator('topic_id')
     @classmethod
     def validate_topic_id(cls, v):
         if not UUID_PATTERN.match(v):
             raise ValueError(f'Invalid topic_id format: must be a valid UUID')
-        return v
-
-    @field_validator('num_questions')
-    @classmethod
-    def validate_num_questions(cls, v):
-        if v < 5 or v > 100:
-            raise ValueError('num_questions must be between 5 and 100')
         return v
 
 class StatusRequest(BaseModel):
@@ -70,7 +62,7 @@ def api_get_candidates(force_refresh: bool = False):
 def api_generate_quiz(request: QuizRequest):
     try:
         return StreamingResponse(
-            generate_quiz_stream(request.topic_id, force_refresh=request.force_refresh, num_questions=request.num_questions),
+            generate_quiz_stream(request.topic_id, force_refresh=request.force_refresh),
             media_type="application/x-ndjson"
         )
     except Exception as e:
