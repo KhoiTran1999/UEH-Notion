@@ -6,7 +6,6 @@ from src.utils.logger import logger
 
 from src.services.prompt_service import PromptService
 from src.services.telegram import TelegramService
-from src.services.notion import NotionService
 
 class AIService:
     def __init__(self):
@@ -325,11 +324,11 @@ class AIService:
         if not prompt_data:
             system_prompt = f"Bạn là một Chuyên gia Giáo dục và Trợ lý Học tập Thông minh. Hãy tạo chính xác {num_questions} câu hỏi trắc nghiệm từ nội dung bên dưới."
             user_template = "--- NỘI DUNG GHI CHÉP ---\n{content}\n-------------------------"
-            model = Config.CUSTOM_AI_MODEL
+            model = Config.MODEL_WORKER
         else:
             system_prompt = prompt_data["system_prompt"]
             user_template = prompt_data["user_template"]
-            model = Config.CUSTOM_AI_MODEL
+            model = Config.MODEL_WORKER
 
         anti_dupe = ""
         if batch_index > 0:
@@ -390,12 +389,12 @@ Hãy thực hiện kiểm tra kỹ lượng danh sách câu hỏi này theo các
 -------------------------------------------------------
 
 Hãy đánh giá, chỉnh sửa, bổ sung và xuất ra danh sách {num_questions} câu hỏi trắc nghiệm đã được chuẩn hóa và sửa lỗi hoàn toàn dưới dạng mảng JSON duy nhất."""
-            model = Config.CUSTOM_AI_MODEL
+            model = Config.MODEL_WORKER
             logger.warning("⚠️ Using fallback prompt for review_quiz")
         else:
             system_prompt = prompt_data["system_prompt"]
             user_template = prompt_data["user_template"]
-            model = Config.CUSTOM_AI_MODEL
+            model = Config.MODEL_WORKER
 
         final_prompt = f"{user_template}\n\n{system_prompt}"
         final_prompt = final_prompt.replace("{content}", content)
@@ -427,4 +426,4 @@ Hãy kiểm tra và chuẩn hóa toàn bộ danh sách theo các tiêu chuẩn s
 
 Trả về mảng JSON đã được chuẩn hóa."""
 
-        return self.generate_content(prompt, model=Config.CUSTOM_AI_MODEL)
+        return self.generate_content(prompt, model=Config.MODEL_WORKER)
