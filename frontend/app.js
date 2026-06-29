@@ -51,9 +51,6 @@ const ui = {
     reviewAnswersBtn: document.getElementById('review-answers-btn'),
     dotContainer: document.getElementById('quiz-dot-container'),
     copyQuestionBtn: document.getElementById('copy-question-btn'),
-    nqValue: document.getElementById('nq-value'),
-    nqDecrease: document.getElementById('nq-decrease'),
-    nqIncrease: document.getElementById('nq-increase'),
 };
 
 // State
@@ -62,9 +59,6 @@ let allTopics = [];
 let currentTopic = null;
 let currentQuiz = [];
 let currentQuestionIndex = 0;
-let currentNumQuestions = 10;
-const MIN_QUESTIONS = 5;
-const MAX_QUESTIONS = 100;
 let searchDebounceTimer = null;
 
 // Initialize Telegram Web App
@@ -203,7 +197,7 @@ async function startQuickReview() {
 
 async function startQuiz(topic, forceRefresh = false, numQuestions) {
     currentTopic = topic;
-    const nq = numQuestions || currentNumQuestions || 10;
+    const nq = numQuestions || 10;
     showLoading(`Đang tạo ${nq} câu hỏi cho "${topic.title}"...`);
 
     let aiTimer = null;
@@ -463,7 +457,7 @@ function renderTopics(topics) {
             </div>
         `;
 
-        const openQuiz = () => startQuiz(topic, false, currentNumQuestions);
+        const openQuiz = () => startQuiz(topic);
         card.querySelector('.topic-content').onclick = openQuiz;
         card.querySelector('.topic-link').onclick = openQuiz;
 
@@ -781,7 +775,7 @@ ui.btnChua.addEventListener('click', () => updateStatus('chua_nam_vung'));
 ui.btnNam.addEventListener('click', () => updateStatus('da_nam_vung'));
 ui.forceRefreshBtn.addEventListener('click', () => {
     if (currentTopic) {
-        startQuiz(currentTopic, true, currentNumQuestions);
+        startQuiz(currentTopic, true);
     }
 });
 ui.closeQuizBtn.addEventListener('click', () => showView('topics'));
@@ -796,23 +790,6 @@ ui.searchInput.addEventListener('input', () => {
 ui.courseFilter.addEventListener('change', filterAndRenderTopics);
 ui.quickReviewBtn.addEventListener('click', () => startQuickReview());
 
-// Question count +/-
-if (ui.nqDecrease) {
-    ui.nqDecrease.addEventListener('click', () => {
-        if (currentNumQuestions > MIN_QUESTIONS) {
-            currentNumQuestions = Math.max(MIN_QUESTIONS, currentNumQuestions - 10);
-            ui.nqValue.textContent = currentNumQuestions;
-        }
-    });
-}
-if (ui.nqIncrease) {
-    ui.nqIncrease.addEventListener('click', () => {
-        if (currentNumQuestions < MAX_QUESTIONS) {
-            currentNumQuestions = Math.min(MAX_QUESTIONS, currentNumQuestions + 10);
-            ui.nqValue.textContent = currentNumQuestions;
-        }
-    });
-}
 ui.quizDoneBtn.addEventListener('click', () => showView('topics'));
 ui.refreshCandidatesBtn.addEventListener('click', () => fetchTopics(true));
 
