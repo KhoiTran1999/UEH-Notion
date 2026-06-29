@@ -294,7 +294,7 @@ def clean_json_string(json_str):
         return '"' + "".join(fixed) + '"'
     return pattern.sub(replace_string, json_str)
 
-def generate_quiz(topic_id, force_refresh=False, progress_callback=None, num_questions=10):
+def generate_quiz(topic_id, force_refresh=False, progress_callback=None, num_questions=15):
     """Fetch content from Notion, call AI to generate quiz, parse into JSON/Dict format."""
     notion = NotionService()
     ai = AIService()
@@ -460,7 +460,7 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None, num_que
         except Exception as e:
             logger.warning(f"Failed to release quiz lock: {e}")
 
-def generate_quiz_stream(topic_id, force_refresh=False, num_questions=10):
+def generate_quiz_stream(topic_id, force_refresh=False, num_questions=15):
     """Generate quiz with progress callbacks and yield progress updates as JSON lines."""
     import queue
     import threading

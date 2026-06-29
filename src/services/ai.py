@@ -281,7 +281,7 @@ class AIService:
         # Voice script generation is a simple text rewriting job - run it directly on MODEL_WORKER
         return self.generate_content(final_prompt, model=Config.MODEL_WORKER)
 
-    def generate_quiz(self, content, num_questions=10):
+    def generate_quiz(self, content, num_questions=15):
         """Generates quiz questions from review notes using Notion prompt."""
         if not content: return "Nội dung trống."
 
@@ -316,7 +316,7 @@ class AIService:
 
         return self.run_agent(system_prompt=agent_system_prompt, user_prompt=user_prompt, model=Config.MODEL_BRAIN)
 
-    def review_quiz(self, raw_quiz, content, num_questions=10):
+    def review_quiz(self, raw_quiz, content, num_questions=15):
         """Reviews and self-corrects the generated quiz using Notion prompt or a robust fallback."""
         if not raw_quiz or not content: return raw_quiz
 
