@@ -50,7 +50,7 @@ const ui = {
     loadingPercentage: document.getElementById('loading-percentage'),
     reviewAnswersBtn: document.getElementById('review-answers-btn'),
     dotContainer: document.getElementById('quiz-dot-container'),
-    nqValue: document.getElementById('nq-value'),
+    copyQuestionBtn: document.getElementById('copy-question-btn'),
     nqDecrease: document.getElementById('nq-decrease'),
     nqIncrease: document.getElementById('nq-increase'),
 };
@@ -713,6 +713,56 @@ function reviewAnswers() {
     renderQuestion();
 }
 
+function copyCurrentQuestion() {
+    const q = currentQuiz[currentQuestionIndex];
+    if (!q) return;
+
+    const questionText = q.question || q.q || '';
+    const options = (q.options || []).map((opt, i) => opt).join('\n');
+    const answerLabel = q.selected !== undefined
+        ? `\n\n📌 Đáp án đúng: ${q.options[q.correct] || ''}`
+        : '';
+    const explanation = q.explanation
+        ? `\n💡 Giải thích: ${q.explanation}`
+        : '';
+
+    const text = `📝 Câu ${currentQuestionIndex + 1}: ${questionText}\n\n${options}${answerLabel}${explanation}`;
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            const orig = ui.copyQuestionBtn.textContent;
+            ui.copyQuestionBtn.textContent = '✅';
+            setTimeout(() => { ui.copyQuestionBtn.textContent = orig; }, 1500);
+        }).catch(() => {
+            // Fallback
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            const orig = ui.copyQuestionBtn.textContent;
+            ui.copyQuestionBtn.textContent = '✅';
+            setTimeout(() => { ui.copyQuestionBtn.textContent = orig; }, 1500);
+        });
+    } else {
+        // Fallback for older WebViews
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        const orig = ui.copyQuestionBtn.textContent;
+        ui.copyQuestionBtn.textContent = '✅';
+        setTimeout(() => { ui.copyQuestionBtn.textContent = orig; }, 1500);
+    }
+}
+
 // Event Listeners
 ui.prevBtn.addEventListener('click', () => {
     if (currentQuestionIndex > 0) {
@@ -736,6 +786,7 @@ ui.forceRefreshBtn.addEventListener('click', () => {
 ui.closeQuizBtn.addEventListener('click', () => showView('topics'));
 ui.showResultsBtn.addEventListener('click', showQuizResults);
 ui.reviewAnswersBtn.addEventListener('click', reviewAnswers);
+ui.copyQuestionBtn.addEventListener('click', copyCurrentQuestion);
 
 ui.searchInput.addEventListener('input', () => {
     if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
