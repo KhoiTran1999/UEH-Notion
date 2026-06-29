@@ -134,51 +134,63 @@ class NotionService:
             "filter": {
                 "property": "Độ hiểu bài",
                 "select": { "equals": "🔴 Cần xem lại" }
-            }
+            },
+            "page_size": 50
         }
-        
+
         logger.info(f"🔄 Searching review notes in DB: {db_id}")
-        
+
+        all_pages = []
+
         try:
             with httpx.Client(timeout=30.0) as client:
                 # 1. Resolve Data Source ID (New API 2025-09-03)
                 real_source_id, _ = self._resolve_db_info(client, db_id)
-                if not real_source_id: 
+                if not real_source_id:
                     logger.error("❌ Could not resolve Data Source ID.")
                     return []
 
-                # 2. Use Data Sources Query Endpoint
+                # 2. Use Data Sources Query Endpoint with pagination
                 query_url = f"https://api.notion.com/v1/data_sources/{real_source_id}/query"
-                
-                resp = client.post(query_url, headers=self.headers, json=payload)
-                
-                # Retry logic for property mismatch
-                if resp.status_code == 400:
-                     err_body = resp.json()
-                     # Only switch filter if it's a validation error about property
-                     if err_body.get("code") == "validation_error":
-                        logger.warning("⚠️ Filter select failed, switching to status...")
-                        # Backup: try 'Status' or 'Trạng thái' if 'Độ hiểu bài' fails
-                        # For now, let's just try filtering by 'Trạng thái' if the user has that common column
-                        if "status" in payload["filter"]:
-                            pass # Already tried
-                        else:
-                            # Use new payload structure for status
-                            payload = {
+
+                cursor = None
+                max_fetch = 200
+
+                while True:
+                    current_payload = dict(payload)
+                    if cursor:
+                        current_payload["start_cursor"] = cursor
+
+                    resp = client.post(query_url, headers=self.headers, json=current_payload)
+
+                    # Retry logic for property mismatch
+                    if resp.status_code == 400:
+                        err_body = resp.json()
+                        if err_body.get("code") == "validation_error":
+                            logger.warning("⚠️ Filter select failed, switching to status...")
+                            current_payload.update({
                                 "filter": {
                                     "property": "Trạng thái",
-                                    "status": { "equals": "In progress" } # Generic fallback, user might need to customize
+                                    "status": { "equals": "In progress" }
                                 }
-                            }
-                            resp = client.post(query_url, headers=self.headers, json=payload)
-                
-                if resp.status_code != 200:
-                    logger.error(f"❌ Query Error: {resp.status_code} -Body: {resp.text}")
-                    return []
+                            })
+                            resp = client.post(query_url, headers=self.headers, json=current_payload)
 
-                pages = resp.json().get("results", [])
-                logger.info(f"✅ Found {len(pages)} notes.")
-                return pages
+                    if resp.status_code != 200:
+                        logger.error(f"❌ Query Error: {resp.status_code} -Body: {resp.text}")
+                        return []
+
+                    data = resp.json()
+                    pages = data.get("results", [])
+                    all_pages.extend(pages)
+                    logger.info(f"📄 Fetched {len(pages)} pages (total so far: {len(all_pages)})")
+
+                    if not data.get("has_more") or len(all_pages) >= max_fetch:
+                        break
+                    cursor = data.get("next_cursor")
+
+                logger.info(f"✅ Found {len(all_pages)} notes total.")
+                return all_pages
 
         except Exception as e:
             logger.error(f"❌ Review Notes Error: {e}")

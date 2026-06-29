@@ -227,11 +227,9 @@ class AIService:
         if not tasks:
             return "Chào buổi sáng! 🌞 Hôm nay bạn không có task nào phải làm. Hãy tận hưởng ngày nghỉ nhé! 🚀"
 
-        # Fetch prompt from Notion
         prompt_data = self.prompt_service.get_prompt("UEH-Notion", "task_planner")
 
         if not prompt_data:
-            # Fallback if Notion fetch fails (optional, or just error out)
             system_prompt = "Bạn là một Chuyên gia Quản trị năng suất."
             user_template = "Dữ liệu: {tasks_str}. Hãy phân tích."
             logger.warning("⚠️ Using fallback prompt for analyze_tasks")
@@ -239,7 +237,6 @@ class AIService:
             system_prompt = prompt_data["system_prompt"]
             user_template = prompt_data["user_template"]
 
-        # Format Options string
         status_opts = ", ".join([f'"{opt}"' for opt in db_options.get("Trạng thái", [])]) if db_options else ""
         type_opts = ", ".join([f'"{opt}"' for opt in db_options.get("Loại nhiệm vụ", [])]) if db_options else ""
         priority_opts = ", ".join([f'"{opt}"' for opt in db_options.get("Độ ưu tiên", [])]) if db_options else ""
@@ -279,30 +276,30 @@ class AIService:
 
         final_prompt = f"{user_template}\n\n{system_prompt}"
         final_prompt = final_prompt.replace("{time}", self._get_vn_time())
-        final_prompt = final_prompt.replace("{user_label}", "Khôi") # Hardcoded user name for now
+        final_prompt = final_prompt.replace("{user_label}", "Khôi")
         final_prompt = final_prompt.replace("{original_text}", original_text)
 
         # Voice script generation is a simple text rewriting job - run it directly on MODEL_WORKER
         return self.generate_content(final_prompt, model=Config.MODEL_WORKER)
 
-    def generate_quiz(self, content):
+    def generate_quiz(self, content, num_questions=10):
         """Generates quiz questions from review notes using Notion prompt."""
         if not content: return "Nội dung trống."
 
-        # Fetch prompt from Notion
         prompt_data = self.prompt_service.get_prompt("UEH-Notion", "study_assistant")
 
         if not prompt_data:
-            # Fallback if Notion fetch fails
-            system_prompt = "Bạn là một Chuyên gia Giáo dục và Trợ lý Học tập Thông minh."
+            system_prompt = f"Bạn là một Chuyên gia Giáo dục và Trợ lý Học tập Thông minh. Hãy tạo chính xác {num_questions} câu hỏi trắc nghiệm từ nội dung bên dưới."
             user_template = "--- NỘI DUNG GHI CHÉP ---\n{content}\n-------------------------"
             logger.warning("⚠️ Using fallback prompt for generate_quiz")
         else:
             system_prompt = prompt_data["system_prompt"]
             user_template = prompt_data["user_template"]
 
-        # Construct the final prompt
-        additional_instructions = """
+        additional_instructions = f"""
+        QUAN TRỌNG VỀ SỐ LƯỢNG:
+        - Phải tạo chính xác {num_questions} câu hỏi trắc nghiệm.
+
         QUAN TRỌNG VỀ ĐỊNH DẠNG TOÁN HỌC:
         1. SỬ DỤNG định dạng LaTeX (kẹp giữa ký tự $ cho công thức cùng dòng và $$ cho công thức nằm riêng dòng) để viết các công thức toán học, tài chính, thống kê, ma trận phức tạp.
         2. Đảm bảo cú pháp LaTeX chính xác và chuẩn chỉnh để bộ thư viện KaTeX có thể render được.
@@ -319,3 +316,115 @@ class AIService:
         )
 
         return self.run_agent(system_prompt=agent_system_prompt, user_prompt=user_prompt, model=Config.MODEL_BRAIN)
+
+    def generate_quiz_batch(self, content, num_questions=10, batch_index=0):
+        """Generate a batch of quiz questions, avoiding duplicates if batch_index > 0."""
+        if not content: return "Nội dung trống."
+
+        prompt_data = self.prompt_service.get_prompt("UEH-Notion", "study_assistant")
+        if not prompt_data:
+            system_prompt = f"Bạn là một Chuyên gia Giáo dục và Trợ lý Học tập Thông minh. Hãy tạo chính xác {num_questions} câu hỏi trắc nghiệm từ nội dung bên dưới."
+            user_template = "--- NỘI DUNG GHI CHÉP ---\n{content}\n-------------------------"
+            model = Config.CUSTOM_AI_MODEL
+        else:
+            system_prompt = prompt_data["system_prompt"]
+            user_template = prompt_data["user_template"]
+            model = Config.CUSTOM_AI_MODEL
+
+        anti_dupe = ""
+        if batch_index > 0:
+            anti_dupe = "\nQUAN TRỌNG: Các câu hỏi KHÔNG được trùng lặp với bất kỳ câu hỏi nào đã tạo ở các batch trước. Hãy tạo các câu hỏi hoàn toàn mới, khác chủ đề con, khác góc nhìn."
+
+        additional_instructions = f"""
+        QUAN TRỌNG VỀ SỐ LƯỢNG:
+        - Phải tạo chính xác {num_questions} câu hỏi trắc nghiệm.{anti_dupe}
+
+        QUAN TRỌNG VỀ ĐỊNH DẠNG TOÁN HỌC:
+        1. SỬ DỤNG định dạng LaTeX (kẹp giữa ký tự $ cho công thức cùng dòng và $$ cho công thức nằm riêng dòng) để viết các công thức toán học, tài chính, thống kê, ma trận phức tạp.
+        2. Đảm bảo cú pháp LaTeX chính xác và chuẩn chỉnh để bộ thư viện KaTeX có thể render được.
+        """
+
+        final_prompt = f"{user_template}\n\n{system_prompt}\n\n{additional_instructions}"
+        final_prompt = final_prompt.replace("{content}", content)
+        final_prompt = final_prompt.replace("{num_questions}", str(num_questions))
+
+        return self.generate_content(final_prompt, model=model)
+
+    def review_quiz(self, raw_quiz, content, num_questions=10):
+        """Reviews and self-corrects the generated quiz using Notion prompt or a robust fallback."""
+        if not raw_quiz or not content: return raw_quiz
+
+        prompt_data = self.prompt_service.get_prompt("UEH-Notion", "study_assistant_review")
+
+        if not prompt_data:
+            system_prompt = f"""Bạn là một Chuyên gia Giáo dục và Trợ lý Kiểm định Chất lượng Học tập. Nhiệm vụ của bạn là nhận vào nội dung bài học gốc (ghi chép) và danh sách câu hỏi trắc nghiệm đã được sinh ra từ nội dung này.
+Hãy thực hiện kiểm tra kỹ lượng danh sách câu hỏi này theo các tiêu chuẩn nghiêm ngặt sau:
+1. Số lượng câu hỏi: Phải đủ chính xác {num_questions} câu hỏi trắc nghiệm. Nếu thiếu hoặc thừa, hãy điều chỉnh để có đúng {num_questions} câu.
+2. Sự chính xác và phù hợp: Tất cả các câu hỏi phải dựa trên thực tế từ nội dung ghi chép, không được tự bịa ra thông tin không có trong tài liệu.
+3. Chất lượng câu hỏi: Câu hỏi phải rõ ràng, phân biệt được độ khó, không mập mờ, không bị lỗi hành văn, lỗi dịch thuật hay lỗi logic. Các đáp án sai phải là các đáp án nhiễu hợp lý (distractors), không được quá ngớ ngẩn. Chỉ có duy nhất một đáp án đúng.
+4. Định dạng Toán học & Công thức:
+   - Tất cả các công thức toán học, thống kê, ký hiệu tài chính (như NPV, IRR, độ lệch chuẩn, kỳ vọng, mũ, phân số, ma trận, chỉ số dưới/trên...) PHẢI được định dạng chuẩn bằng LaTeX, đặt trong cặp dấu $ cho công thức cùng dòng (inline) và $$ cho công thức nằm riêng dòng (block).
+   - Đảm bảo cú pháp LaTeX chính xác và chuẩn chỉnh để thư viện KaTeX có thể hiển thị thành công. Ví dụ: viết $x_i$ thay vị xi, viết \\sigma thay vì sigma, viết \\frac{{a}}{{b}} thay vì a/b khi viết công thức phức tạp.
+5. Định dạng JSON Đầu ra:
+   - Đầu ra của bạn PHẢI là một mảng JSON chứa chính xác các câu hỏi theo đúng định dạng sau, KHÔNG được chứa bất kỳ văn bản giải thích, markdown nào bên ngoài khối JSON. Chỉ trả về một mảng JSON hợp lệ duy nhất:
+   [
+     {{
+       "q": "Câu hỏi thứ nhất chứa nội dung câu hỏi...?",
+       "options": [
+         "A. Lựa chọn A",
+         "B. Lựa chọn B",
+         "C. Lựa chọn C",
+         "D. Lựa chọn D"
+       ],
+       "correct": 0,
+       "explanation": "Giải thích chi tiết lý do tại sao đáp án đó đúng dựa trên ghi chép..."
+     }},
+     ...
+   ]"""
+            user_template = """--- NỘI DUNG GHI CHÉP GỐC ---
+{content}
+-----------------------------
+
+--- DANH SÁCH CÂU HỎI CẦN KIỂM DUYỆT (RAW QUIZ JSON) ---
+{raw_quiz}
+-------------------------------------------------------
+
+Hãy đánh giá, chỉnh sửa, bổ sung và xuất ra danh sách {num_questions} câu hỏi trắc nghiệm đã được chuẩn hóa và sửa lỗi hoàn toàn dưới dạng mảng JSON duy nhất."""
+            model = Config.CUSTOM_AI_MODEL
+            logger.warning("⚠️ Using fallback prompt for review_quiz")
+        else:
+            system_prompt = prompt_data["system_prompt"]
+            user_template = prompt_data["user_template"]
+            model = Config.CUSTOM_AI_MODEL
+
+        final_prompt = f"{user_template}\n\n{system_prompt}"
+        final_prompt = final_prompt.replace("{content}", content)
+        final_prompt = final_prompt.replace("{raw_quiz}", raw_quiz)
+        final_prompt = final_prompt.replace("{num_questions}", str(num_questions))
+
+        return self.generate_content(final_prompt, model=model)
+
+    def final_review_quiz(self, questions_json, content):
+        """Final review of merged quiz questions: normalize format, fix LaTeX, ensure correctness."""
+        if not questions_json or not content: return questions_json
+
+        prompt = f"""Bạn là Chuyên gia Kiểm định Chất lượng Học tập. Dưới đây là danh sách câu hỏi trắc nghiệm đã được tạo từ nội dung bài học.
+
+--- NỘI DUNG BÀI HỌC ---
+{content}
+-------------------------
+
+--- DANH SÁCH CÂU HỎI CẦN KIỂM DUYỆT ---
+{questions_json}
+-----------------------------------------
+
+Hãy kiểm tra và chuẩn hóa toàn bộ danh sách theo các tiêu chuẩn sau:
+1. Mỗi câu hỏi phải có đúng 4 đáp án A, B, C, D
+2. Chỉ có duy nhất 1 đáp án đúng mỗi câu
+3. Sửa lỗi chính tả, lỗi hành văn, lỗi LaTeX (đảm bảo KaTeX render được)
+4. Nội dung câu hỏi và đáp án phải dựa trên nội dung bài học
+5. Đầu ra PHẢI là một mảng JSON hợp lệ, KHÔNG có text bên ngoài.
+
+Trả về mảng JSON đã được chuẩn hóa."""
+
+        return self.generate_content(prompt, model=Config.CUSTOM_AI_MODEL)

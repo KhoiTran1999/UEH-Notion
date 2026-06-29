@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Công Thức KaTeX</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+</head>
+<body class="bg-gray-100 text-gray-800 p-6">
+    <div class="max-w-6xl mx-auto bg-white p-6 rounded-2xl shadow-sm">
+        <h1 class="text-2xl font-bold mb-4">Kết Quả Chạy Thử Nghiệm Công Thức KaTeX</h1>
+        <p class="mb-6 text-gray-600">Trang này được sinh tự động để kiểm tra khả năng xử lý dấu backslash của hàm <code>clean_json_string</code> đối với các công thức toán học phức tạp.</p>
+
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="border-b-2 border-gray-200 bg-gray-50">
+                    <th class="p-3">Mô tả trường hợp</th>
+                    <th class="p-3">JSON Đầu Vào (Raw)</th>
+                    <th class="p-3">Dữ Liệu Đã Parse</th>
+                    <th class="p-3">Kết quả Render KaTeX</th>
+                    <th class="p-3 text-center">Trạng thái</th>
+                </tr>
+            </thead>
+            <tbody>
+
+    <tr class="border-b dark:border-gray-800">
+        <td class="p-3 font-semibold">Vòng quay tiền (AI double backslash)</td>
+        <td class="p-3 text-xs font-mono bg-gray-50 dark:bg-gray-900 overflow-x-auto max-w-xs">{"text": "Áp dụng công thức tính vòng quay tiền: $V = \\frac{P \\times Y}{M}$. Thay số: $V = \\frac{5 \\times 4.000}{10.000} = 2$."}</td>
+        <td class="p-3 text-xs font-mono bg-gray-100 dark:bg-gray-950 overflow-x-auto max-w-xs">Áp dụng công thức tính vòng quay tiền: $V = \frac{P \times Y}{M}$. Thay số: $V = \frac{5 \times 4.000}{10.000} = 2$.</td>
+        <td class="p-3 text-sm math-render">Áp dụng công thức tính vòng quay tiền: $V = \frac{P \times Y}{M}$. Thay số: $V = \frac{5 \times 4.000}{10.000} = 2$.</td>
+        <td class="p-3 text-center">✅ Thành công</td>
+    </tr>
+    
+    <tr class="border-b dark:border-gray-800">
+        <td class="p-3 font-semibold">Vòng quay tiền (AI single backslash)</td>
+        <td class="p-3 text-xs font-mono bg-gray-50 dark:bg-gray-900 overflow-x-auto max-w-xs">{"text": "Áp dụng công thức tính vòng quay tiền: $V = \frac{P \times Y}{M}$. Thay số: $V = \frac{5 \times 4.000}{10.000} = 2$."}</td>
+        <td class="p-3 text-xs font-mono bg-gray-100 dark:bg-gray-950 overflow-x-auto max-w-xs">Áp dụng công thức tính vòng quay tiền: $V = \frac{P \times Y}{M}$. Thay số: $V = \frac{5 \times 4.000}{10.000} = 2$.</td>
+        <td class="p-3 text-sm math-render">Áp dụng công thức tính vòng quay tiền: $V = \frac{P \times Y}{M}$. Thay số: $V = \frac{5 \times 4.000}{10.000} = 2$.</td>
+        <td class="p-3 text-center">✅ Thành công</td>
+    </tr>
+    
+    <tr class="border-b dark:border-gray-800">
+        <td class="p-3 font-semibold">Phương trình bậc hai (Single backslash)</td>
+        <td class="p-3 text-xs font-mono bg-gray-50 dark:bg-gray-900 overflow-x-auto max-w-xs">{"text": "Công thức nghiệm: $x_{1,2} = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$"}</td>
+        <td class="p-3 text-xs font-mono bg-gray-100 dark:bg-gray-950 overflow-x-auto max-w-xs">Công thức nghiệm: $x_{1,2} = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$</td>
+        <td class="p-3 text-sm math-render">Công thức nghiệm: $x_{1,2} = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$</td>
+        <td class="p-3 text-center">✅ Thành công</td>
+    </tr>
+    
+    <tr class="border-b dark:border-gray-800">
+        <td class="p-3 font-semibold">Phương trình bậc hai (Double backslash)</td>
+        <td class="p-3 text-xs font-mono bg-gray-50 dark:bg-gray-900 overflow-x-auto max-w-xs">{"text": "Công thức nghiệm: $x_{1,2} = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$"}</td>
+        <td class="p-3 text-xs font-mono bg-gray-100 dark:bg-gray-950 overflow-x-auto max-w-xs">Công thức nghiệm: $x_{1,2} = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$</td>
+        <td class="p-3 text-sm math-render">Công thức nghiệm: $x_{1,2} = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$</td>
+        <td class="p-3 text-center">✅ Thành công</td>
+    </tr>
+    
+    <tr class="border-b dark:border-gray-800">
+        <td class="p-3 font-semibold">Tích phân và giới hạn (Single & Double mixed)</td>
+        <td class="p-3 text-xs font-mono bg-gray-50 dark:bg-gray-900 overflow-x-auto max-w-xs">{"text": "Tích phân Gauss: $$\int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}$$ và giới hạn: $$\lim_{x \to 0} \frac{\sin x}{x} = 1$$"}</td>
+        <td class="p-3 text-xs font-mono bg-gray-100 dark:bg-gray-950 overflow-x-auto max-w-xs">Tích phân Gauss: $$\int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}$$ và giới hạn: $$\lim_{x \to 0} \frac{\sin x}{x} = 1$$</td>
+        <td class="p-3 text-sm math-render">Tích phân Gauss: $$\int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}$$ và giới hạn: $$\lim_{x \to 0} \frac{\sin x}{x} = 1$$</td>
+        <td class="p-3 text-center">✅ Thành công</td>
+    </tr>
+    
+    <tr class="border-b dark:border-gray-800">
+        <td class="p-3 font-semibold">Ma trận (LaTeX Newlines \\ - Double)</td>
+        <td class="p-3 text-xs font-mono bg-gray-50 dark:bg-gray-900 overflow-x-auto max-w-xs">{"text": "Ma trận hệ số: $$A = \\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}$$"}</td>
+        <td class="p-3 text-xs font-mono bg-gray-100 dark:bg-gray-950 overflow-x-auto max-w-xs">Ma trận hệ số: $$A = \begin{pmatrix} a & b \\\\ c & d \end{pmatrix}$$</td>
+        <td class="p-3 text-sm math-render">Ma trận hệ số: $$A = \begin{pmatrix} a & b \\\\ c & d \end{pmatrix}$$</td>
+        <td class="p-3 text-center">✅ Thành công</td>
+    </tr>
+    
+    <tr class="border-b dark:border-gray-800">
+        <td class="p-3 font-semibold">Ma trận (LaTeX Newlines \\ - Single)</td>
+        <td class="p-3 text-xs font-mono bg-gray-50 dark:bg-gray-900 overflow-x-auto max-w-xs">{"text": "Ma trận hệ số: $$A = \begin{pmatrix} a & b \\ c & d \end{pmatrix}$$"}</td>
+        <td class="p-3 text-xs font-mono bg-gray-100 dark:bg-gray-950 overflow-x-auto max-w-xs">Ma trận hệ số: $$A = \begin{pmatrix} a & b \\ c & d \end{pmatrix}$$</td>
+        <td class="p-3 text-sm math-render">Ma trận hệ số: $$A = \begin{pmatrix} a & b \\ c & d \end{pmatrix}$$</td>
+        <td class="p-3 text-center">✅ Thành công</td>
+    </tr>
+    
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === "function") {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: "$$", right: "$$", display: true},
+                        {left: "$", right: "$", display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        });
+    </script>
+</body>
+</html>

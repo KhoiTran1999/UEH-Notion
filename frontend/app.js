@@ -47,7 +47,12 @@ const ui = {
     progressBar: document.getElementById('quiz-progress-bar'),
     progressContainer: document.getElementById('quiz-progress-container'),
     loadingProgressBar: document.getElementById('loading-progress-bar'),
-    loadingPercentage: document.getElementById('loading-percentage')
+    loadingPercentage: document.getElementById('loading-percentage'),
+    reviewAnswersBtn: document.getElementById('review-answers-btn'),
+    dotContainer: document.getElementById('quiz-dot-container'),
+    nqValue: document.getElementById('nq-value'),
+    nqDecrease: document.getElementById('nq-decrease'),
+    nqIncrease: document.getElementById('nq-increase'),
 };
 
 // State
@@ -56,6 +61,10 @@ let allTopics = [];
 let currentTopic = null;
 let currentQuiz = [];
 let currentQuestionIndex = 0;
+let currentNumQuestions = 10;
+const MIN_QUESTIONS = 5;
+const MAX_QUESTIONS = 100;
+let searchDebounceTimer = null;
 
 // Initialize Telegram Web App
 function initTelegram() {
@@ -146,8 +155,8 @@ function showLoading(text) {
 async function fetchTopics(forceRefresh = false) {
     showLoading('Đang tải danh sách chủ đề...');
     try {
-        const res = await fetch(`${API_BASE_URL}/api/study/candidates?telegram_id=${telegramData.id}&force_refresh=${forceRefresh}`);
-        if (!res.ok) throw new Error('Failed to fetch topics');
+        const res = await fetch(`${API_BASE_URL}/api/study/candidates?telegram_id=${telegramData.id}&force_refresh=${forceRefresh ? 'true' : 'false'}`);
+        if (!res.ok) throw new Error('Lỗi tải danh sách chủ đề');
         const data = await res.json();
         allTopics = data.candidates || [];
         populateCourseFilter();
@@ -164,7 +173,7 @@ async function startQuickReview() {
     showLoading('Đang chuẩn bị bộ câu hỏi tổng hợp...');
     try {
         const res = await fetch(`${API_BASE_URL}/api/study/quick-review`);
-        if (!res.ok) throw new Error('Failed to fetch quick review');
+        if (!res.ok) throw new Error('Lỗi tải câu hỏi ôn tập nhanh');
         const data = await res.json();
 
         currentTopic = { id: 'quick_review', title: 'Ôn tập tổng hợp' };
@@ -191,9 +200,10 @@ async function startQuickReview() {
     }
 }
 
-async function startQuiz(topic, forceRefresh = false) {
+async function startQuiz(topic, forceRefresh = false, numQuestions) {
     currentTopic = topic;
-    showLoading(`Đang tạo câu hỏi cho "${topic.title}"...`);
+    const nq = numQuestions || currentNumQuestions || 10;
+    showLoading(`Đang tạo ${nq} câu hỏi cho "${topic.title}"...`);
 
     let aiTimer = null;
     let currentPercent = 0;
@@ -211,11 +221,12 @@ async function startQuiz(topic, forceRefresh = false) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 topic_id: topic.id,
-                force_refresh: forceRefresh
+                force_refresh: forceRefresh,
+                num_questions: nq
             })
         });
 
-        if (!res.ok) throw new Error('Failed to generate quiz');
+        if (!res.ok) throw new Error('Lỗi tạo câu hỏi trắc nghiệm');
 
         const reader = res.body.getReader();
         const decoder = new TextDecoder('utf-8');
@@ -232,36 +243,39 @@ async function startQuiz(topic, forceRefresh = false) {
 
             for (const line of lines) {
                 if (!line.trim()) continue;
-                const event = JSON.parse(line);
+                let event;
+                try {
+                    event = JSON.parse(line);
+                } catch (parseError) {
+                    console.warn('⚠️ Bỏ qua dòng JSON không hợp lệ từ server:', line, parseError);
+                    continue;
+                }
                 if (event.type === 'progress') {
                     if (event.status === 'calling_ai') {
                         if (aiTimer) clearInterval(aiTimer);
                         let aiSeconds = 0;
                         updateProgress(event.percentage || 45, event.details || '🧠 Trợ lý AI đang kết nối...');
+                        const aiProgressMessages = [
+                            [0, '🧠 Trợ lý AI đang tiếp nhận nội dung...'],
+                            [4, '🧠 Trợ lý AI đang đọc hiểu bài học...'],
+                            [8, '🧠 Trợ lý AI đang biên soạn câu hỏi...'],
+                            [13, '🧠 Trợ lý AI đang tối ưu hóa các đáp án nhiễu...'],
+                            [19, '🧠 Trợ lý AI đang hoàn tất việc tạo đề...']
+                        ];
                         aiTimer = setInterval(() => {
                             aiSeconds += 1;
                             if (currentPercent < 90) {
                                 currentPercent += 2;
-                                if (ui.loadingProgressBar) ui.loadingProgressBar.style.width = `${currentPercent}%`;
-                                if (ui.loadingPercentage) ui.loadingPercentage.textContent = `${currentPercent}%`;
+                                ui.loadingProgressBar && (ui.loadingProgressBar.style.width = `${currentPercent}%`);
+                                ui.loadingPercentage && (ui.loadingPercentage.textContent = `${currentPercent}%`);
                             }
-                            let detail = '🧠 Trợ lý AI đang tiếp nhận nội dung...';
-                            if (aiSeconds >= 4 && aiSeconds < 8) {
-                                detail = '🧠 Trợ lý AI đang đọc hiểu bài học...';
-                            } else if (aiSeconds >= 8 && aiSeconds < 13) {
-                                detail = '🧠 Trợ lý AI đang biên soạn câu hỏi...';
-                            } else if (aiSeconds >= 13 && aiSeconds < 19) {
-                                detail = '🧠 Trợ lý AI đang tối ưu hóa các đáp án nhiễu...';
-                            } else if (aiSeconds >= 19) {
-                                detail = `🧠 Trợ lý AI đang hoàn tất việc tạo đề... (giây thứ ${aiSeconds})`;
+                            const msg = aiProgressMessages.filter(([t]) => aiSeconds >= t).pop();
+                            if (msg && ui.loadingText) {
+                                ui.loadingText.textContent = msg[1] + (aiSeconds >= 19 ? ` (giây thứ ${aiSeconds})` : '');
                             }
-                            if (ui.loadingText) ui.loadingText.textContent = detail;
                         }, 1000);
                     } else {
-                        if (aiTimer) {
-                            clearInterval(aiTimer);
-                            aiTimer = null;
-                        }
+                        if (aiTimer) { clearInterval(aiTimer); aiTimer = null; }
                         updateProgress(event.percentage || 0, event.details || '');
                     }
                 } else if (event.type === 'result') {
@@ -278,7 +292,7 @@ async function startQuiz(topic, forceRefresh = false) {
         }
 
         if (!quizData) {
-            throw new Error('Failed to parse quiz response');
+            throw new Error('Không thể phân tích dữ liệu câu hỏi từ server');
         }
 
         // Handle varying response formats. Assuming array of Q&A objects.
@@ -329,9 +343,9 @@ async function startQuiz(topic, forceRefresh = false) {
 }
 
 async function updateStatus(status) {
-    showLoading('Saving status...');
+    showLoading('Đang lưu kết quả...');
     try {
-        await fetch(`${API_BASE_URL}/api/study/status`, {
+        const res = await fetch(`${API_BASE_URL}/api/study/status`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -341,11 +355,15 @@ async function updateStatus(status) {
             })
         });
 
+        if (!res.ok) {
+            throw new Error(`Server trả về lỗi ${res.status}`);
+        }
+
         window.Telegram.WebApp.close();
     } catch (error) {
         console.error(error);
-        alert('Failed to save status.');
-        window.Telegram.WebApp.close();
+        alert('❌ Không thể lưu kết quả: ' + error.message);
+        showView('topics');
     }
 }
 
@@ -367,7 +385,7 @@ async function markTopicAsMastered(topicId, cardElement) {
             })
         });
 
-        if (!res.ok) throw new Error('Failed to update status');
+        if (!res.ok) throw new Error('Lỗi cập nhật trạng thái');
 
         const tg = window.Telegram?.WebApp;
         if (tg?.HapticFeedback) {
@@ -444,7 +462,7 @@ function renderTopics(topics) {
             </div>
         `;
 
-        const openQuiz = () => startQuiz(topic);
+        const openQuiz = () => startQuiz(topic, false, currentNumQuestions);
         card.querySelector('.topic-content').onclick = openQuiz;
         card.querySelector('.topic-link').onclick = openQuiz;
 
@@ -471,7 +489,8 @@ function renderQuestion() {
 
     const q = currentQuiz[currentQuestionIndex];
 
-    const questionText = q.question || q.q || 'Question text missing';
+    // Fallback cho câu hỏi bị lỗi dữ liệu
+    const questionText = q.question || q.q || '⚠️ Nội dung câu hỏi bị thiếu';
     if (currentTopic.id === 'quick_review' && q.topic_title) {
         ui.questionText.innerHTML = `
             <div class="text-[10px] text-blue-500 font-bold uppercase tracking-wider mb-2">📌 Chủ đề: ${escapeHtml(q.topic_title)}</div>
@@ -490,77 +509,116 @@ function renderQuestion() {
         ui.progressBar.style.width = `${progressPercent}%`;
     }
 
+    // Render dot progress indicator
+    if (ui.dotContainer) {
+        ui.dotContainer.innerHTML = '';
+        currentQuiz.forEach((_, idx) => {
+            const dot = document.createElement('span');
+            const isActive = idx === currentQuestionIndex;
+            const isAnswered = currentQuiz[idx].selected !== undefined;
+            const isCorrect = currentQuiz[idx].selected === currentQuiz[idx].correct;
+            let dotClass = 'w-2.5 h-2.5 rounded-full transition-all duration-300 ';
+            if (isActive) {
+                dotClass += 'bg-blue-500 scale-125 shadow-sm shadow-blue-300';
+            } else if (isAnswered && isCorrect) {
+                dotClass += 'bg-green-400';
+            } else if (isAnswered && !isCorrect) {
+                dotClass += 'bg-red-400';
+            } else {
+                dotClass += 'bg-gray-300 dark:bg-gray-600';
+            }
+            dot.className = dotClass;
+            ui.dotContainer.appendChild(dot);
+        });
+    }
+
     const options = q.options || [];
-    options.forEach((opt, idx) => {
-        const btn = document.createElement('button');
-        const defaultClasses = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out active:scale-95 shadow-sm border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md text-gray-700 dark:text-gray-300 whitespace-normal break-words';
-        btn.className = defaultClasses;
-        btn.textContent = opt;
-        btn.onclick = () => {
-            if (q.selected !== undefined) return;
-            q.selected = idx;
+    if (options.length === 0) {
+        // Fallback khi không có đáp án nào
+        const fallbackBtn = document.createElement('button');
+        fallbackBtn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium border-red-300 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 whitespace-normal break-words';
+        fallbackBtn.textContent = '⚠️ Dữ liệu đáp án bị lỗi. Vui lòng tạo lại câu hỏi.';
+        ui.optionsContainer.appendChild(fallbackBtn);
+    } else {
+        options.forEach((opt, idx) => {
+            const btn = document.createElement('button');
+            const defaultClasses = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out active:scale-95 shadow-sm border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md text-gray-700 dark:text-gray-300 whitespace-normal break-words';
+            btn.className = defaultClasses;
+            btn.textContent = opt;
+            btn.onclick = () => {
+                if (q.selected !== undefined) return;
+                q.selected = idx;
 
-            // Trigger Telegram Web App Haptic Feedback
-            const tg = window.Telegram?.WebApp;
-            if (tg?.HapticFeedback) {
-                try {
-                    if (idx === q.correct) {
-                        tg.HapticFeedback.notificationOccurred('success');
-                    } else {
-                        tg.HapticFeedback.notificationOccurred('error');
+                // Trigger Telegram Web App Haptic Feedback
+                const tg = window.Telegram?.WebApp;
+                if (tg?.HapticFeedback) {
+                    try {
+                        if (idx === q.correct) {
+                            tg.HapticFeedback.notificationOccurred('success');
+                        } else {
+                            tg.HapticFeedback.notificationOccurred('error');
+                        }
+                    } catch (e) {
+                        console.warn("Haptic feedback error:", e);
                     }
-                } catch (e) {
-                    console.warn("Haptic feedback error:", e);
+                }
+
+                if (idx === q.correct) {
+                    btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-green-500 dark:border-green-600 bg-gradient-to-r from-green-50 to-green-100 dark:from-green-950/20 dark:to-green-950/40 text-green-800 dark:text-green-300 font-bold whitespace-normal break-words';
+                    btn.textContent = '✅ ' + opt;
+                } else {
+                    btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-red-500 dark:border-red-600 bg-gradient-to-r from-red-50 to-red-100 dark:from-red-950/20 dark:to-red-950/40 text-red-800 dark:text-red-300 font-bold line-through whitespace-normal break-words';
+                    btn.textContent = '❌ ' + opt;
+
+                    const correctBtn = ui.optionsContainer.children[q.correct];
+                    if (correctBtn) {
+                        correctBtn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-green-500 dark:border-green-600 bg-green-50 dark:bg-green-950/20 text-green-800 dark:text-green-300 font-bold whitespace-normal break-words';
+                        correctBtn.textContent = '✅ ' + options[q.correct];
+                    }
+
+                    // Show which answer is correct
+                    const correctLetter = String.fromCharCode(65 + q.correct);
+                    const correctText = options[q.correct].replace(/^[A-D]\.\s*/, '');
+                    const hint = document.createElement('p');
+                    hint.className = 'text-green-600 dark:text-green-400 text-sm font-semibold mt-2';
+                    hint.textContent = `💡 Đáp án đúng: ${correctLetter}. ${correctText}`;
+                    ui.optionsContainer.appendChild(hint);
+                }
+
+                if (q.explanation) {
+                    ui.explanationBox.innerHTML = `<div class="flex items-start gap-2.5">
+                        <span class="text-xl select-none">💡</span>
+                        <div>
+                            <div class="font-bold text-blue-800 dark:text-blue-400 mb-0.5 text-xs uppercase tracking-wider">Giải thích chi tiết</div>
+                            <div>${escapeHtml(q.explanation)}</div>
+                        </div>
+                    </div>`;
+                    ui.explanationBox.classList.remove('hidden');
+                }
+
+                if (currentQuestionIndex < currentQuiz.length - 1) {
+                    ui.nextBtn.classList.remove('hidden');
+                } else {
+                    ui.showResultsBtn.classList.remove('hidden');
+                }
+
+                renderMath();
+            };
+
+            if (q.selected !== undefined) {
+                if (idx === q.correct) {
+                    btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-green-500 dark:border-green-600 bg-gradient-to-r from-green-50 to-green-100 dark:from-green-950/20 dark:to-green-950/40 text-green-800 dark:text-green-300 font-bold whitespace-normal break-words';
+                    btn.textContent = '✅ ' + opt;
+                } else if (idx === q.selected) {
+                    btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-red-500 dark:border-red-600 bg-gradient-to-r from-red-50 to-red-100 dark:from-red-950/20 dark:to-red-950/40 text-red-800 dark:text-red-300 font-bold line-through whitespace-normal break-words';
+                    btn.textContent = '❌ ' + opt;
+                } else {
+                    btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-400 opacity-50 whitespace-normal break-words';
                 }
             }
-
-            if (idx === q.correct) {
-                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-green-500 dark:border-green-600 bg-gradient-to-r from-green-50 to-green-100 dark:from-green-950/20 dark:to-green-950/40 text-green-800 dark:text-green-300 font-bold whitespace-normal break-words';
-                btn.textContent = '✅ ' + opt;
-            } else {
-                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-red-500 dark:border-red-600 bg-gradient-to-r from-red-50 to-red-100 dark:from-red-950/20 dark:to-red-950/40 text-red-800 dark:text-red-300 font-bold line-through whitespace-normal break-words';
-                btn.textContent = '❌ ' + opt;
-
-                const correctBtn = ui.optionsContainer.children[q.correct];
-                if (correctBtn) {
-                    correctBtn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-green-500 dark:border-green-600 bg-green-50 dark:bg-green-950/20 text-green-800 dark:text-green-300 font-bold whitespace-normal break-words';
-                    correctBtn.textContent = '✅ ' + options[q.correct];
-                }
-            }
-
-            if (q.explanation) {
-                ui.explanationBox.innerHTML = `<div class="flex items-start gap-2.5">
-                    <span class="text-xl select-none">💡</span>
-                    <div>
-                        <div class="font-bold text-blue-800 dark:text-blue-400 mb-0.5 text-xs uppercase tracking-wider">Giải thích chi tiết</div>
-                        <div>${escapeHtml(q.explanation)}</div>
-                    </div>
-                </div>`;
-                ui.explanationBox.classList.remove('hidden');
-            }
-
-            if (currentQuestionIndex < currentQuiz.length - 1) {
-                ui.nextBtn.classList.remove('hidden');
-            } else {
-                ui.showResultsBtn.classList.remove('hidden');
-            }
-
-            renderMath();
-        };
-
-        if (q.selected !== undefined) {
-            if (idx === q.correct) {
-                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-green-500 dark:border-green-600 bg-gradient-to-r from-green-50 to-green-100 dark:from-green-950/20 dark:to-green-950/40 text-green-800 dark:text-green-300 font-bold whitespace-normal break-words';
-                btn.textContent = '✅ ' + opt;
-            } else if (idx === q.selected) {
-                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-red-500 dark:border-red-600 bg-gradient-to-r from-red-50 to-red-100 dark:from-red-950/20 dark:to-red-950/40 text-red-800 dark:text-red-300 font-bold line-through whitespace-normal break-words';
-                btn.textContent = '❌ ' + opt;
-            } else {
-                btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-400 opacity-50 whitespace-normal break-words';
-            }
-        }
-        ui.optionsContainer.appendChild(btn);
-    });
+            ui.optionsContainer.appendChild(btn);
+        });
+    }
 
     if (q.selected !== undefined && q.explanation) {
         ui.explanationBox.innerHTML = `<div class="flex items-start gap-2.5">
@@ -640,10 +698,26 @@ function showQuizResults() {
     if (currentTopic.id === 'quick_review') {
         ui.statusBtns.classList.add('hidden');
         ui.quizDoneBtn.classList.remove('hidden');
+        ui.reviewAnswersBtn.classList.remove('hidden');
     } else {
         ui.statusBtns.classList.remove('hidden');
         ui.quizDoneBtn.classList.add('hidden');
+        ui.reviewAnswersBtn.classList.add('hidden');
     }
+}
+
+function reviewAnswers() {
+    currentQuestionIndex = 0;
+    document.getElementById('quiz-content').classList.remove('hidden');
+    ui.quizResults.classList.add('hidden');
+    ui.quizProgress.classList.remove('hidden');
+    if (ui.progressContainer) {
+        ui.progressContainer.classList.remove('hidden');
+    }
+    ui.showResultsBtn.classList.add('hidden');
+    ui.reviewAnswersBtn.classList.add('hidden');
+    ui.quizDoneBtn.classList.add('hidden');
+    renderQuestion();
 }
 
 // Event Listeners
@@ -663,15 +737,37 @@ ui.btnChua.addEventListener('click', () => updateStatus('chua_nam_vung'));
 ui.btnNam.addEventListener('click', () => updateStatus('da_nam_vung'));
 ui.forceRefreshBtn.addEventListener('click', () => {
     if (currentTopic) {
-        startQuiz(currentTopic, true);
+        startQuiz(currentTopic, true, currentNumQuestions);
     }
 });
 ui.closeQuizBtn.addEventListener('click', () => showView('topics'));
 ui.showResultsBtn.addEventListener('click', showQuizResults);
+ui.reviewAnswersBtn.addEventListener('click', reviewAnswers);
 
-ui.searchInput.addEventListener('input', filterAndRenderTopics);
+ui.searchInput.addEventListener('input', () => {
+    if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(filterAndRenderTopics, 250);
+});
 ui.courseFilter.addEventListener('change', filterAndRenderTopics);
 ui.quickReviewBtn.addEventListener('click', () => startQuickReview());
+
+// Question count +/-
+if (ui.nqDecrease) {
+    ui.nqDecrease.addEventListener('click', () => {
+        if (currentNumQuestions > MIN_QUESTIONS) {
+            currentNumQuestions = Math.max(MIN_QUESTIONS, currentNumQuestions - 10);
+            ui.nqValue.textContent = currentNumQuestions;
+        }
+    });
+}
+if (ui.nqIncrease) {
+    ui.nqIncrease.addEventListener('click', () => {
+        if (currentNumQuestions < MAX_QUESTIONS) {
+            currentNumQuestions = Math.min(MAX_QUESTIONS, currentNumQuestions + 10);
+            ui.nqValue.textContent = currentNumQuestions;
+        }
+    });
+}
 ui.quizDoneBtn.addEventListener('click', () => showView('topics'));
 ui.refreshCandidatesBtn.addEventListener('click', () => fetchTopics(true));
 

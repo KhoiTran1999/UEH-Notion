@@ -39,12 +39,25 @@ Trạng thái: 🔴 Cần xem lại
         message_parts.append(header_msg)
         
         for q in quiz_data['questions']:
-            q_text = f"🎯 {q['question']}"
+            question_text = q.get('q', q.get('question', 'No question'))
+            q_text = f"🎯 {question_text}"
+
+            options = q.get('options', [])
+            options_text = "\n".join(options)
+            if options_text:
+                q_text += f"\n{options_text}"
+
             message_parts.append(q_text)
-            
-            if q['answer']:
-                ans_text = f"<tg-spoiler>{q['answer']}"
+
+            correct_idx = q.get('correct', None)
+            if correct_idx is not None and correct_idx < len(options):
+                correct_answer = options[correct_idx]
+                ans_text = f"<tg-spoiler>✅ {correct_answer}</tg-spoiler>"
                 message_parts.append(ans_text)
+
+            if q.get('explanation'):
+                expl_text = f"<tg-spoiler>💡 {q['explanation']}</tg-spoiler>"
+                message_parts.append(expl_text)
                 
         footer = """
 ---
@@ -72,7 +85,7 @@ Trạng thái: 🔴 Cần xem lại
             "inline_keyboard": [
                 [
                     {"text": "🟢 Đã nắm vững", "callback_data": f"/mastered_{short_id}"},
-                    {"text": "🔴 Chưa nắm vững", "callback_data": f"/review_{short_id}"}
+                    {"text": "🔴 Cần xem lại", "callback_data": f"/review_{short_id}"}
                 ]
             ]
         }

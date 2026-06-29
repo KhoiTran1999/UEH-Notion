@@ -294,7 +294,7 @@ def clean_json_string(json_str):
         return '"' + "".join(fixed) + '"'
     return pattern.sub(replace_string, json_str)
 
-def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
+def generate_quiz(topic_id, force_refresh=False, progress_callback=None, num_questions=10):
     """Fetch content from Notion, call AI to generate quiz, parse into JSON/Dict format."""
     notion = NotionService()
     ai = AIService()
@@ -322,6 +322,39 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
                     return json.loads(cached)
         except Exception as e:
             logger.warning(f"Redis cache check failed: {e}")
+
+    # Acquire Redis lock to prevent concurrent generation for same topic
+    import uuid as uuid_lib
+    lock_key = f"quiz_lock_{topic_id}"
+    lock_token = str(uuid_lib.uuid4())
+    lock_acquired = False
+    try:
+        from src.config.settings import Config
+        redis_url = Config.REDIS_URL
+        if redis_url:
+            r = redis.from_url(redis_url)
+            lock_acquired = r.set(lock_key, lock_token, nx=True, ex=120)
+            if not lock_acquired:
+                logger.info(f"⏳ Quiz generation already in progress for {topic_id}, waiting...")
+                if progress_callback:
+                    progress_callback("checking_cache", 10, "⏳ Đợi lượt tạo câu hỏi trước đó...")
+                # Poll until lock released or timeout
+                import time as time_mod
+                waited = 0
+                while waited < 60:
+                    time_mod.sleep(2)
+                    waited += 2
+                    cached = r.get(f"quiz_{topic_id}")
+                    if cached:
+                        logger.info(f"✅ Found cached quiz after waiting for {topic_id}")
+                        if progress_callback:
+                            progress_callback("parsing_quiz", 100, "✨ Đã tải trắc nghiệm thành công!")
+                        return json.loads(cached)
+                    if not r.get(lock_key):
+                        break
+                lock_acquired = r.set(lock_key, lock_token, nx=True, ex=120)
+    except Exception as e:
+        logger.warning(f"Redis lock acquire failed (non-fatal): {e}")
 
     # 1. Fetch content
     content_lines = notion.fetch_page_content(topic_id, progress_callback=progress_callback)
@@ -354,9 +387,19 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
     if progress_callback:
         progress_callback("calling_ai", 45, "🧠 Đang gửi nội dung bài học tới AI...")
 
-    raw_content = ai.generate_quiz(full_content)
+    raw_content = ai.generate_quiz(full_content, num_questions=num_questions)
 
-    # 3. Parse into structured Dict format
+    # 3. Review and self-correct quiz
+    if progress_callback:
+        progress_callback("reviewing_quiz", 75, "🔍 AI đang tự động đánh giá và chuẩn hóa câu hỏi...")
+
+    try:
+        reviewed_content = ai.review_quiz(raw_content, full_content, num_questions=num_questions)
+    except Exception as e:
+        logger.error(f"❌ Failed to review/self-correct quiz: {e}")
+        reviewed_content = raw_content
+
+    # 4. Parse into structured Dict format
     if progress_callback:
         progress_callback("parsing_quiz", 95, "✨ Đang kiểm tra cấu trúc câu hỏi...")
 
@@ -365,25 +408,25 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
     import re
     import json
 
-    match = re.search(r'\[\s*\{.*\}\s*\]', raw_content, re.DOTALL)
+    match = re.search(r'\[\s*\{.*\}\s*\]', reviewed_content, re.DOTALL)
     if match:
         try:
             questions = json.loads(clean_json_string(match.group(0)))
         except Exception as e:
             logger.error(f"Failed to parse JSON quiz: {e}")
             questions = [{
-                "q": "Error generating quiz",
-                "options": ["A. Error"],
+                "q": "Lỗi tạo câu hỏi trắc nghiệm",
+                "options": ["A. Lỗi hệ thống"],
                 "correct": 0,
-                "explanation": "Could not parse AI response"
+                "explanation": "Không thể phân tích cú pháp phản hồi từ AI"
             }]
     else:
         logger.error("No JSON array found in AI response")
         questions = [{
-            "q": "Error generating quiz",
-            "options": ["A. Error"],
+            "q": "Lỗi tạo câu hỏi trắc nghiệm",
+            "options": ["A. Lỗi hệ thống"],
             "correct": 0,
-            "explanation": "No JSON array found in AI response"
+            "explanation": "Không tìm thấy mảng JSON hợp lệ từ phản hồi AI"
         }]
 
     result = {
@@ -405,9 +448,217 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
     except Exception as e:
         logger.warning(f"Redis cache save failed: {e}")
 
+    # Release the generation lock
+    if lock_acquired:
+        try:
+            r = redis.from_url(Config.REDIS_URL)
+            pipe = r.pipeline()
+            pipe.watch(lock_key)
+            if pipe.get(lock_key) == lock_token.encode():
+                pipe.delete(lock_key)
+            pipe.unwatch()
+        except Exception as e:
+            logger.warning(f"Failed to release quiz lock: {e}")
+
+BATCH_SIZE = 10
+
+
+def _normalize_question_text(text):
+    """Normalize question text for duplicate detection."""
+    import re as _re
+    t = text.lower().strip()
+    t = _re.sub(r'\s+', ' ', t)
+    t = _re.sub(r'[^\w\s]', '', t)
+    return t
+
+
+def _deduplicate_questions(questions):
+    """Remove near-duplicate questions using dedup set on normalized text."""
+    kept_norms = set()
+    filtered = []
+    for q in questions:
+        norm = _normalize_question_text(q.get("q", q.get("question", "")))
+        if norm and norm not in kept_norms:
+            kept_norms.add(norm)
+            filtered.append(q)
+    return filtered
+
+
+def generate_quiz_batched(topic_id, force_refresh=False, progress_callback=None, num_questions=10):
+    """Generate quiz in parallel batches, deduplicate, and final-review."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import math
+    import json
+    import random
+
+    notion = NotionService()
+    ai = AIService()
+
+    if progress_callback:
+        progress_callback("checking_cache", 5, "🔍 Đang kiểm tra bộ nhớ đệm...")
+
+    if not force_refresh:
+        try:
+            from src.config.settings import Config
+            import redis
+            redis_url = Config.REDIS_URL
+            if redis_url:
+                r = redis.from_url(redis_url)
+                cache_key = f"quiz_batched_{topic_id}_{num_questions}"
+                cached = r.get(cache_key)
+                if cached:
+                    logger.info(f"Using cached batched quiz for topic {topic_id} ({num_questions} questions)")
+                    if progress_callback:
+                        progress_callback("parsing_quiz", 100, "✨ Đã tải trắc nghiệm thành công!")
+                    return json.loads(cached)
+        except Exception as e:
+            logger.warning(f"Redis batch cache check failed: {e}")
+
+    if progress_callback:
+        progress_callback("page_info", 10, "📖 Đang đồng bộ thông tin bài học...")
+
+    content_lines = notion.fetch_page_content(topic_id, progress_callback=progress_callback)
+    full_content = "\n".join(content_lines)
+
+    if not full_content.strip():
+        return None
+
+    note_url = f"https://notion.so/{topic_id.replace('-', '')}"
+    note_title = "Bài học đã chọn"
+    try:
+        page_info = notion.retrieve_page(topic_id)
+        if page_info and page_info.get("url"):
+            note_url = page_info["url"]
+        props = page_info.get("properties", {}) if page_info else {}
+        for key, val in props.items():
+            if val.get("type") == "title" and val["title"]:
+                note_title = val["title"][0]["plain_text"]
+                break
+    except Exception as e:
+        logger.warning(f"Could not fetch full page info for title: {e}")
+
+    num_batches = math.ceil(num_questions / BATCH_SIZE)
+    batch_sizes = []
+    remaining = num_questions
+    for _ in range(num_batches):
+        batch_sz = min(BATCH_SIZE, remaining)
+        batch_sizes.append(batch_sz)
+        remaining -= batch_sz
+
+    logger.info(f"📦 Splitting {num_questions} questions into {num_batches} batches: {batch_sizes}")
+
+    all_questions = []
+    batch_results = [None] * num_batches
+
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        future_map = {}
+
+        for batch_idx, batch_sz in enumerate(batch_sizes):
+            def make_task(idx, sz):
+                def task():
+                    try:
+                        if progress_callback:
+                            pct_start = 15 + int((idx / num_batches) * 70)
+                            progress_callback(f"batch_{idx}", pct_start, f"🧠 AI batch {idx+1}/{num_batches} đang biên soạn {sz} câu hỏi...")
+
+                        raw = ai.generate_quiz_batch(full_content, num_questions=sz, batch_index=idx)
+                        if raw.startswith("Error:"):
+                            raise Exception(raw)
+
+                        if progress_callback:
+                            pct_mid = 15 + int(((idx + 0.5) / num_batches) * 70)
+                            progress_callback(f"batch_{idx}_review", pct_mid, f"🔍 AI batch {idx+1}/{num_batches} đang đánh giá...")
+
+                        reviewed = ai.review_quiz(raw, full_content, num_questions=sz)
+                        if reviewed.startswith("Error:"):
+                            raise Exception(reviewed)
+
+                        import re as re_mod
+                        match = re_mod.search(r'\[\s*\{.*\}\s*\]', reviewed, re_mod.DOTALL)
+                        if match:
+                            questions = json.loads(clean_json_string(match.group(0)))
+                            return questions
+                        else:
+                            raise Exception("No JSON array found in AI response")
+                    except Exception as e:
+                        logger.error(f"❌ Batch {idx+1} failed: {e}")
+                        raise
+                return task
+
+            future = executor.submit(make_task(batch_idx, batch_sz))
+            future_map[future] = batch_idx
+
+        for future in as_completed(future_map):
+            batch_idx = future_map[future]
+            try:
+                questions = future.result()
+                batch_results[batch_idx] = questions
+                logger.info(f"✅ Batch {batch_idx+1}/{num_batches} completed with {len(questions)} questions")
+            except Exception as e:
+                logger.error(f"❌ Batch {batch_idx+1}/{num_batches} failed after retry: {e}")
+
+    for batch_result in batch_results:
+        if batch_result:
+            all_questions.extend(batch_result)
+
+    if not all_questions:
+        logger.error("❌ All batches failed to generate questions")
+        return None
+
+    logger.info(f"📊 Total questions before dedup: {len(all_questions)}")
+
+    all_questions = _deduplicate_questions(all_questions)
+    logger.info(f"📊 Total questions after dedup: {len(all_questions)}")
+
+    if len(all_questions) > num_questions:
+        random.shuffle(all_questions)
+        all_questions = all_questions[:num_questions]
+
+    if progress_callback:
+        progress_callback("final_review", 90, "🔍 AI đang kiểm tra tổng thể và chuẩn hóa câu hỏi...")
+
+    try:
+        questions_json_str = json.dumps(all_questions, ensure_ascii=False)
+        reviewed = ai.final_review_quiz(questions_json_str, full_content)
+        if reviewed and not reviewed.startswith("Error:"):
+            import re as re_mod
+            match = re_mod.search(r'\[\s*\{.*\}\s*\]', reviewed, re_mod.DOTALL)
+            if match:
+                all_questions = json.loads(clean_json_string(match.group(0)))
+                logger.info(f"✅ Final review completed: {len(all_questions)} questions")
+    except Exception as e:
+        logger.warning(f"⚠️ Final review failed (using merged results): {e}")
+
+    random.shuffle(all_questions)
+
+    result = {
+        "id": topic_id,
+        "title": note_title,
+        "url": note_url,
+        "questions": all_questions
+    }
+
+    try:
+        from src.config.settings import Config
+        import redis
+        redis_url = Config.REDIS_URL
+        if redis_url:
+            r = redis.from_url(redis_url)
+            cache_key = f"quiz_batched_{topic_id}_{num_questions}"
+            r.setex(cache_key, 1209600, json.dumps(result))
+            logger.info(f"Saved batched quiz to cache: {cache_key}")
+    except Exception as e:
+        logger.warning(f"Redis batch cache save failed: {e}")
+
+    if progress_callback:
+        progress_callback("done", 100, f"✨ Đã tạo xong {len(all_questions)} câu hỏi trắc nghiệm!")
+
     return result
 
-def generate_quiz_stream(topic_id, force_refresh=False):
+def generate_quiz_stream(topic_id, force_refresh=False, num_questions=10):
+    # Route to batched generator for large question counts
+    if num_questions > BATCH_SIZE:
+        return _batched_stream_wrapper(topic_id, force_refresh, num_questions)
     """Generate quiz with progress callbacks and yield progress updates as JSON lines."""
     import queue
     import threading
@@ -425,7 +676,42 @@ def generate_quiz_stream(topic_id, force_refresh=False):
 
     def worker():
         try:
-            res = generate_quiz(topic_id, force_refresh=force_refresh, progress_callback=callback)
+            res = generate_quiz(topic_id, force_refresh=force_refresh, progress_callback=callback, num_questions=num_questions)
+            if res:
+                q.put({"type": "result", "data": res})
+            else:
+                q.put({"type": "error", "message": "Topic not found or content empty"})
+        except Exception as e:
+            q.put({"type": "error", "message": str(e)})
+
+    t = threading.Thread(target=worker)
+    t.start()
+
+    while True:
+        item = q.get()
+        yield json.dumps(item, ensure_ascii=False) + "\n"
+        if item["type"] in ["result", "error"]:
+            break
+
+def _batched_stream_wrapper(topic_id, force_refresh=False, num_questions=10):
+    """Wrapper that runs generate_quiz_batched and yields JSON lines."""
+    import queue
+    import threading
+    import json
+
+    q = queue.Queue()
+
+    def callback(status, percentage, details):
+        q.put({
+            "type": "progress",
+            "status": status,
+            "percentage": percentage,
+            "details": details
+        })
+
+    def worker():
+        try:
+            res = generate_quiz_batched(topic_id, force_refresh=force_refresh, progress_callback=callback, num_questions=num_questions)
             if res:
                 q.put({"type": "result", "data": res})
             else:
@@ -457,7 +743,7 @@ def update_status(topic_id, status=None):
         if status:
              status_map = {
                  "da_nam_vung": "🟢 Đã nắm vững",
-                 "chua_nam_vung": "🔴 Chưa nắm vững"
+                 "chua_nam_vung": "🔴 Cần xem lại"
              }
              if status in status_map:
                  logger.info(f"🏷 Updating Độ hiểu bài to: {status_map[status]}")
@@ -517,3 +803,4 @@ def generate_quick_review():
         "title": "Ôn tập tổng hợp",
         "questions": selected_questions
     }
+

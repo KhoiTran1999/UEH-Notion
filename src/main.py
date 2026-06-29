@@ -36,7 +36,7 @@ def main():
         elif args.job == "mark-mastered":
             run_update_study_status(topic_id=args.topic_id, status="🟢 Đã nắm vững")
         elif args.job == "mark-review":
-            run_update_study_status(topic_id=args.topic_id, status="🔴 Chưa nắm vững")
+            run_update_study_status(topic_id=args.topic_id, status="🔴 Cần xem lại")
     else:
         parser.print_help()
 
