@@ -51,6 +51,7 @@ const ui = {
     reviewAnswersBtn: document.getElementById('review-answers-btn'),
     dotContainer: document.getElementById('quiz-dot-container'),
     copyQuestionBtn: document.getElementById('copy-question-btn'),
+    nqValue: document.getElementById('nq-value'),
     nqDecrease: document.getElementById('nq-decrease'),
     nqIncrease: document.getElementById('nq-increase'),
 };
