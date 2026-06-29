@@ -281,14 +281,14 @@ class AIService:
         # Voice script generation is a simple text rewriting job - run it directly on MODEL_WORKER
         return self.generate_content(final_prompt, model=Config.MODEL_WORKER)
 
-    def generate_quiz(self, content, num_questions=15):
+    def generate_quiz(self, content):
         """Generates quiz questions from review notes using Notion prompt."""
         if not content: return "Nội dung trống."
 
         prompt_data = self.prompt_service.get_prompt("UEH-Notion", "study_assistant")
 
         if not prompt_data:
-            system_prompt = f"Bạn là một Chuyên gia Giáo dục và Trợ lý Học tập Thông minh. Hãy tạo chính xác {num_questions} câu hỏi trắc nghiệm từ nội dung bên dưới."
+            system_prompt = f"Bạn là một Chuyên gia Giáo dục và Trợ lý Học tập Thông minh. Hãy tạo chính xác 15 câu hỏi trắc nghiệm từ nội dung bên dưới."
             user_template = "--- NỘI DUNG GHI CHÉP ---\n{content}\n-------------------------"
             logger.warning("⚠️ Using fallback prompt for generate_quiz")
         else:
@@ -297,7 +297,7 @@ class AIService:
 
         additional_instructions = f"""
         QUAN TRỌNG VỀ SỐ LƯỢNG:
-        - Phải tạo chính xác {num_questions} câu hỏi trắc nghiệm.
+        - Phải tạo chính xác 15 câu hỏi trắc nghiệm.
 
         QUAN TRỌNG VỀ ĐỊNH DẠNG TOÁN HỌC:
         1. SỬ DỤNG định dạng LaTeX (kẹp giữa ký tự $ cho công thức cùng dòng và $$ cho công thức nằm riêng dòng) để viết các công thức toán học, tài chính, thống kê, ma trận phức tạp.
@@ -316,7 +316,7 @@ class AIService:
 
         return self.run_agent(system_prompt=agent_system_prompt, user_prompt=user_prompt, model=Config.MODEL_BRAIN)
 
-    def review_quiz(self, raw_quiz, content, num_questions=15):
+    def review_quiz(self, raw_quiz, content):
         """Reviews and self-corrects the generated quiz using Notion prompt or a robust fallback."""
         if not raw_quiz or not content: return raw_quiz
 
@@ -325,7 +325,7 @@ class AIService:
         if not prompt_data:
             system_prompt = f"""Bạn là một Chuyên gia Giáo dục và Trợ lý Kiểm định Chất lượng Học tập. Nhiệm vụ của bạn là nhận vào nội dung bài học gốc (ghi chép) và danh sách câu hỏi trắc nghiệm đã được sinh ra từ nội dung này.
 Hãy thực hiện kiểm tra kỹ lượng danh sách câu hỏi này theo các tiêu chuẩn nghiêm ngặt sau:
-1. Số lượng câu hỏi: Phải đủ chính xác {num_questions} câu hỏi trắc nghiệm. Nếu thiếu hoặc thừa, hãy điều chỉnh để có đúng {num_questions} câu.
+1. Số lượng câu hỏi: Phải đủ chính xác 15 câu hỏi trắc nghiệm. Nếu thiếu hoặc thừa, hãy điều chỉnh để có đúng 15 câu.
 2. Sự chính xác và phù hợp: Tất cả các câu hỏi phải dựa trên thực tế từ nội dung ghi chép, không được tự bịa ra thông tin không có trong tài liệu.
 3. Chất lượng câu hỏi: Câu hỏi phải rõ ràng, phân biệt được độ khó, không mập mờ, không bị lỗi hành văn, lỗi dịch thuật hay lỗi logic. Các đáp án sai phải là các đáp án nhiễu hợp lý (distractors), không được quá ngớ ngẩn. Chỉ có duy nhất một đáp án đúng.
 4. Định dạng Toán học & Công thức:
@@ -355,7 +355,7 @@ Hãy thực hiện kiểm tra kỹ lượng danh sách câu hỏi này theo các
 {raw_quiz}
 -------------------------------------------------------
 
-Hãy đánh giá, chỉnh sửa, bổ sung và xuất ra danh sách {num_questions} câu hỏi trắc nghiệm đã được chuẩn hóa và sửa lỗi hoàn toàn dưới dạng mảng JSON duy nhất."""
+Hãy đánh giá, chỉnh sửa, bổ sung và xuất ra danh sách 15 câu hỏi trắc nghiệm đã được chuẩn hóa và sửa lỗi hoàn toàn dưới dạng mảng JSON duy nhất."""
             model = Config.MODEL_WORKER
             logger.warning("⚠️ Using fallback prompt for review_quiz")
         else:
@@ -366,7 +366,6 @@ Hãy đánh giá, chỉnh sửa, bổ sung và xuất ra danh sách {num_questio
         final_prompt = f"{user_template}\n\n{system_prompt}"
         final_prompt = final_prompt.replace("{content}", content)
         final_prompt = final_prompt.replace("{raw_quiz}", raw_quiz)
-        final_prompt = final_prompt.replace("{num_questions}", str(num_questions))
 
         return self.generate_content(final_prompt, model=model)
 

@@ -294,7 +294,7 @@ def clean_json_string(json_str):
         return '"' + "".join(fixed) + '"'
     return pattern.sub(replace_string, json_str)
 
-def generate_quiz(topic_id, force_refresh=False, progress_callback=None, num_questions=15):
+def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
     """Fetch content from Notion, call AI to generate quiz, parse into JSON/Dict format."""
     notion = NotionService()
     ai = AIService()
@@ -387,14 +387,14 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None, num_que
     if progress_callback:
         progress_callback("calling_ai", 45, "🧠 Đang gửi nội dung bài học tới AI...")
 
-    raw_content = ai.generate_quiz(full_content, num_questions=num_questions)
+    raw_content = ai.generate_quiz(full_content)
 
     # 3. Review and self-correct quiz
     if progress_callback:
         progress_callback("reviewing_quiz", 75, "🔍 AI đang tự động đánh giá và chuẩn hóa câu hỏi...")
 
     try:
-        reviewed_content = ai.review_quiz(raw_content, full_content, num_questions=num_questions)
+        reviewed_content = ai.review_quiz(raw_content, full_content)
     except Exception as e:
         logger.error(f"❌ Failed to review/self-correct quiz: {e}")
         reviewed_content = raw_content
@@ -460,7 +460,7 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None, num_que
         except Exception as e:
             logger.warning(f"Failed to release quiz lock: {e}")
 
-def generate_quiz_stream(topic_id, force_refresh=False, num_questions=15):
+def generate_quiz_stream(topic_id, force_refresh=False):
     """Generate quiz with progress callbacks and yield progress updates as JSON lines."""
     import queue
     import threading
@@ -478,7 +478,7 @@ def generate_quiz_stream(topic_id, force_refresh=False, num_questions=15):
 
     def worker():
         try:
-            res = generate_quiz(topic_id, force_refresh=force_refresh, progress_callback=callback, num_questions=num_questions)
+            res = generate_quiz(topic_id, force_refresh=force_refresh, progress_callback=callback)
             if res:
                 q.put({"type": "result", "data": res})
             else:
