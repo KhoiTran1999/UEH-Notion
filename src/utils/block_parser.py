@@ -32,8 +32,8 @@ def parse_rich_text(rich_text):
                 d = mention.get("date", {}).get("start")
                 if d:
                     dates.append(d)
-                # DO NOT add date text to clean_parts to keep output concise
                 parts.append(t)
+                clean_parts.append(t)  # Keep date text for AI to parse
             else:
                 parts.append(t)
                 clean_parts.append(t)

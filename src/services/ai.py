@@ -263,6 +263,57 @@ class AIService:
 
         return self.run_agent(system_prompt=agent_system_prompt, user_prompt=user_prompt, model=Config.MODEL_BRAIN)
 
+    def summarize_timeline(self, timeline_data, is_raw_text=False):
+        """Use MODEL_BRAIN to summarize timeline blocks or raw text into an intelligent overview.
+
+        Args:
+            timeline_data: text string or list of block dicts
+            is_raw_text: If True, timeline_data is already a raw text string, not structured dicts.
+        """
+        if not timeline_data:
+            return "📭 Không có dữ liệu timeline để tổng hợp."
+
+        prompt_data = self.prompt_service.get_prompt("UEH-Notion", "timeline_summary")
+
+        if not prompt_data:
+            system_prompt = (
+                "Bạn là trợ lý học tập thông minh tại UEH. Nhiệm vụ của bạn là nhìn vào dữ liệu nhiệm vụ (tasks) "
+                "và đưa ra một bản tổng quan có cấu trúc, giúp sinh viên dễ dàng hình dung "
+                "khối lượng công việc và thứ tự ưu tiên.\n\n"
+                "Mỗi task có một tên và các block nội dung bên dưới. Trong các block có thể có @date mentions "
+                "(dạng YYYY-MM-DDTHH:MM:SS) hoặc text ngày tháng tự nhiên.\n"
+                "Hãy phân tích:\n"
+                "1. Liệt kê các deadline tìm được trong nội dung, xác định ngày và giờ cụ thể\n"
+                "2. Sắp xếp các công việc theo thứ tự thời gian từ sớm đến muộn\n"
+                "3. Nếu một dòng có nhiều deadline (vd: làm bài ngày X, nộp bài ngày Y) thì tách riêng ra\n"
+                "4. Nhóm theo tuần và đánh giá mức độ khẩn cấp\n"
+                "5. Đưa ra lời khuyên về thứ tự ưu tiên\n\n"
+                "Trả lời bằng tiếng Việt, định dạng Markdown rõ ràng, dùng emoji phù hợp."
+            )
+            user_template = "Dữ liệu tasks:\n\n{timeline_str}\n\n---\nHãy phân tích deadline và tổng hợp."
+        else:
+            system_prompt = prompt_data["system_prompt"]
+            user_template = prompt_data["user_template"]
+
+        if is_raw_text:
+            timeline_str = str(timeline_data)
+        elif isinstance(timeline_data, list):
+            timeline_str = "\n".join(
+                f"- {item.get('deadline', 'Không hạn')}: {item.get('clean_text', '')} ({item.get('task_name', '')})"
+                for item in timeline_data
+            )
+        else:
+            timeline_str = str(timeline_data)
+
+        max_chars = 12000
+        if len(timeline_str) > max_chars:
+            timeline_str = timeline_str[-max_chars:]
+
+        user_prompt = user_template.replace("{timeline_str}", timeline_str)
+        user_prompt = user_prompt.replace("{time}", self._get_vn_time())
+
+        return self.run_agent(system_prompt=system_prompt, user_prompt=user_prompt, model=Config.MODEL_BRAIN)
+
     def generate_voice_script(self, original_text):
         """Rewrites text for voice generation using Notion prompt."""
         prompt_data = self.prompt_service.get_prompt("UEH-Notion", "voice_script")

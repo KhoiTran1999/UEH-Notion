@@ -1,6 +1,5 @@
-"""Timeline service: fetch In Progress tasks, parse content, flatten all deadline blocks, sort chronologically, and append task name suffix. Handles duplicate deadlines on same day."""
+"""Timeline service: fetch In Progress tasks, parse content, send raw blocks to AI for intelligent analysis."""
 import httpx
-import re
 from datetime import datetime
 from src.config.settings import Config
 from src.utils.logger import logger
@@ -20,7 +19,7 @@ def _get_source_id(client, container_id):
 
 
 def fetch_in_progress_tasks():
-    """Return sorted list of In Progress tasks."""
+    """Return list of In Progress tasks."""
     container_id = Config.NOTION_DB_TASK
     if not container_id:
         return []
@@ -58,31 +57,16 @@ def fetch_in_progress_tasks():
         return tasks
 
 
-def _escape_telegram_markdown(text):
-    if not text:
-        return text
-    text = text.replace('*', '＊').replace('_', '＿').replace('`', '‵').replace('[', '［')
-    return text
-
-
-def normalize_date(d_str):
-    """Normalize date strings like YYYY-MM-DDTHH:MM:SS to YYYY-MM-DD."""
-    if d_str and len(d_str) >= 10:
-        if re.match(r'^\d{4}-\d{2}-\d{2}', d_str):
-            return d_str[:10]
-    return d_str
-
-
 def get_timeline_summary():
-    """Fetch tasks, parse content, flatten all deadline blocks, sort, and format (deduplicating same-day tasks)."""
+    """Fetch tasks, gather raw non-completed blocks, send to AI for analysis."""
     from src.utils.block_parser import fetch_blocks_recursive, parse_block
 
     tasks = fetch_in_progress_tasks()
     if not tasks:
         return "📭 Không có task nào đang thực hiện."
 
-    # Fetch + parse all task content
-    all_deadline_blocks = []
+    # Gather raw blocks per task
+    task_texts = []
     with httpx.Client(timeout=60.0) as client:
         headers = {
             "Authorization": f"Bearer {Config.NOTION_TOKEN}",
@@ -90,72 +74,28 @@ def get_timeline_summary():
         }
         for task in tasks:
             raw = fetch_blocks_recursive(client, headers, task["page_id"])
+            lines = []
             for item in raw:
                 pb = parse_block(item["block"])
                 if pb and not pb["completed"]:
-                    # Extract raw dates
-                    block_dates = pb.get("dates", [])
-                    if not block_dates and pb.get("deadline"):
-                        block_dates = [pb["deadline"]]
+                    text = pb.get("clean_text", "").strip()
+                    if text:
+                        lines.append(text)
+            if lines:
+                task_texts.append({
+                    "task_name": task["name"],
+                    "blocks": lines
+                })
 
-                    # Normalize and keep unique dates for this block
-                    unique_dates = sorted(list(set(normalize_date(d) for d in block_dates if d)))
+    if not task_texts:
+        return "📭 Không có task nào có nội dung."
 
-                    for d in unique_dates:
-                        block_copy = dict(pb)
-                        block_copy["deadline"] = d
-                        block_copy["task_name"] = task["name"]
-                        all_deadline_blocks.append(block_copy)
+    # Send to AI for full analysis
+    raw_data = "\n\n".join(
+        f"## {t['task_name']}\n" + "\n".join(f"- {b}" for b in t["blocks"])
+        for t in task_texts
+    )
 
-    if not all_deadline_blocks:
-        return "📭 Không có task nào có deadline."
+    ai_summary = AIService().summarize_timeline(raw_data, is_raw_text=True)
 
-    # Sort all blocks by normalized deadline date ascending
-    all_deadline_blocks.sort(key=lambda b: b["deadline"])
-
-    # Group by deadline date
-    grouped_by_date = {}
-    for pb in all_deadline_blocks:
-        date_key = pb["deadline"]
-        grouped_by_date.setdefault(date_key, []).append(pb)
-
-    # Build Telegram message
-    lines = ["📅 *TIMELINE — Deadline hiện có*\n"]
-
-    for date_key in sorted(grouped_by_date.keys()):
-        try:
-            dt = datetime.fromisoformat(date_key)
-            label = dt.strftime("%d/%m")
-            lines.append(f"📅 *{label}*:")
-        except:
-            lines.append(f"📅 *{date_key}*:")
-
-        # Deduplicate tasks in the same date group by (clean_text, task_name)
-        seen_tasks = set()
-        for pb in grouped_by_date[date_key]:
-            clean_text = pb["clean_text"].strip()
-            if clean_text.startswith("• "):
-                clean_text = clean_text[2:]
-            elif clean_text.startswith("1. "):
-                clean_text = clean_text[3:]
-            elif clean_text.startswith("☐ "):
-                clean_text = clean_text[2:]
-
-            task_name = pb["task_name"]
-            unique_key = (clean_text, task_name)
-
-            if unique_key in seen_tasks:
-                continue
-            seen_tasks.add(unique_key)
-
-            clean_text_esc = _escape_telegram_markdown(clean_text)
-            task_suffix = f" - *{_escape_telegram_markdown(task_name)}*"
-
-            lines.append(f"  • {clean_text_esc}{task_suffix}")
-
-        lines.append("")
-
-    # Get AI summary via MODEL_BRAIN
-    ai_summary = AIService().summarize_timeline(all_deadline_blocks)
-
-    return "\n".join(lines).strip() + "\n\n---\n" + ai_summary
+    return ai_summary
