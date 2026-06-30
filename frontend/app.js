@@ -367,6 +367,11 @@ async function updateStatus(status) {
         const timestamp = new Date().toLocaleString('vi-VN');
         const statusText = status === 'chua_nam_vung' ? '🔴 Cần xem lại' : '🟢 Đã nắm vững';
         document.getElementById('completion-feedback').textContent = `Kết quả "${statusText}" đã ghi nhận lúc ${timestamp}.`;
+
+        // Try to close the web app if supported
+        try {
+            window.Telegram.WebApp.close();
+        } catch (e) {
             // ignore if close not supported
         }
     } catch (error) {
