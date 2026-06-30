@@ -264,7 +264,7 @@ class AIService:
         return self.run_agent(system_prompt=agent_system_prompt, user_prompt=user_prompt, model=Config.MODEL_BRAIN)
 
     def summarize_timeline(self, timeline_data, is_raw_text=False):
-        """Use MODEL_BRAIN to summarize timeline blocks or raw text into an intelligent overview.
+        """Analyze timeline / raw text => structured deadline overview.
 
         Args:
             timeline_data: text string or list of block dicts
@@ -273,27 +273,46 @@ class AIService:
         if not timeline_data:
             return "📭 Không có dữ liệu timeline để tổng hợp."
 
+        vn_time = self._get_vn_time()
+
         prompt_data = self.prompt_service.get_prompt("UEH-Notion", "timeline_summary")
 
         if not prompt_data:
             system_prompt = (
-                "Bạn là trợ lý học tập thông minh tại UEH. Nhiệm vụ của bạn là nhìn vào dữ liệu nhiệm vụ (tasks) "
-                "và đưa ra một bản tổng quan có cấu trúc, giúp sinh viên dễ dàng hình dung "
-                "khối lượng công việc và thứ tự ưu tiên.\n\n"
-                "Mỗi task có một tên và các block nội dung bên dưới. Trong các block có thể có @date mentions "
-                "(dạng YYYY-MM-DDTHH:MM:SS) hoặc text ngày tháng tự nhiên.\n"
-                "Hãy phân tích:\n"
-                "1. Liệt kê các deadline tìm được trong nội dung, xác định ngày và giờ cụ thể\n"
-                "2. Sắp xếp các công việc theo thứ tự thời gian từ sớm đến muộn\n"
-                "3. Nếu một dòng có nhiều deadline (vd: làm bài ngày X, nộp bài ngày Y) thì tách riêng ra\n"
-                "4. Nhóm theo tuần và đánh giá mức độ khẩn cấp\n"
-                "5. Đưa ra lời khuyên về thứ tự ưu tiên\n\n"
-                "Trả lời bằng tiếng Việt, định dạng Markdown rõ ràng, dùng emoji phù hợp."
+                "Bạn là trợ lý học tập thông minh tại UEH. Nhiệm vụ: phân tích dữ liệu tasks "
+                "và đưa ra bản tổng quan deadline có cấu trúc.\n\n"
+                "⚠️ Một block nội dung có thể chứa NHIỀU deadline khác nhau.\n"
+                'VD: "Làm BT LMS. @Tomorrow 9:00 AM. Nộp bài LMS @Thursday 9:00 AM"\n'
+                "→ Hãy TÁCH thành 2 việc riêng với deadline tương ứng.\n\n"
+                "📅 Cách xử lý @date:\n"
+                "- @Today = hôm nay, @Tomorrow = ngày mai\n"
+                "- @Monday, @Tuesday... (hoặc @ThứHai, @ThứBa...) = thứ đó trong tuần này "
+                "(nếu chưa qua) hoặc tuần sau\n"
+                "- Suy luận và quy đổi ra ngày tháng cụ thể (dd/mm)\n\n"
+                "Yêu cầu phân tích:\n"
+                "1. Liệt kê từng deadline tìm được, kèm ngày/giờ cụ thể\n"
+                "2. Sắp xếp theo thứ tự thời gian sớm → muộn\n"
+                "3. Một dòng có nhiều deadline → tách riêng từng việc\n"
+                "4. Nhóm theo tuần, đánh giá độ khẩn cấp\n"
+                "5. Gợi ý thứ tự ưu tiên"
             )
-            user_template = "Dữ liệu tasks:\n\n{timeline_str}\n\n---\nHãy phân tích deadline và tổng hợp."
+            user_template = (
+                "Thời gian hiện tại: {time}\n\n"
+                "Dữ liệu tasks:\n{timeline_str}\n\n---\n"
+                "Phân tích deadline và tổng hợp."
+            )
         else:
             system_prompt = prompt_data["system_prompt"]
             user_template = prompt_data["user_template"]
+
+        system_prompt += (
+            "\n\n⚠️ BẮT BUỘC VỀ ĐỊNH DẠNG (CHO TELEGRAM):\n"
+            "- Trả lời bằng tiếng Việt.\n"
+            "- CHỈ SỬ DỤNG HTML cơ bản được hỗ trợ bởi Telegram (<b>in đậm</b>, <i>in nghiêng</i>, <u>gạch chân</u>, <blockquote>trích dẫn</blockquote>).\n"
+            "- TUYỆT ĐỐI KHÔNG dùng Markdown (như **, *, #, ##).\n"
+            "- Để các task dài xuống dòng đẹp và thụt lề chuẩn, hãy đặt nội dung chi tiết của các task bên trong thẻ <blockquote>...</blockquote>.\n"
+            "- Ví dụ: <b>Tuần này:</b>\n<blockquote>• Làm bài tập LMS\n• Ôn thi giữa kỳ</blockquote>"
+        )
 
         if is_raw_text:
             timeline_str = str(timeline_data)
@@ -310,9 +329,10 @@ class AIService:
             timeline_str = timeline_str[-max_chars:]
 
         user_prompt = user_template.replace("{timeline_str}", timeline_str)
-        user_prompt = user_prompt.replace("{time}", self._get_vn_time())
+        user_prompt = user_prompt.replace("{time}", vn_time)
 
-        return self.run_agent(system_prompt=system_prompt, user_prompt=user_prompt, model=Config.MODEL_BRAIN)
+        final_prompt = f"{system_prompt}\n\n{user_prompt}"
+        return self.generate_content(final_prompt, model=Config.MODEL_BRAIN)
 
     def generate_voice_script(self, original_text):
         """Rewrites text for voice generation using Notion prompt."""
