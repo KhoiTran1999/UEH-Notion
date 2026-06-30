@@ -311,7 +311,8 @@ class AIService:
             "- CHỈ SỬ DỤNG HTML cơ bản được hỗ trợ bởi Telegram (<b>in đậm</b>, <i>in nghiêng</i>, <u>gạch chân</u>, <blockquote>trích dẫn</blockquote>).\n"
             "- TUYỆT ĐỐI KHÔNG dùng Markdown (như **, *, #, ##).\n"
             "- Để các task dài xuống dòng đẹp và thụt lề chuẩn, hãy đặt nội dung chi tiết của các task bên trong thẻ <blockquote>...</blockquote>.\n"
-            "- Ví dụ: <b>Tuần này:</b>\n<blockquote>• Làm bài tập LMS\n• Ôn thi giữa kỳ</blockquote>"
+            "- ⚠️ Bắt buộc phải in đậm <b>Tên Môn Học</b> hoặc <b>Tên Task</b> (vd: <b>Lý Thuyết Tài Chính</b>, <b>Kinh Tế Vĩ Mô</b>) để dễ nhìn.\n"
+            "- Ví dụ: <b>Tuần này:</b>\n<blockquote>• <b>Tên Môn Học:</b> Làm bài tập LMS\n• <b>Tên Môn Học:</b> Ôn thi giữa kỳ</blockquote>"
         )
 
         if is_raw_text:
