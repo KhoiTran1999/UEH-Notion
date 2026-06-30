@@ -102,7 +102,7 @@ def send_timeline(chat_id: str):
     telegram = TelegramService()
     try:
         msg = get_timeline_summary()
-        telegram.send_message(msg, parse_mode="Markdown")
+        telegram.send_message(msg, parse_mode="HTML")
     except Exception as e:
         logger.error(f"❌ Timeline send error: {e}")
         telegram.send_message("❌ Không thể tải timeline.")
