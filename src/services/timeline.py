@@ -134,6 +134,18 @@ def get_timeline_summary():
         pending = [p for p in parsed if not p["completed"]]
         completed_count = sum(1 for p in parsed if p["completed"])
 
+        # Group pending blocks by deadline
+        groups = {}
+        for p in pending:
+            dl = p.get("deadline")
+            if dl:
+                groups.setdefault(dl, []).append(p)
+            # Skip blocks with NO deadline entirely per user request
+
+        # If no deadline blocks and no completed blocks, skip the whole task visually
+        if not groups and completed_count == 0:
+            return ""
+
         section = [f"📌 *{_escape_telegram_markdown(task['name'])}*"]
         if diff is not None:
             if diff < 0:
@@ -144,16 +156,6 @@ def get_timeline_summary():
                 section.append(f"  ⏰ Còn {diff} ngày")
         section.append("")
 
-        # Group pending blocks by deadline
-        groups = {}
-        no_dl = []
-        for p in pending:
-            dl = p.get("deadline")
-            if dl:
-                groups.setdefault(dl, []).append(p)
-            else:
-                no_dl.append(p)
-
         for date_key in sorted(groups.keys()):
             try:
                 dt = datetime.fromisoformat(date_key)
@@ -162,13 +164,8 @@ def get_timeline_summary():
             except:
                 section.append(f"  📅 {date_key}:")
             for p in groups[date_key]:
-                section.append(f"    {_escape_telegram_markdown(p['clean_text'])}")
-            section.append("")
-
-        if no_dl:
-            section.append("  📌 Cần làm:")
-            for p in no_dl:
-                section.append(f"    {_escape_telegram_markdown(p['clean_text'])}")
+                if p['clean_text']:
+                    section.append(f"    {_escape_telegram_markdown(p['clean_text'])}")
             section.append("")
 
         if completed_count:
@@ -179,26 +176,28 @@ def get_timeline_summary():
     if overdue:
         lines.append("🔴 *QUÁ HẠN:*\n")
         for t, diff in overdue:
-            lines.append(task_lines(t, diff))
-            lines.append("")
+            res = task_lines(t, diff)
+            if res:
+                lines.append(res)
+                lines.append("")
 
     if urgent:
         lines.append("🟡 *SẮP ĐẾN HẠN:*\n")
         for t, diff in urgent:
-            lines.append(task_lines(t, diff))
-            lines.append("")
+            res = task_lines(t, diff)
+            if res:
+                lines.append(res)
+                lines.append("")
 
     if normal:
         lines.append("🟢 *ĐANG LÀM:*\n")
         for t, diff in normal:
-            lines.append(task_lines(t, diff))
-            lines.append("")
+            res = task_lines(t, diff)
+            if res:
+                lines.append(res)
+                lines.append("")
 
-    if no_date:
-        lines.append("⚪ *CHƯA CÓ DEADLINE:*\n")
-        for t in no_date:
-            lines.append(task_lines(t))
-            lines.append("")
+    # Removed the no_date section completely per user request
 
     total = len(enriched)
     warn = len(overdue) + len(urgent)

@@ -26,17 +26,19 @@ def parse_rich_text(rich_text):
             # don't add to clean_parts
         else:
             all_struck = False
-            parts.append(t)
-            clean_parts.append(t)
-
             # Extract @date mentions
             mention = item.get("mention", {})
             if mention.get("type") == "date":
                 d = mention.get("date", {}).get("start")
                 if d:
                     dates.append(d)
+                # DO NOT add date text to clean_parts to keep output concise
+                parts.append(t)
+            else:
+                parts.append(t)
+                clean_parts.append(t)
 
-    return "".join(parts), "".join(clean_parts), dates, all_struck
+    return "".join(parts), "".join(clean_parts).strip(), dates, all_struck
 
 
 def parse_block(block, parent_date=None):
