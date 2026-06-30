@@ -312,7 +312,12 @@ class AIService:
             "- TUYỆT ĐỐI KHÔNG dùng Markdown (như **, *, #, ##).\n"
             "- Để các task dài xuống dòng đẹp và thụt lề chuẩn, hãy đặt nội dung chi tiết của các task bên trong thẻ <blockquote>...</blockquote>.\n"
             "- ⚠️ Bắt buộc phải in đậm <b>Tên Môn Học</b> hoặc <b>Tên Task</b> (vd: <b>Lý Thuyết Tài Chính</b>, <b>Kinh Tế Vĩ Mô</b>) để dễ nhìn.\n"
-            "- Ví dụ: <b>Tuần này:</b>\n<blockquote>• <b>Tên Môn Học:</b> Làm bài tập LMS\n• <b>Tên Môn Học:</b> Ôn thi giữa kỳ</blockquote>"
+            "- ⚠️ TUYỆT ĐỐI KHÔNG gộp nhiều task nhỏ, nhiều hoạt động hoặc nhiều deadline khác nhau của cùng một môn học lên trên cùng một dòng. Mỗi task nhỏ/deadline phải nằm trên một dòng riêng biệt trong thẻ blockquote.\n"
+            "- Ví dụ đúng:\n"
+            "<b>Tuần này:</b>\n"
+            "<blockquote>• <b>Tài Chính Doanh Nghiệp:</b> Tự học Chương 13 & 15 (09/07)\n"
+            "• <b>Tài Chính Doanh Nghiệp:</b> Ôn bài (10/07)\n"
+            "• <b>Tài Chính Doanh Nghiệp:</b> Kiểm tra 10% tại lớp trên LMS (11/07)</blockquote>"
         )
 
         if is_raw_text:
