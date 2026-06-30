@@ -15,8 +15,7 @@ function escapeHtml(text) {
 const views = {
     loading: document.getElementById('loading-view'),
     topics: document.getElementById('topics-view'),
-    quiz: document.getElementById('quiz-view'),
-    'quiz-completion': document.getElementById('quiz-completion')
+    quiz: document.getElementById('quiz-view')
 };
 
 const ui = {
@@ -363,18 +362,7 @@ async function updateStatus(status) {
             console.warn("Could not parse response JSON, treating as empty object");
         }
 
-        showView('quiz-completion');
-
-        const timestamp = new Date().toLocaleString('vi-VN');
-        const statusText = status === 'chua_nam_vung' ? '🔴 Cần xem lại' : '🟢 Đã nắm vững';
-        document.getElementById('completion-feedback').textContent = `Kết quả "${statusText}" đã ghi nhận lúc ${timestamp}.`;
-
-        // Try to close the web app if supported
-        try {
-            window.Telegram.WebApp.close();
-        } catch (e) {
-            // ignore if close not supported
-        }
+        showView('topics');
     } catch (error) {
         console.error('Update status error:', error);
         alert('❌ Không thể lưu kết quả: ' + error.message);
@@ -811,19 +799,6 @@ ui.courseFilter.addEventListener('change', filterAndRenderTopics);
 ui.quickReviewBtn.addEventListener('click', () => startQuickReview());
 
 ui.quizDoneBtn.addEventListener('click', () => showView('topics'));
-
-// Quiz completion buttons
-document.getElementById('retry-btn').addEventListener('click', async () => {
-    if (currentTopic && currentTopic.id) {
-        // Retry: use cached quiz (force_refresh = false)
-        await startQuiz(currentTopic, false);
-    } else {
-        showView('topics');
-    }
-});
-document.getElementById('back-to-topics-btn').addEventListener('click', () => {
-    showView('topics');
-});
 ui.refreshCandidatesBtn.addEventListener('click', () => fetchTopics(true));
 
 // Helper: Render LaTeX math in element using KaTeX
