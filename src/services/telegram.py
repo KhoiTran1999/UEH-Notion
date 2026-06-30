@@ -8,46 +8,95 @@ class TelegramService:
         self.chat_id = Config.TELEGRAM_CHAT_ID
 
     def send_message(self, message, parse_mode="Markdown", disable_notification=False, reply_markup=None):
-        """Sends a text message to the default chat."""
-        url = f"{self.base_url}/sendMessage"
-        payload = {
-            "chat_id": self.chat_id,
-            "text": message,
-            "disable_notification": disable_notification
-        }
+        if not message:
+            return
 
-        if parse_mode:
-            payload["parse_mode"] = parse_mode
-
-        if reply_markup:
-            import json
-            # Ensure it's not double dumped
-            if isinstance(reply_markup, dict):
-                payload["reply_markup"] = json.dumps(reply_markup)
-            else:
-                payload["reply_markup"] = reply_markup
-
-        try:
-            with httpx.Client(timeout=30.0) as client:
-                resp = client.post(url, json=payload)
-                if resp.status_code == 200:
-                    logger.info("✅ Telegram message sent.")
-                elif resp.status_code == 400 and parse_mode:
-                    logger.warning(f"⚠️ Telegram Error 400 (Formatting issue): {resp.text}")
-                    logger.info("🔄 Retrying as plain text...")
-                    if "parse_mode" in payload:
-                        del payload["parse_mode"]
-                    # Fix: Make sure to keep the reply_markup during retry
-                    resp_retry = client.post(url, json=payload)
-                    if resp_retry.status_code == 200:
-                        logger.info("✅ Telegram message sent (Plain Text).")
+        MAX_LEN = 4000
+        
+        chunks = []
+        if len(message) <= MAX_LEN:
+            chunks = [message]
+        else:
+            nl = chr(10)
+            dnl = chr(10) + chr(10)
+            parts = message.split(dnl)
+            current_chunk = ""
+            for part in parts:
+                if len(current_chunk) + len(part) + 2 <= MAX_LEN:
+                    if current_chunk:
+                        current_chunk += dnl + part
                     else:
-                        logger.error(f"❌ Retry Failed {resp_retry.status_code}: {resp_retry.text}")
+                        current_chunk = part
                 else:
-                    logger.error(f"❌ Telegram Error {resp.status_code}: {resp.text}")
-        except Exception as e:
-            logger.error(f"❌ Telegram Exception: {e}")
+                    if current_chunk:
+                        chunks.append(current_chunk)
+                    
+                    if len(part) > MAX_LEN:
+                        subparts = part.split(nl)
+                        sub_chunk = ""
+                        for subpart in subparts:
+                            if len(sub_chunk) + len(subpart) + 1 <= MAX_LEN:
+                                if sub_chunk:
+                                    sub_chunk += nl + subpart
+                                else:
+                                    sub_chunk = subpart
+                            else:
+                                if sub_chunk:
+                                    chunks.append(sub_chunk)
+                                if len(subpart) > MAX_LEN:
+                                    for i in range(0, len(subpart), MAX_LEN):
+                                        chunks.append(subpart[i:i+MAX_LEN])
+                                    sub_chunk = ""
+                                else:
+                                    sub_chunk = subpart
+                        if sub_chunk:
+                            current_chunk = sub_chunk
+                    else:
+                        current_chunk = part
+            if current_chunk:
+                chunks.append(current_chunk)
 
+        url = f"{self.base_url}/sendMessage"
+        
+        for i, chunk in enumerate(chunks):
+            current_reply_markup = reply_markup if i == len(chunks) - 1 else None
+            
+            payload = {
+                "chat_id": self.chat_id,
+                "text": chunk,
+                "disable_notification": disable_notification
+            }
+
+            if parse_mode:
+                payload["parse_mode"] = parse_mode
+
+            if current_reply_markup:
+                import json
+                if isinstance(current_reply_markup, dict):
+                    payload["reply_markup"] = json.dumps(current_reply_markup)
+                else:
+                    payload["reply_markup"] = current_reply_markup
+
+            try:
+                import httpx
+                with httpx.Client(timeout=30.0) as client:
+                    resp = client.post(url, json=payload)
+                    if resp.status_code == 200:
+                        logger.info(f"✅ Telegram message chunk {i+1}/{len(chunks)} sent.")
+                    elif resp.status_code == 400 and parse_mode:
+                        logger.warning(f"⚠️ Telegram Error 400 (Formatting issue): {resp.text}")
+                        logger.info("🔄 Retrying as plain text...")
+                        if "parse_mode" in payload:
+                            del payload["parse_mode"]
+                        resp_retry = client.post(url, json=payload)
+                        if resp_retry.status_code == 200:
+                            logger.info(f"✅ Telegram message chunk {i+1}/{len(chunks)} sent (Plain Text).")
+                        else:
+                            logger.error(f"❌ Retry Failed {resp_retry.status_code}: {resp_retry.text}")
+                    else:
+                        logger.error(f"❌ Telegram Error {resp.status_code}: {resp.text}")
+            except Exception as e:
+                logger.error(f"❌ Telegram Exception: {e}")
     def answer_callback_query(self, callback_query_id, text=None, show_alert=False):
         """Answers a callback query to remove loading state on button."""
         url = f"{self.base_url}/answerCallbackQuery"

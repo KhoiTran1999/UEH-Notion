@@ -64,6 +64,13 @@ def _find_earliest_deadline(parsed_blocks):
     return min(dates) if dates else None
 
 
+
+def _escape_telegram_markdown(text):
+    if not text:
+        return text
+    text = text.replace('*', '＊').replace('_', '＿').replace('`', '‵').replace('[', '［')
+    return text
+
 def get_timeline_summary():
     """Fetch tasks, parse content, return formatted Telegram message."""
     from src.utils.block_parser import fetch_blocks_recursive, parse_block
@@ -127,7 +134,7 @@ def get_timeline_summary():
         pending = [p for p in parsed if not p["completed"]]
         completed_count = sum(1 for p in parsed if p["completed"])
 
-        section = [f"📌 *{task['name']}*"]
+        section = [f"📌 *{_escape_telegram_markdown(task['name'])}*"]
         if diff is not None:
             if diff < 0:
                 section.append(f"  🔴 Quá hạn {-diff} ngày!")
@@ -155,13 +162,13 @@ def get_timeline_summary():
             except:
                 section.append(f"  📅 {date_key}:")
             for p in groups[date_key]:
-                section.append(f"    {p['clean_text']}")
+                section.append(f"    {_escape_telegram_markdown(p['clean_text'])}")
             section.append("")
 
         if no_dl:
             section.append("  📌 Cần làm:")
             for p in no_dl:
-                section.append(f"    {p['clean_text']}")
+                section.append(f"    {_escape_telegram_markdown(p['clean_text'])}")
             section.append("")
 
         if completed_count:
