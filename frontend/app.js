@@ -88,7 +88,7 @@ function initTelegram() {
     });
 
     // Bind Telegram native BackButton
-    if (tg.BackButton) {
+    if (tg.BackButton && tg.isVersionAtLeast && tg.isVersionAtLeast('6.1')) {
         tg.BackButton.onClick(() => {
             showView('topics');
         });
@@ -101,7 +101,7 @@ function showView(viewName) {
     views[viewName].classList.remove('hidden');
 
     const tg = window.Telegram.WebApp;
-    if (tg && tg.BackButton) {
+    if (tg && tg.BackButton && tg.isVersionAtLeast && tg.isVersionAtLeast('6.1')) {
         if (viewName === 'quiz') {
             tg.BackButton.show();
         } else {
