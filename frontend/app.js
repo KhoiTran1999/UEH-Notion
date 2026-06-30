@@ -354,8 +354,22 @@ async function updateStatus(status) {
             throw new Error(`Server trả về lỗi ${res.status}`);
         }
 
+        const responseText = await res.text();
+        let responseJson = {};
+        try {
+            responseJson = JSON.parse(responseText);
+        } catch (e) {
+            console.warn("Could not parse response JSON, treating as empty object");
+        }
+
         hideLoading();
-        showView('topics');
+
+        const timestamp = new Date().toLocaleString('vi-VN');
+        const statusText = status === 'chua_nam_vung' ? '🔴 Cần xem lại' : '🟢 Đã nắm vững';
+        document.getElementById('completion-feedback').textContent = `Kết quả "${statusText}" đã ghi nhận lúc ${timestamp}.`;
+
+        // Show quiz completion view with Retry / Back options
+        showView('quiz-completion');
 
         // Try to close the web app if supported
         try {
@@ -364,8 +378,9 @@ async function updateStatus(status) {
             // ignore if close not supported
         }
     } catch (error) {
-        console.error(error);
-        alert('❌ Không thể lưu kết quả: ' + error.message);
+        console.error('Update status error:', error);
+        showNotification('❌ Không thể lưu kết quả: ' + error.message);
+        hideLoading();
         showView('topics');
     }
 }
@@ -799,6 +814,18 @@ ui.courseFilter.addEventListener('change', filterAndRenderTopics);
 ui.quickReviewBtn.addEventListener('click', () => startQuickReview());
 
 ui.quizDoneBtn.addEventListener('click', () => showView('topics'));
+
+// Quiz completion buttons
+document.getElementById('retry-btn').addEventListener('click', async () => {
+    if (currentTopic && currentTopic.id) {
+        await generateAndStartQuiz(currentTopic, true);
+    } else {
+        showView('topics');
+    }
+});
+document.getElementById('back-to-topics-btn').addEventListener('click', () => {
+    showView('topics');
+});
 ui.refreshCandidatesBtn.addEventListener('click', () => fetchTopics(true));
 
 // Helper: Render LaTeX math in element using KaTeX
