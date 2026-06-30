@@ -112,7 +112,7 @@ def process_telegram_command(text: str, chat_id: str, background_tasks: Backgrou
     telegram = TelegramService()
     if text in ["/start", "/help"]:
         # Set Menu Button dynamically to open Web App directly
-        telegram.set_menu_button(chat_id, "🎓 Ôn tập", Config.WEBAPP_URL)
+        telegram.set_menu_button(chat_id, "/start", Config.WEBAPP_URL)
 
         telegram.send_message(
             "✅ Bot đã sẵn sàng!\nChọn chức năng bên dưới hoặc gõ lệnh tương ứng:",

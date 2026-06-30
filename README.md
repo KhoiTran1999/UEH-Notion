@@ -118,9 +118,10 @@ https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook?url=<RENDER_API_URL>
 ## 🎮 Cách Sử Dụng
 
 Mở ứng dụng Telegram, tìm đến Bot của bạn và sử dụng các lệnh:
-- `/start` hoặc `/help`: Hiển thị Menu chức năng tương tác (Inline Keyboard).
-- `/study`: Gọi tính năng Góc Ôn Tập. Bot sẽ gửi kèm một nút bấm để mở **Web App Trắc Nghiệm** ngay trên màn hình.
-- `/taskreport`: Trích xuất công việc hôm nay, yêu cầu AI phân tích và gửi báo cáo phân tích kèm tin nhắn âm thanh (Voice Note).
+- `/start` hoặc `/help`: Khởi động bot, hiển thị Menu tương tác và cấu hình nút Menu của Telegram thành `/start` (mở nhanh Web App ôn tập).
+- `/timeline`: Xem dòng thời gian (timeline) công việc trực tiếp dưới dạng tin nhắn.
+- `/study`: Mở nhanh Web App ôn tập.
+- `/taskreport`: Tạo báo cáo công việc hàng ngày kèm file âm thanh tin nhắn thoại (Voice Note).
 
 ---
 
