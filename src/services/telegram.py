@@ -7,7 +7,7 @@ class TelegramService:
         self.base_url = f"https://api.telegram.org/bot{Config.TELEGRAM_BOT_TOKEN}"
         self.chat_id = Config.TELEGRAM_CHAT_ID
 
-    def send_message(self, message, parse_mode="Markdown", disable_notification=False, reply_markup=None):
+    def send_message(self, message, parse_mode="HTML", disable_notification=False, reply_markup=None):
         if not message:
             return
 

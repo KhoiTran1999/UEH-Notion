@@ -7,7 +7,6 @@ from pydantic import BaseModel, field_validator
 
 from src.services.study_logic import get_candidates, generate_quiz, generate_quiz_stream, update_status, generate_quick_review
 from src.jobs.daily_report import run_daily_report
-from src.scripts.sync_timeline import run as run_sync_timeline
 from src.services.timeline import get_timeline_summary, fetch_in_progress_tasks
 from src.services.telegram import TelegramService
 from src.config.settings import Config
@@ -97,11 +96,6 @@ def api_generate_report(request: ReportRequest, background_tasks: BackgroundTask
     background_tasks.add_task(run_daily_report)
     return {"success": True, "message": "Report generation started"}
 
-@app.post("/api/tasks/sync-timeline")
-def api_sync_timeline(request: ReportRequest, background_tasks: BackgroundTasks):
-    background_tasks.add_task(run_sync_timeline)
-    return {"success": True, "message": "Timeline sync started"}
-
 
 def send_timeline(chat_id: str):
     """Send formatted timeline to Telegram chat."""
@@ -126,7 +120,6 @@ def process_telegram_command(text: str, chat_id: str, background_tasks: Backgrou
                 "inline_keyboard": [
                     [{"text": "📊 Báo cáo Task", "callback_data": "/taskreport"}],
                     [{"text": "📅 Xem Timeline", "callback_data": "/timeline"}],
-                    [{"text": "🔄 Đồng bộ Timeline", "callback_data": "/timelinesync"}],
                     [{"text": "🎓 Ôn tập khắc sâu", "web_app": {"url": Config.WEBAPP_URL}}]
                 ]
             }
@@ -137,9 +130,6 @@ def process_telegram_command(text: str, chat_id: str, background_tasks: Backgrou
     elif text == "/timeline":
         telegram.send_message("📅 Đang tải timeline tasks...", disable_notification=True)
         background_tasks.add_task(send_timeline, chat_id)
-    elif text == "/timelinesync":
-        telegram.send_message("🔄 Đang đồng bộ timeline tasks... Vui lòng đợi trong giây lát.")
-        background_tasks.add_task(run_sync_timeline)
     elif text == "/study":
         telegram.send_message(
             "📚 Mở góc ôn tập bằng Web App bên dưới nhé:",
