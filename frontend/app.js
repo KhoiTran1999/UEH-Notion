@@ -818,7 +818,8 @@ ui.quizDoneBtn.addEventListener('click', () => showView('topics'));
 // Quiz completion buttons
 document.getElementById('retry-btn').addEventListener('click', async () => {
     if (currentTopic && currentTopic.id) {
-        await generateAndStartQuiz(currentTopic, true);
+        // Retry: use cached quiz (force_refresh = false)
+        await startQuiz(currentTopic, false);
     } else {
         showView('topics');
     }
