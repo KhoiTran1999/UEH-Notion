@@ -1,11 +1,8 @@
-"""Timeline service: fetch In Progress tasks, parse content, format for Telegram."""
+"""Timeline service: fetch In Progress tasks, parse content, sort all deadline blocks chronologically, and append task name suffix."""
 import httpx
 from datetime import datetime
 from src.config.settings import Config
 from src.utils.logger import logger
-from src.utils.block_parser import (
-    parse_block, fetch_blocks_recursive, fetch_page_blocks, format_for_telegram
-)
 
 
 def _get_source_id(client, container_id):
@@ -59,30 +56,23 @@ def fetch_in_progress_tasks():
         return tasks
 
 
-def _find_earliest_deadline(parsed_blocks):
-    dates = [pb["deadline"] for pb in parsed_blocks if not pb["completed"] and pb["deadline"]]
-    return min(dates) if dates else None
-
-
-
 def _escape_telegram_markdown(text):
     if not text:
         return text
     text = text.replace('*', '＊').replace('_', '＿').replace('`', '‵').replace('[', '［')
     return text
 
+
 def get_timeline_summary():
-    """Fetch tasks, parse content, return formatted Telegram message."""
+    """Fetch tasks, parse content, flatten all deadline blocks, sort chronologically, and format."""
     from src.utils.block_parser import fetch_blocks_recursive, parse_block
 
     tasks = fetch_in_progress_tasks()
     if not tasks:
         return "📭 Không có task nào đang thực hiện."
 
-    today = datetime.now().date()
-
     # Fetch + parse all task content
-    enriched = []
+    all_deadline_blocks = []
     with httpx.Client(timeout=60.0) as client:
         headers = {
             "Authorization": f"Bearer {Config.NOTION_TOKEN}",
@@ -90,120 +80,51 @@ def get_timeline_summary():
         }
         for task in tasks:
             raw = fetch_blocks_recursive(client, headers, task["page_id"])
-            parsed = []
             for item in raw:
                 pb = parse_block(item["block"])
-                if pb:
-                    parsed.append(pb)
-            task["parsed_blocks"] = parsed
-            task["deadline"] = _find_earliest_deadline(parsed)
-            enriched.append(task)
+                if pb and not pb["completed"] and pb.get("deadline"):
+                    pb["task_name"] = task["name"]
+                    all_deadline_blocks.append(pb)
 
-    # Sort by deadline (no deadline last)
-    enriched.sort(key=lambda t: t["deadline"] or "9999-99-99")
+    if not all_deadline_blocks:
+        return "📭 Không có task nào có deadline."
+
+    # Sort all blocks by deadline ascending
+    all_deadline_blocks.sort(key=lambda b: b["deadline"])
+
+    # Group by deadline date
+    grouped_by_date = {}
+    for pb in all_deadline_blocks:
+        date_key = pb["deadline"]
+        grouped_by_date.setdefault(date_key, []).append(pb)
 
     # Build Telegram message
-    lines = ["📅 *TIMELINE — Tasks đang thực hiện*\n"]
+    lines = ["📅 *TIMELINE — Deadline hiện có*\n"]
 
-    overdue = []
-    urgent = []
-    normal = []
-    no_date = []
-
-    for t in enriched:
-        d = t["deadline"]
-        if not d:
-            no_date.append(t)
-            continue
+    for date_key in sorted(grouped_by_date.keys()):
         try:
-            dl = datetime.fromisoformat(d).date()
-        except ValueError:
-            no_date.append(t)
-            continue
-        diff = (dl - today).days
-        if diff < 0:
-            overdue.append((t, diff))
-        elif diff <= 3:
-            urgent.append((t, diff))
-        else:
-            normal.append((t, diff))
+            dt = datetime.fromisoformat(date_key)
+            label = dt.strftime("%d/%m")
+            lines.append(f"📅 *{label}*:")
+        except:
+            lines.append(f"📅 *{date_key}*:")
 
-    def task_lines(task, diff=None):
-        """Render one task's pending blocks grouped by deadline."""
-        parsed = task["parsed_blocks"]
-        pending = [p for p in parsed if not p["completed"]]
-        completed_count = sum(1 for p in parsed if p["completed"])
+        for pb in grouped_by_date[date_key]:
+            clean_text = pb["clean_text"]
+            # Strip markdown prefixes like bullets or numbers to rebuild custom style
+            clean_text = clean_text.strip()
+            if clean_text.startswith("• "):
+                clean_text = clean_text[2:]
+            elif clean_text.startswith("1. "):
+                clean_text = clean_text[3:]
+            elif clean_text.startswith("☐ "):
+                clean_text = clean_text[2:]
 
-        # Group pending blocks by deadline
-        groups = {}
-        for p in pending:
-            dl = p.get("deadline")
-            if dl:
-                groups.setdefault(dl, []).append(p)
-            # Skip blocks with NO deadline entirely per user request
+            clean_text = _escape_telegram_markdown(clean_text)
+            task_suffix = f" - *{_escape_telegram_markdown(pb['task_name'])}*"
 
-        # If no deadline blocks and no completed blocks, skip the whole task visually
-        if not groups and completed_count == 0:
-            return ""
+            lines.append(f"  • {clean_text}{task_suffix}")
 
-        section = [f"📌 *{_escape_telegram_markdown(task['name'])}*"]
-        if diff is not None:
-            if diff < 0:
-                section.append(f"  🔴 Quá hạn {-diff} ngày!")
-            elif diff == 0:
-                section.append(f"  ⏰ Hôm nay!")
-            elif diff <= 3:
-                section.append(f"  ⏰ Còn {diff} ngày")
-        section.append("")
+        lines.append("")
 
-        for date_key in sorted(groups.keys()):
-            try:
-                dt = datetime.fromisoformat(date_key)
-                label = dt.strftime("%d/%m")
-                section.append(f"  📅 {label}:")
-            except:
-                section.append(f"  📅 {date_key}:")
-            for p in groups[date_key]:
-                if p['clean_text']:
-                    section.append(f"    {_escape_telegram_markdown(p['clean_text'])}")
-            section.append("")
-
-        if completed_count:
-            section.append(f"  ✅ {completed_count} đã xong")
-
-        return "\n".join(section)
-
-    if overdue:
-        lines.append("🔴 *QUÁ HẠN:*\n")
-        for t, diff in overdue:
-            res = task_lines(t, diff)
-            if res:
-                lines.append(res)
-                lines.append("")
-
-    if urgent:
-        lines.append("🟡 *SẮP ĐẾN HẠN:*\n")
-        for t, diff in urgent:
-            res = task_lines(t, diff)
-            if res:
-                lines.append(res)
-                lines.append("")
-
-    if normal:
-        lines.append("🟢 *ĐANG LÀM:*\n")
-        for t, diff in normal:
-            res = task_lines(t, diff)
-            if res:
-                lines.append(res)
-                lines.append("")
-
-    # Removed the no_date section completely per user request
-
-    total = len(enriched)
-    warn = len(overdue) + len(urgent)
-    summary = f"📊 Tổng: {total} tasks"
-    if warn:
-        summary += f" | ⚠️ {warn} cần ưu tiên"
-    lines.append(f"---\n{summary}")
-
-    return "\n".join(lines)
+    return "\n".join(lines).strip()
