@@ -5,7 +5,6 @@ from datetime import datetime
 from src.config.settings import Config
 from src.utils.logger import logger
 from src.services.ai import AIService
-from src.services.ai_gemini import summarize_timeline as gemini_summarize
 
 
 def _get_source_id(client, container_id):
@@ -156,7 +155,7 @@ def get_timeline_summary():
 
         lines.append("")
 
-    # Get AI summary via Gemini
-    ai_summary = gemini_summarize(all_deadline_blocks)
+    # Get AI summary via MODEL_BRAIN
+    ai_summary = AIService().summarize_timeline(all_deadline_blocks)
 
     return "\n".join(lines).strip() + "\n\n---\n" + ai_summary
