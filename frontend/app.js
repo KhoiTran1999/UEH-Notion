@@ -354,7 +354,15 @@ async function updateStatus(status) {
             throw new Error(`Server trả về lỗi ${res.status}`);
         }
 
-        window.Telegram.WebApp.close();
+        hideLoading();
+        showView('topics');
+
+        // Try to close the web app if supported
+        try {
+            window.Telegram.WebApp.close();
+        } catch (e) {
+            // ignore if close not supported
+        }
     } catch (error) {
         console.error(error);
         alert('❌ Không thể lưu kết quả: ' + error.message);
