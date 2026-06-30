@@ -460,6 +460,8 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
         except Exception as e:
             logger.warning(f"Failed to release quiz lock: {e}")
 
+    return result
+
 def generate_quiz_stream(topic_id, force_refresh=False):
     """Generate quiz with progress callbacks and yield progress updates as JSON lines."""
     import queue
