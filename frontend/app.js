@@ -362,25 +362,16 @@ async function updateStatus(status) {
             console.warn("Could not parse response JSON, treating as empty object");
         }
 
-        hideLoading();
+        showView('quiz-completion');
 
         const timestamp = new Date().toLocaleString('vi-VN');
         const statusText = status === 'chua_nam_vung' ? '🔴 Cần xem lại' : '🟢 Đã nắm vững';
         document.getElementById('completion-feedback').textContent = `Kết quả "${statusText}" đã ghi nhận lúc ${timestamp}.`;
-
-        // Show quiz completion view with Retry / Back options
-        showView('quiz-completion');
-
-        // Try to close the web app if supported
-        try {
-            window.Telegram.WebApp.close();
-        } catch (e) {
             // ignore if close not supported
         }
     } catch (error) {
         console.error('Update status error:', error);
-        showNotification('❌ Không thể lưu kết quả: ' + error.message);
-        hideLoading();
+        alert('❌ Không thể lưu kết quả: ' + error.message);
         showView('topics');
     }
 }
