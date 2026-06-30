@@ -15,7 +15,8 @@ function escapeHtml(text) {
 const views = {
     loading: document.getElementById('loading-view'),
     topics: document.getElementById('topics-view'),
-    quiz: document.getElementById('quiz-view')
+    quiz: document.getElementById('quiz-view'),
+    'quiz-completion': document.getElementById('quiz-completion')
 };
 
 const ui = {
