@@ -520,6 +520,8 @@ def update_status(topic_id, status=None):
 
         # Clear candidates list cache in Redis since database changed
         try:
+            import redis
+            from src.config.settings import Config
             if Config.REDIS_URL:
                 r = redis.from_url(Config.REDIS_URL)
                 r.delete("study_candidates")
