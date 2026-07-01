@@ -120,7 +120,7 @@ def process_telegram_command(text: str, chat_id: str, background_tasks: Backgrou
                 "inline_keyboard": [
                     [{"text": "📊 Báo cáo Task", "callback_data": "/taskreport"}],
                     [{"text": "📅 Xem Timeline", "callback_data": "/timeline"}],
-                    [{"text": "🎓 Ôn tập khắc sâu", "web_app": {"url": Config.WEBAPP_URL}}]
+                    [{"text": "/start", "callback_data": "/start"}]
                 ]
             }
         )
