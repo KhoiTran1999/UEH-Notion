@@ -111,8 +111,6 @@ def send_timeline(chat_id: str):
 def process_telegram_command(text: str, chat_id: str, background_tasks: BackgroundTasks):
     telegram = TelegramService()
     if text in ["/start", "/help"]:
-        # Set Menu Button dynamically to open Web App directly
-        telegram.set_menu_button(chat_id, "/start", Config.WEBAPP_URL)
 
         telegram.send_message(
             "✅ Bot đã sẵn sàng!\nChọn chức năng bên dưới hoặc gõ lệnh tương ứng:",
@@ -120,7 +118,7 @@ def process_telegram_command(text: str, chat_id: str, background_tasks: Backgrou
                 "inline_keyboard": [
                     [{"text": "📊 Báo cáo Task", "callback_data": "/taskreport"}],
                     [{"text": "📅 Xem Timeline", "callback_data": "/timeline"}],
-                    [{"text": "/start", "callback_data": "/start"}]
+                    [{"text": "🎓 Ôn tập khắc sâu", "web_app": {"url": Config.WEBAPP_URL}}]
                 ]
             }
         )
