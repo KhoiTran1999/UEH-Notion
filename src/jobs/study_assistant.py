@@ -1,9 +1,5 @@
-import time
-import sys
-import os
-
-# Add project root to python path to allow direct execution
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+import sys, os; sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+import src.utils.path_setup  # ensure project root is on sys.path
 
 from src.services.telegram import TelegramService
 from src.utils.logger import logger

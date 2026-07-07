@@ -3,6 +3,7 @@ import httpx
 from datetime import datetime, timezone, timedelta
 from src.config.settings import Config
 from src.utils.logger import logger
+from src.services.notion import NotionService
 from src.services.ai import AIService
 
 def _resolve_date_shortcuts(raw_text):
@@ -79,7 +80,7 @@ def _resolve_date_shortcuts(raw_text):
 def _get_source_id(client, container_id):
     resp = client.get(
         f"https://api.notion.com/v1/databases/{container_id}",
-        headers={"Authorization": f"Bearer {Config.NOTION_TOKEN}", "Notion-Version": Config.NOTION_VERSION},
+        headers=NotionService.headers,
     )
     if resp.status_code != 200:
         return None
@@ -94,12 +95,6 @@ def fetch_in_progress_tasks():
     if not container_id:
         return []
 
-    headers = {
-        "Authorization": f"Bearer {Config.NOTION_TOKEN}",
-        "Notion-Version": Config.NOTION_VERSION,
-        "Content-Type": "application/json",
-    }
-
     with httpx.Client(timeout=30.0) as client:
         source_id = _get_source_id(client, container_id)
         if not source_id:
@@ -107,7 +102,7 @@ def fetch_in_progress_tasks():
 
         resp = client.post(
             f"https://api.notion.com/v1/data_sources/{source_id}/query",
-            headers=headers,
+            headers=NotionService.headers,
             json={
                 "filter": {"property": "Trạng thái", "status": {"equals": "In progress"}},
                 "page_size": 100,
@@ -138,12 +133,8 @@ def get_timeline_summary():
     # Gather raw blocks per task
     task_texts = []
     with httpx.Client(timeout=60.0) as client:
-        headers = {
-            "Authorization": f"Bearer {Config.NOTION_TOKEN}",
-            "Notion-Version": Config.NOTION_VERSION,
-        }
         for task in tasks:
-            raw = fetch_blocks_recursive(client, headers, task["page_id"])
+            raw = fetch_blocks_recursive(client, NotionService.headers, task["page_id"])
             lines = []
             for item in raw:
                 pb = parse_block(item["block"])

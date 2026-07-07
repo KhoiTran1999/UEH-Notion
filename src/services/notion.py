@@ -3,12 +3,11 @@ from src.config.settings import Config
 from src.utils.logger import logger
 
 class NotionService:
-    def __init__(self):
-        self.headers = {
-            "Authorization": f"Bearer {Config.NOTION_TOKEN}",
-            "Notion-Version": Config.NOTION_VERSION,
-            "Content-Type": "application/json"
-        }
+    headers = {
+        "Authorization": f"Bearer {Config.NOTION_TOKEN}",
+        "Notion-Version": Config.NOTION_VERSION,
+        "Content-Type": "application/json"
+    }
 
     def _resolve_db_info(self, client, container_id):
         """Helper to get Real Query ID and Info from Container ID."""

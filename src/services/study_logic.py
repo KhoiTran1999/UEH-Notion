@@ -1,43 +1,44 @@
 import datetime
+import json
 import pytz
+import uuid
 from src.services.notion import NotionService
 from src.services.ai import AIService
 from src.utils.logger import logger
+from src.utils.cache import (
+    get_redis,
+    CACHE_PAGE_TITLE_TTL,
+    CACHE_CANDIDATES_TTL,
+    CACHE_QUIZ_TTL,
+    LOCK_QUIZ_TTL,
+)
 
 def get_page_title(page_id):
     """Retrieve title of a page by ID, using Redis cache if available."""
-    import redis
-    import httpx
-    from src.config.settings import Config
-    from src.services.notion import NotionService
-
     cache_key = f"page_title_{page_id}"
-    r = None
-    try:
-        if Config.REDIS_URL:
-            r = redis.from_url(Config.REDIS_URL)
+    r = get_redis()
+    if r:
+        try:
             cached = r.get(cache_key)
             if cached:
-                return cached.decode('utf-8')
-    except Exception as e:
-        logger.warning(f"Redis get error for {cache_key}: {e}")
+                return cached
+        except Exception as e:
+            logger.warning(f"Redis get error for {cache_key}: {e}")
 
     notion = NotionService()
     try:
-        url = f"https://api.notion.com/v1/pages/{page_id}"
-        with httpx.Client(timeout=10.0) as client:
-            resp = client.get(url, headers=notion.headers)
-            if resp.status_code == 200:
-                props = resp.json().get("properties", {})
-                for key, val in props.items():
-                    if val.get("type") == "title" and val["title"]:
-                        title = val["title"][0]["plain_text"]
-                        if r:
-                            try:
-                                r.setex(cache_key, 2592000, title)
-                            except Exception as ce:
-                                logger.warning(f"Redis set error: {ce}")
-                        return title
+        page_info = notion.retrieve_page(page_id)
+        if page_info:
+            props = page_info.get("properties", {})
+            for key, val in props.items():
+                if val.get("type") == "title" and val["title"]:
+                    title = val["title"][0]["plain_text"]
+                    if r:
+                        try:
+                            r.setex(cache_key, CACHE_PAGE_TITLE_TTL, title)
+                        except Exception as ce:
+                            logger.warning(f"Redis set error: {ce}")
+                    return title
     except Exception as e:
         logger.error(f"Error fetching page title for {page_id}: {e}")
 
@@ -45,16 +46,12 @@ def get_page_title(page_id):
 
 def get_candidates(force_refresh=False):
     """Fetch review notes, sort by 'Last Review At', return top 5 with metadata."""
-    import redis
-    import json
-    from src.config.settings import Config
-
     cache_key = "study_candidates"
     r = None
     if not force_refresh:
         try:
-            if Config.REDIS_URL:
-                r = redis.from_url(Config.REDIS_URL)
+            r = get_redis()
+            if r:
                 cached = r.get(cache_key)
                 if cached:
                     logger.info("Using cached study candidates list")
@@ -134,10 +131,9 @@ def get_candidates(force_refresh=False):
     # Save to Redis cache
     if results:
         try:
-            if not r and Config.REDIS_URL:
-                r = redis.from_url(Config.REDIS_URL)
+            r = r or get_redis()
             if r:
-                r.setex(cache_key, 86400, json.dumps(results)) # Cache for 24 hours
+                r.setex(cache_key, CACHE_CANDIDATES_TTL, json.dumps(results))
                 logger.info("Saved study candidates list to cache")
         except Exception as e:
             logger.warning(f"Redis set candidates cache error: {e}")
@@ -301,18 +297,16 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
 
     import re
     import json
-    import redis
 
     # Try checking cache first
     if progress_callback:
         progress_callback("checking_cache", 5, "🔍 Đang kiểm tra bộ nhớ đệm...")
 
+    r = None
     if not force_refresh:
         try:
-            from src.config.settings import Config
-            redis_url = Config.REDIS_URL
-            if redis_url:
-                r = redis.from_url(redis_url)
+            r = get_redis()
+            if r:
                 cache_key = f"quiz_{topic_id}"
                 cached = r.get(cache_key)
                 if cached:
@@ -324,16 +318,13 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
             logger.warning(f"Redis cache check failed: {e}")
 
     # Acquire Redis lock to prevent concurrent generation for same topic
-    import uuid as uuid_lib
     lock_key = f"quiz_lock_{topic_id}"
-    lock_token = str(uuid_lib.uuid4())
+    lock_token = str(uuid.uuid4())
     lock_acquired = False
     try:
-        from src.config.settings import Config
-        redis_url = Config.REDIS_URL
-        if redis_url:
-            r = redis.from_url(redis_url)
-            lock_acquired = r.set(lock_key, lock_token, nx=True, ex=120)
+        r = r or get_redis()
+        if r:
+            lock_acquired = r.set(lock_key, lock_token, nx=True, ex=LOCK_QUIZ_TTL)
             if not lock_acquired:
                 logger.info(f"⏳ Quiz generation already in progress for {topic_id}, waiting...")
                 if progress_callback:
@@ -341,7 +332,7 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
                 # Poll until lock released or timeout
                 import time as time_mod
                 waited = 0
-                while waited < 60:
+                while waited < 30:
                     time_mod.sleep(2)
                     waited += 2
                     cached = r.get(f"quiz_{topic_id}")
@@ -352,7 +343,7 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
                         return json.loads(cached)
                     if not r.get(lock_key):
                         break
-                lock_acquired = r.set(lock_key, lock_token, nx=True, ex=120)
+                lock_acquired = r.set(lock_key, lock_token, nx=True, ex=LOCK_QUIZ_TTL)
     except Exception as e:
         logger.warning(f"Redis lock acquire failed (non-fatal): {e}")
 
@@ -438,12 +429,10 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
 
     # Try saving to cache
     try:
-        from src.config.settings import Config
-        redis_url = Config.REDIS_URL
-        if redis_url:
-            r = redis.from_url(redis_url)
+        r = get_redis()
+        if r:
             cache_key = f"quiz_{topic_id}"
-            r.setex(cache_key, 1209600, json.dumps(result))
+            r.setex(cache_key, CACHE_QUIZ_TTL, json.dumps(result))
             logger.info(f"Saved quiz to cache for topic {topic_id}")
     except Exception as e:
         logger.warning(f"Redis cache save failed: {e}")
@@ -451,12 +440,13 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
     # Release the generation lock
     if lock_acquired:
         try:
-            r = redis.from_url(Config.REDIS_URL)
-            pipe = r.pipeline()
-            pipe.watch(lock_key)
-            if pipe.get(lock_key) == lock_token.encode():
-                pipe.delete(lock_key)
-            pipe.unwatch()
+            r = r or get_redis()
+            if r:
+                pipe = r.pipeline()
+                pipe.watch(lock_key)
+                if pipe.get(lock_key) == lock_token:
+                    pipe.delete(lock_key)
+                pipe.unwatch()
         except Exception as e:
             logger.warning(f"Failed to release quiz lock: {e}")
 
@@ -520,10 +510,8 @@ def update_status(topic_id, status=None):
 
         # Clear candidates list cache in Redis since database changed
         try:
-            import redis
-            from src.config.settings import Config
-            if Config.REDIS_URL:
-                r = redis.from_url(Config.REDIS_URL)
+            r = get_redis()
+            if r:
                 r.delete("study_candidates")
                 logger.info("Cleared study_candidates cache due to status update")
         except Exception as e:
