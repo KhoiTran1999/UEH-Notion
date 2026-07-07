@@ -145,6 +145,25 @@ class TelegramService:
         except Exception as e:
             logger.error(f"❌ Telegram setChatMenuButton Exception: {e}")
 
+    def set_default_menu_button(self, chat_id):
+        """Resets the chat menu button to the default bot menu (commands)."""
+        url = f"{self.base_url}/setChatMenuButton"
+        payload = {
+            "chat_id": chat_id,
+            "menu_button": {
+                "type": "default"
+            }
+        }
+        try:
+            with httpx.Client(timeout=30.0) as client:
+                resp = client.post(url, json=payload)
+                if resp.status_code == 200:
+                    logger.info(f"✅ Telegram menu button reset to default for chat {chat_id}")
+                else:
+                    logger.error(f"❌ Telegram setChatMenuButton Error {resp.status_code}: {resp.text}")
+        except Exception as e:
+            logger.error(f"❌ Telegram setChatMenuButton Exception: {e}")
+
     def send_photo(self, photo, caption=None, has_spoiler=False, disable_notification=False):
         """Sends a photo to the default chat."""
         url = f"{self.base_url}/sendPhoto"

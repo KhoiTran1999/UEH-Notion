@@ -111,6 +111,7 @@ def send_timeline(chat_id: str):
 def process_telegram_command(text: str, chat_id: str, background_tasks: BackgroundTasks):
     telegram = TelegramService()
     if text in ["/start", "/help"]:
+        telegram.set_default_menu_button(chat_id)
 
         telegram.send_message(
             "✅ Bot đã sẵn sàng!\nChọn chức năng bên dưới hoặc gõ lệnh tương ứng:",
