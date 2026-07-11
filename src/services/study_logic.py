@@ -316,6 +316,14 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
                     return json.loads(cached)
         except Exception as e:
             logger.warning(f"Redis cache check failed: {e}")
+    else:
+        try:
+            r = get_redis()
+            if r:
+                r.delete(f"quiz_{topic_id}")
+                logger.info(f"Cleared quiz cache for topic {topic_id} due to force refresh")
+        except Exception as e:
+            logger.warning(f"Redis cache delete failed: {e}")
 
     # Acquire Redis lock to prevent concurrent generation for same topic
     lock_key = f"quiz_lock_{topic_id}"
@@ -442,11 +450,10 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
         try:
             r = r or get_redis()
             if r:
-                pipe = r.pipeline()
-                pipe.watch(lock_key)
-                if pipe.get(lock_key) == lock_token:
-                    pipe.delete(lock_key)
-                pipe.unwatch()
+                r.eval(
+                    "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+                    1, lock_key, lock_token
+                )
         except Exception as e:
             logger.warning(f"Failed to release quiz lock: {e}")
 
