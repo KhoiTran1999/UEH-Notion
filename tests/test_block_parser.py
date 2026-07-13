@@ -176,6 +176,34 @@ class TestBlockParserRobustness(unittest.TestCase):
         self.assertFalse(res2["completed"])
 
 
+class TestTimelineSorting(unittest.TestCase):
+
+    def test_parse_date_for_sorting(self):
+        from src.services.timeline import _parse_date_for_sorting
+        from datetime import datetime
+
+        # Test ISO dates
+        self.assertEqual(_parse_date_for_sorting("2026-07-15T09:00:00").year, 2026)
+        self.assertEqual(_parse_date_for_sorting("2026-07-15T09:00:00").month, 7)
+        self.assertEqual(_parse_date_for_sorting("2026-07-15T09:00:00").day, 15)
+        self.assertEqual(_parse_date_for_sorting("2026-07-15T09:00:00").hour, 9)
+
+        # Test standard DD/MM HH:MM dates
+        parsed = _parse_date_for_sorting("15/07 09:00")
+        self.assertEqual(parsed.month, 7)
+        self.assertEqual(parsed.day, 15)
+        self.assertEqual(parsed.hour, 9)
+
+        # Test standard DD/MM dates
+        parsed_day_only = _parse_date_for_sorting("20/07")
+        self.assertEqual(parsed_day_only.month, 7)
+        self.assertEqual(parsed_day_only.day, 20)
+        self.assertEqual(parsed_day_only.hour, 0)
+
+        # Test invalid or missing dates return max
+        self.assertEqual(_parse_date_for_sorting(None), datetime.max)
+        self.assertEqual(_parse_date_for_sorting("invalid_date"), datetime.max)
+
 
 if __name__ == "__main__":
     unittest.main()

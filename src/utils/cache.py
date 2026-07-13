@@ -21,4 +21,5 @@ def get_redis() -> redis.Redis | None:
 CACHE_PAGE_TITLE_TTL = 30 * 24 * 3600      # 30 days
 CACHE_CANDIDATES_TTL = 24 * 3600            # 24 hours
 CACHE_QUIZ_TTL = 14 * 24 * 3600             # 14 days
+CACHE_TIMELINE_TTL = 24 * 3600             # 24 hours
 LOCK_QUIZ_TTL = 120                          # 2 minutes

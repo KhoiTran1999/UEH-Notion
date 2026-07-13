@@ -60,7 +60,13 @@
                         ⚡ Ôn tập nhanh
                     </button>
                 </div>
+                <div class="flex gap-2">
+                    <button id="toggle-timeline-btn" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold py-2.5 rounded-xl shadow-sm transition duration-150 flex items-center justify-center gap-1.5">
+                        📅 Xem Deadline trên Web
+                    </button>
+                </div>
             </div>
+
 
             <div id="topics-list" class="space-y-3 overflow-y-auto pb-4">
                 <!-- Topics injected here -->
@@ -158,6 +164,43 @@
             </div>
 
         </div>
+
+        <!-- Timeline View -->
+        <div id="timeline-view" class="hidden flex-1 flex flex-col overflow-y-auto bg-white dark:bg-gray-900 p-4 rounded-xl shadow dark:shadow-none dark:border dark:border-gray-800">
+            <div class="flex items-center justify-between mb-4 border-b dark:border-gray-800 pb-2">
+                <div class="flex items-center space-x-2 min-w-0">
+                    <button id="close-timeline-btn" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center justify-center p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition mr-1" title="Quay lại" aria-label="Quay lại danh sách chủ đề">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                    </button>
+                    <h2 class="text-lg font-bold truncate text-gray-800 dark:text-gray-100">📅 Lịch Deadline</h2>
+                </div>
+                <button id="refresh-timeline-btn" class="w-8 h-8 flex items-center justify-center rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-gray-500 dark:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm text-base font-bold" title="Tải lại từ Notion" aria-label="Tải lại timeline từ Notion">
+                    ⟳
+                </button>
+            </div>
+
+            <!-- Filter controls -->
+            <div class="flex gap-2 mb-4 shrink-0">
+                <select id="timeline-course-filter" class="flex-1 px-2 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 text-[10px] font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm transition duration-150">
+                    <option value="">Tất cả môn</option>
+                </select>
+                <select id="timeline-month-filter" class="flex-1 px-2 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 text-[10px] font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm transition duration-150">
+                    <option value="">Tất cả tháng</option>
+                </select>
+                <select id="timeline-date-filter" class="flex-1 px-2 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 text-[10px] font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm transition duration-150">
+                    <option value="">Tất cả thời gian</option>
+                    <option value="today">Hôm nay</option>
+                    <option value="week">Tuần này</option>
+                    <option value="month">Tháng này</option>
+                </select>
+            </div>
+            <div id="timeline-container" class="space-y-4 relative before:absolute before:inset-y-0 before:left-[72px] before:w-0.5 before:bg-gray-200 dark:before:bg-gray-800">
+                <!-- Timeline items will be injected here -->
+            </div>
+        </div>
+
 
     </div>
 

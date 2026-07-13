@@ -163,3 +163,143 @@ def get_timeline_summary():
     ai_summary = AIService().summarize_timeline(raw_data, is_raw_text=True)
 
     return ai_summary
+
+
+def _parse_date_for_sorting(date_str):
+    """Parse date string (e.g. '15/07 09:00', '15/07', '2026-07-15') into datetime for sorting.
+    Defaults to far future if parsing fails.
+    """
+    if not date_str:
+        return datetime.max
+
+    # Try ISO date format first
+    try:
+        if "T" in date_str:
+            return datetime.fromisoformat(date_str.split("+")[0].split("Z")[0])
+        if "-" in date_str and len(date_str) >= 10:
+            return datetime.strptime(date_str[:10], "%Y-%m-%d")
+    except Exception:
+        pass
+
+    # Try DD/MM HH:MM or DD/MM format
+    try:
+        now = datetime.now()
+        current_year = now.year
+        import re
+        match = re.search(r'(\d{1,2})/(\d{1,2})(?:\s+(\d{1,2}):(\d{1,2}))?', date_str)
+        if match:
+            day = int(match.group(1))
+            month = int(match.group(2))
+            hour = int(match.group(3)) if match.group(3) else 0
+            minute = int(match.group(4)) if match.group(4) else 0
+
+            year = current_year
+            if month < now.month and (now.month - month) > 6:
+                year += 1
+
+            return datetime(year, month, day, hour, minute)
+    except Exception:
+        pass
+
+    return datetime.max
+
+
+def get_structured_timeline(force_refresh: bool = False):
+    """Fetch tasks and return structured JSON representation of deadlines using AI or a Python fallback."""
+    from src.utils.block_parser import fetch_blocks_recursive, parse_block
+    from src.utils.cache import get_redis, CACHE_TIMELINE_TTL
+    import json
+    import re
+
+    cache_key = "structured_timeline"
+    r = get_redis()
+    if r and not force_refresh:
+        try:
+            cached = r.get(cache_key)
+            if cached:
+                logger.info("Using cached structured timeline")
+                return json.loads(cached)
+        except Exception as e:
+            logger.warning(f"Failed to read timeline cache: {e}")
+
+    tasks = fetch_in_progress_tasks()
+    if not tasks:
+        return []
+
+    # Gather raw blocks per task
+    task_texts = []
+    structured_fallback = []
+    with httpx.Client(timeout=60.0) as client:
+        for task in tasks:
+            raw = fetch_blocks_recursive(client, NotionService.headers, task["page_id"])
+            lines = []
+            for item in raw:
+                pb = parse_block(item["block"])
+                if pb and pb.get("type") == "to_do" and not pb["completed"] and pb.get("dates"):
+                    text = pb.get("clean_text", "").strip()
+                    if text:
+                        lines.append(text)
+
+                        # Build fallback item in parallel
+                        resolved_text = _resolve_date_shortcuts(text)
+                        deadline = pb.get("deadline")
+                        urgency = "normal"
+                        if "gấp" in text.lower() or "deadline" in text.lower() or "🔴" in text:
+                            urgency = "high"
+
+                        # Guess weekday and clean date representation (ponytail: keep simple parser, upgrade if needed)
+                        date_match = re.search(r'(\d{2}/\d{2}(?:\s+\d{2}:\d{2})?)', resolved_text)
+                        display_date = date_match.group(1) if date_match else (deadline[:10] if deadline else "")
+
+                        structured_fallback.append({
+                            "date": display_date,
+                            "course": task["name"],
+                            "content": resolved_text,
+                            "urgency": urgency,
+                            "weekday": "",
+                            "page_id": task["page_id"]
+                        })
+            if lines:
+                task_texts.append({
+                    "task_name": task["name"],
+                    "blocks": lines,
+                    "page_id": task["page_id"]
+                })
+
+    if not task_texts:
+        return []
+
+    raw_data = "\n\n".join(
+        f"## {t['task_name']} (PageID: {t['page_id']})\n" + "\n".join(f"- {b}" for b in t["blocks"])
+        for t in task_texts
+    )
+    raw_data = _resolve_date_shortcuts(raw_data)
+
+    result_list = None
+    try:
+        ai_resp = AIService().generate_timeline_json(raw_data)
+        # Parse JSON block from AI output
+        match = re.search(r'\[\s*\{.*\}\s*\]', ai_resp, re.DOTALL)
+        if match:
+            parsed = json.loads(match.group(0))
+            if isinstance(parsed, list) and len(parsed) > 0:
+                result_list = parsed
+    except Exception as e:
+        logger.error(f"❌ Structured timeline AI generation failed: {e}. Using fallback.")
+
+    if result_list is None:
+        result_list = structured_fallback
+
+    # Chronologically sort the list
+    result_list.sort(key=lambda x: _parse_date_for_sorting(x.get("date")))
+
+    if r:
+        try:
+            r.setex(cache_key, CACHE_TIMELINE_TTL, json.dumps(result_list))
+            logger.info("Saved structured timeline to cache")
+        except Exception as e:
+            logger.warning(f"Failed to write timeline cache: {e}")
+
+    return result_list
+
+

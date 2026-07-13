@@ -1,4 +1,7 @@
-const API_BASE_URL = 'https://ueh-notion.onrender.com';
+const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://127.0.0.1:8000'
+    : 'https://ueh-notion.onrender.com';
+
 
 function escapeHtml(text) {
     if (text === null || text === undefined) return '';
@@ -15,7 +18,8 @@ function escapeHtml(text) {
 const views = {
     loading: document.getElementById('loading-view'),
     topics: document.getElementById('topics-view'),
-    quiz: document.getElementById('quiz-view')
+    quiz: document.getElementById('quiz-view'),
+    timeline: document.getElementById('timeline-view')
 };
 
 const ui = {
@@ -51,7 +55,15 @@ const ui = {
     reviewAnswersBtn: document.getElementById('review-answers-btn'),
     dotContainer: document.getElementById('quiz-dot-container'),
     copyQuestionBtn: document.getElementById('copy-question-btn'),
+    toggleTimelineBtn: document.getElementById('toggle-timeline-btn'),
+    closeTimelineBtn: document.getElementById('close-timeline-btn'),
+    timelineContainer: document.getElementById('timeline-container'),
+    timelineCourseFilter: document.getElementById('timeline-course-filter'),
+    timelineMonthFilter: document.getElementById('timeline-month-filter'),
+    timelineDateFilter: document.getElementById('timeline-date-filter'),
+    refreshTimelineBtn: document.getElementById('refresh-timeline-btn'),
 };
+
 
 // State
 let telegramData = { id: 123456789 }; // Mock for local testing
@@ -60,55 +72,29 @@ let currentTopic = null;
 let currentQuiz = [];
 let currentQuestionIndex = 0;
 let searchDebounceTimer = null;
+let currentTimeline = [];
 
-// Initialize Telegram Web App
-function initTelegram() {
-    const tg = window.Telegram.WebApp;
-    tg.expand();
-
-    // Get user ID from Telegram initData
-    if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-        telegramData = tg.initDataUnsafe.user;
-    }
-
-    // Apply dark mode theme if set in Telegram
-    if (tg.colorScheme === 'dark') {
-        document.documentElement.classList.add('dark');
-    } else {
-        document.documentElement.classList.remove('dark');
-    }
-
-    // Listen to Telegram theme changes
-    tg.onEvent('themeChanged', () => {
-        if (tg.colorScheme === 'dark') {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-        }
-    });
-
-    // Bind Telegram native BackButton
-    if (tg.BackButton && tg.isVersionAtLeast && tg.isVersionAtLeast('6.1')) {
-        tg.BackButton.onClick(() => {
-            showView('topics');
-        });
-    }
-}
 
 // Navigation
 function showView(viewName) {
     Object.values(views).forEach(v => v.classList.add('hidden'));
     views[viewName].classList.remove('hidden');
 
+    const urlParams = new URLSearchParams(window.location.search);
+    const isTimelineOnly = urlParams.get('view') === 'timeline';
+
     const tg = window.Telegram.WebApp;
     if (tg && tg.BackButton && tg.isVersionAtLeast && tg.isVersionAtLeast('6.1')) {
-        if (viewName === 'quiz') {
+        if (isTimelineOnly) {
+            tg.BackButton.hide();
+        } else if (viewName === 'quiz' || viewName === 'timeline') {
             tg.BackButton.show();
         } else {
             tg.BackButton.hide();
         }
     }
 }
+
 
 // Helper: Populate Course Dropdown
 function populateCourseFilter() {
@@ -766,6 +752,237 @@ function copyCurrentQuestion() {
     }
 }
 
+function getTimestamp(dateStr) {
+    const { day, month, time } = parseDateParts(dateStr);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const mIdx = months.indexOf(month);
+    const m = mIdx !== -1 ? mIdx : 0;
+    const d = parseInt(day, 10) || 1;
+    const [h, min] = time ? time.split(':').map(Number) : [0, 0];
+    return new Date(2026, m, d, h, min).getTime();
+}
+
+function populateTimelineFilters() {
+    // 1. Populate courses
+    const courses = [...new Set(currentTimeline.map(item => item.course).filter(Boolean))].sort();
+    ui.timelineCourseFilter.innerHTML = '<option value="">Tất cả môn</option>';
+    courses.forEach(course => {
+        const option = document.createElement('option');
+        option.value = course;
+        option.textContent = course;
+        ui.timelineCourseFilter.appendChild(option);
+    });
+
+    // 2. Populate months
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const localMonthNames = {
+        'Jan': 'Tháng 01', 'Feb': 'Tháng 02', 'Mar': 'Tháng 03', 'Apr': 'Tháng 04',
+        'May': 'Tháng 05', 'Jun': 'Tháng 06', 'Jul': 'Tháng 07', 'Aug': 'Tháng 08',
+        'Sep': 'Tháng 09', 'Oct': 'Tháng 10', 'Nov': 'Tháng 11', 'Dec': 'Tháng 12'
+    };
+    const uniqueMonths = [...new Set(currentTimeline.map(item => parseDateParts(item.date).month).filter(Boolean))]
+        .sort((a, b) => months.indexOf(a) - months.indexOf(b));
+
+    ui.timelineMonthFilter.innerHTML = '<option value="">Tất cả tháng</option>';
+    uniqueMonths.forEach(m => {
+        const option = document.createElement('option');
+        option.value = m;
+        option.textContent = localMonthNames[m] || m;
+        ui.timelineMonthFilter.appendChild(option);
+    });
+
+    // 3. Reset values to default
+    ui.timelineCourseFilter.value = '';
+    ui.timelineMonthFilter.value = '';
+    ui.timelineDateFilter.value = '';
+}
+
+function filterAndRenderTimeline() {
+    const selectedCourse = ui.timelineCourseFilter.value;
+    const selectedMonth = ui.timelineMonthFilter.value;
+    const selectedDateRange = ui.timelineDateFilter.value;
+
+    let filtered = [...currentTimeline];
+
+    // Filter by course
+    if (selectedCourse) {
+        filtered = filtered.filter(item => item.course === selectedCourse);
+    }
+
+    // Filter by month
+    if (selectedMonth) {
+        filtered = filtered.filter(item => parseDateParts(item.date).month === selectedMonth);
+    }
+
+    // Filter by date range (Today, Week, Month)
+    if (selectedDateRange) {
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const todayEnd = todayStart + 24 * 3600 * 1000 - 1;
+        const weekEnd = todayStart + 7 * 24 * 3600 * 1000;
+        const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+        const thisMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).getTime() - 1;
+
+        filtered = filtered.filter(item => {
+            const ts = getTimestamp(item.date);
+            if (selectedDateRange === 'today') {
+                return ts >= todayStart && ts <= todayEnd;
+            } else if (selectedDateRange === 'week') {
+                return ts >= todayStart && ts <= weekEnd;
+            } else if (selectedDateRange === 'month') {
+                return ts >= thisMonthStart && ts <= thisMonthEnd;
+            }
+            return true;
+        });
+    }
+
+    // Always sort chronologically by date
+    filtered.sort((a, b) => getTimestamp(a.date) - getTimestamp(b.date));
+
+    renderTimeline(filtered);
+}
+
+async function fetchTimeline(forceRefresh = false) {
+    showLoading(forceRefresh ? 'Đang cập nhật từ Notion...' : 'Đang tải lịch deadline...');
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/study/timeline?force_refresh=${forceRefresh}`);
+        if (!res.ok) throw new Error('Lỗi tải timeline');
+        const data = await res.json();
+        currentTimeline = data.timeline || [];
+
+        // Populate filters and reset selections
+        populateTimelineFilters();
+        filterAndRenderTimeline();
+        showView('timeline');
+    } catch (error) {
+        console.error(error);
+        alert('Lỗi tải timeline. Vui lòng thử lại.');
+        showView('topics');
+    }
+}
+
+function parseDateParts(dateStr) {
+    if (!dateStr) return { day: '--', month: '--', time: '' };
+
+    // Try ISO format: YYYY-MM-DD
+    if (dateStr.includes('-')) {
+        const parts = dateStr.split('T')[0].split('-');
+        if (parts.length === 3) {
+            const m = parts[1];
+            const d = parts[2];
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const mIdx = parseInt(m, 10) - 1;
+            const monthLabel = (mIdx >= 0 && mIdx < 12) ? months[mIdx] : m;
+            const timePart = dateStr.includes('T') ? dateStr.split('T')[1].substring(0, 5) : '';
+            return { day: d, month: monthLabel, time: timePart };
+        }
+    }
+
+    // Standard dd/mm format, potentially with time: "15/07 09:00"
+    const [datePart, timePart] = dateStr.split(' ');
+    const parts = datePart.split('/');
+    if (parts.length === 2) {
+        const d = parts[0];
+        const m = parts[1];
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const mIdx = parseInt(m, 10) - 1;
+        const monthLabel = (mIdx >= 0 && mIdx < 12) ? months[mIdx] : m;
+        return { day: d, month: monthLabel, time: timePart || '' };
+    }
+
+    return { day: dateStr, month: '', time: '' };
+}
+
+function openExternalLink(url) {
+    if (window.Telegram && window.Telegram.WebApp && typeof window.Telegram.WebApp.openLink === 'function') {
+        window.Telegram.WebApp.openLink(url);
+    } else {
+        window.open(url, '_blank');
+    }
+}
+
+function renderTimeline(timelineItems) {
+    ui.timelineContainer.innerHTML = '';
+    if (timelineItems.length === 0) {
+        ui.timelineContainer.innerHTML = '<p class="text-center text-gray-500 dark:text-gray-400 py-6">Không có deadline nào sắp tới.</p>';
+        return;
+    }
+
+    timelineItems.forEach((item, index) => {
+        const row = document.createElement('div');
+        row.className = 'flex items-stretch gap-4 relative pb-6 fade-in';
+
+        // Parse date components
+        const { day, month, time } = parseDateParts(item.date);
+
+        // Urgency badge styles
+        let indicatorBg = 'bg-blue-500';
+        let badgeBg = 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-100 dark:border-blue-900/50';
+        if (item.urgency === 'high') {
+            indicatorBg = 'bg-red-500';
+            badgeBg = 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400 border-red-200 dark:border-red-900/50';
+        } else if (item.urgency === 'low') {
+            indicatorBg = 'bg-green-500';
+            badgeBg = 'bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400 border-green-200 dark:border-green-900/50';
+        }
+
+        // Left date column (w-16, align text right/center)
+        const dateCol = document.createElement('div');
+        dateCol.className = 'w-16 shrink-0 flex flex-col items-end justify-start pt-1.5';
+        dateCol.innerHTML = `
+            <span class="text-xl font-extrabold text-gray-800 dark:text-gray-100 leading-none">${escapeHtml(day)}</span>
+            <span class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mt-0.5">${escapeHtml(month)}</span>
+        `;
+
+        // Dot centered on line at left-[72px] (from left edge of row, since dateCol is w-16 and gap is 16px, center of gap is 72px)
+        const dot = document.createElement('div');
+        dot.className = `absolute left-[65px] top-3.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-gray-900 ${indicatorBg} z-10`;
+
+        // Card content
+        const card = document.createElement('div');
+        card.className = 'flex-1 bg-gray-50 dark:bg-gray-850 p-4 rounded-xl border border-gray-150 dark:border-gray-800 hover:shadow-sm transition cursor-pointer active:scale-98 flex flex-col justify-between';
+
+        let footerHtml = '';
+        if (item.page_id) {
+            const cleanPageId = item.page_id.replace(/-/g, '');
+            const notionUrl = `https://notion.so/${cleanPageId}`;
+            card.addEventListener('click', () => openExternalLink(notionUrl));
+            footerHtml = `
+                <div class="flex justify-end border-t border-gray-100 dark:border-gray-800/80 pt-2 mt-2">
+                    <span class="text-[10px] font-bold text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1">
+                        Xem chi tiết ↗
+                    </span>
+                </div>
+            `;
+        }
+
+        card.innerHTML = `
+            <div>
+                <div class="flex items-center justify-between gap-2 mb-1.5">
+                    <span class="text-xs font-bold text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                        📅 ${escapeHtml(item.weekday || '')} ${escapeHtml(time ? '• ' + time : '')}
+                    </span>
+                    <span class="text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${badgeBg}">
+                        ${item.urgency === 'high' ? 'Gấp' : 'Bình thường'}
+                    </span>
+                </div>
+                <h3 class="font-bold text-sm text-gray-800 dark:text-gray-100 leading-snug mb-1">
+                    ${escapeHtml(item.course || '')}
+                </h3>
+                <p class="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+                    ${escapeHtml(item.content || '')}
+                </p>
+            </div>
+            ${footerHtml}
+        `;
+
+        row.appendChild(dateCol);
+        row.appendChild(dot);
+        row.appendChild(card);
+        ui.timelineContainer.appendChild(row);
+    });
+}
+
 // Event Listeners
 ui.prevBtn.addEventListener('click', () => {
     if (currentQuestionIndex > 0) {
@@ -773,6 +990,7 @@ ui.prevBtn.addEventListener('click', () => {
         renderQuestion();
     }
 });
+
 
 ui.nextBtn.addEventListener('click', () => {
     currentQuestionIndex++;
@@ -801,6 +1019,49 @@ ui.quickReviewBtn.addEventListener('click', () => startQuickReview());
 ui.quizDoneBtn.addEventListener('click', () => showView('topics'));
 ui.refreshCandidatesBtn.addEventListener('click', () => fetchTopics(true));
 
+ui.toggleTimelineBtn.addEventListener('click', () => fetchTimeline());
+ui.closeTimelineBtn.addEventListener('click', () => showView('topics'));
+ui.refreshTimelineBtn.addEventListener('click', () => fetchTimeline(true));
+ui.timelineCourseFilter.addEventListener('change', filterAndRenderTimeline);
+ui.timelineMonthFilter.addEventListener('change', filterAndRenderTimeline);
+ui.timelineDateFilter.addEventListener('change', filterAndRenderTimeline);
+
+// Bind Telegram native BackButton for timeline too
+function initTelegram() {
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+
+    // Get user ID from Telegram initData
+    if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+        telegramData = tg.initDataUnsafe.user;
+    }
+
+    // Apply dark mode theme if set in Telegram
+    if (tg.colorScheme === 'dark') {
+        document.documentElement.classList.add('dark');
+    } else {
+        document.documentElement.classList.remove('dark');
+    }
+
+    // Listen to Telegram theme changes
+    tg.onEvent('themeChanged', () => {
+        if (tg.colorScheme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    });
+
+    // Bind Telegram native BackButton
+    const urlParams = new URLSearchParams(window.location.search);
+    const isTimelineOnly = urlParams.get('view') === 'timeline';
+    if (tg.BackButton && tg.isVersionAtLeast && tg.isVersionAtLeast('6.1') && !isTimelineOnly) {
+        tg.BackButton.onClick(() => {
+            showView('topics');
+        });
+    }
+}
+
 // Helper: Render LaTeX math in element using KaTeX
 function renderMath() {
     if (typeof renderMathInElement === 'function') {
@@ -814,8 +1075,28 @@ function renderMath() {
     }
 }
 
+
+
 // App Start
 document.addEventListener('DOMContentLoaded', () => {
     initTelegram();
-    fetchTopics();
+    const urlParams = new URLSearchParams(window.location.search);
+    const isTimelineOnly = urlParams.get('view') === 'timeline';
+
+    if (isTimelineOnly) {
+        // Hide close/back button in timeline view
+        if (ui.closeTimelineBtn) {
+            ui.closeTimelineBtn.classList.add('hidden');
+        }
+        fetchTimeline();
+    } else {
+        // Normal topics view
+        fetchTopics();
+    }
+
+    // Hide the "Xem Deadline trên Web" button inside topics view by default or if not standalone,
+    // actually, since they are separate pages, we hide it completely.
+    if (ui.toggleTimelineBtn) {
+        ui.toggleTimelineBtn.classList.add('hidden');
+    }
 });

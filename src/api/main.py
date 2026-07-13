@@ -88,6 +88,15 @@ def api_quick_review():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/study/timeline")
+def api_study_timeline(force_refresh: bool = False):
+    try:
+        from src.services.timeline import get_structured_timeline
+        timeline_data = get_structured_timeline(force_refresh=force_refresh)
+        return {"timeline": timeline_data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 class ReportRequest(BaseModel):
     telegram_id: str | None = None
 
@@ -118,7 +127,8 @@ def process_telegram_command(text: str, chat_id: str, background_tasks: Backgrou
             reply_markup={
                 "inline_keyboard": [
                     [{"text": "📊 Báo cáo Task", "callback_data": "/taskreport"}],
-                    [{"text": "📅 Xem Timeline", "callback_data": "/timeline"}],
+                    [{"text": "📅 Xem Timeline (Chat)", "callback_data": "/timeline"}],
+                    [{"text": "📅 Xem Deadline trên Web", "web_app": {"url": f"{Config.WEBAPP_URL}?view=timeline"}}],
                     [{"text": "🎓 Ôn tập khắc sâu", "web_app": {"url": Config.WEBAPP_URL}}]
                 ]
             }

@@ -345,6 +345,38 @@ class AIService:
         final_prompt = f"{system_prompt}\n\n{user_prompt}"
         return self.generate_content(final_prompt, model=Config.MODEL_BRAIN)
 
+    def generate_timeline_json(self, raw_data):
+        """Analyze raw checklist data and return structured JSON timeline list."""
+        vn_time = self._get_vn_time()
+        system_prompt = (
+            "Bạn là trợ lý phân tích dữ liệu deadline học tập tại UEH.\n"
+            "Nhiệm vụ: phân tích dữ liệu tasks thô và trích xuất thành danh sách JSON có cấu trúc gồm các deadline chi tiết.\n\n"
+            "⚠️ Hãy TÁCH một task có nhiều deadline thành các dòng/đối tượng JSON riêng biệt.\n"
+            "Quy đổi các mốc thời gian dạng @Today, @Tomorrow, @Monday thành ngày tháng cụ thể (ví dụ: '15/07 09:00') dựa theo mốc hiện tại.\n\n"
+            "Đầu ra PHẢI là một mảng JSON duy nhất (không có bất kỳ từ giải thích nào khác bên ngoài), mỗi đối tượng chứa:\n"
+            "- \"date\": Ngày tháng hiển thị rút gọn (ví dụ: \"21/07\" hoặc \"21/07 09:00\").\n"
+            "- \"course\": Tên môn học viết ngắn gọn hoặc tên nhóm task (ví dụ: \"Tài Chính Doanh Nghiệp\").\n"
+            "- \"content\": Nội dung chi tiết của deadline đó.\n"
+            "- \"urgency\": Mức độ khẩn cấp (\"high\", \"normal\", hoặc \"low\") dựa vào thời gian hạn chót.\n"
+            "- \"weekday\": Tên thứ rút gọn (ví dụ: \"Thứ 3\" hoặc \"T2\").\n"
+            "- \"page_id\": ID trang Notion lấy từ thông tin (PageID: ...) trong tiêu đề của môn học tương ứng.\n"
+            "\n"
+            "Ví dụ mẫu đầu ra:\n"
+            "[\n"
+            "  {\n"
+            "    \"date\": \"15/07 09:00\",\n"
+            "    \"course\": \"Tài Chính Doanh Nghiệp\",\n"
+            "    \"content\": \"Ghi bài Chương 5\",\n"
+            "    \"urgency\": \"high\",\n"
+            "    \"weekday\": \"T4\",\n"
+            "    \"page_id\": \"d3b07384d113458db7be572e946059d2\"\n"
+            "  }\n"
+            "]"
+        )
+        user_prompt = f"Mốc thời gian hiện tại: {vn_time}\n\nDữ liệu thô:\n{raw_data}\n\nHãy trả về mảng JSON timeline:"
+        return self.generate_content(f"{system_prompt}\n\n{user_prompt}", model=Config.MODEL_WORKER)
+
+
     def generate_voice_script(self, original_text):
         """Rewrites text for voice generation using Notion prompt."""
         prompt_data = self.prompt_service.get_prompt("UEH-Notion", "voice_script")
