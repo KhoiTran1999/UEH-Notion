@@ -114,6 +114,20 @@ class TestBlockParserRobustness(unittest.TestCase):
         res = parse_block(block_todo)
         self.assertIsNotNone(res)
         self.assertEqual(res["text"], "☐ Task to do")
+        self.assertFalse(res["completed"])
+
+        # todo checked is True
+        block_todo_checked = {
+            "type": "to_do",
+            "to_do": {
+                "rich_text": [{"plain_text": "Task done"}],
+                "checked": True
+            }
+        }
+        res_checked = parse_block(block_todo_checked)
+        self.assertIsNotNone(res_checked)
+        self.assertEqual(res_checked["text"], "☑ Task done")
+        self.assertTrue(res_checked["completed"])
 
     def test_parse_block_divider(self):
         block_divider = {
@@ -123,6 +137,44 @@ class TestBlockParserRobustness(unittest.TestCase):
         res = parse_block(block_divider)
         self.assertIsNotNone(res)
         self.assertEqual(res["text"], "---")
+
+    def test_parse_block_strikethrough_completion(self):
+        # A block containing any strikethrough element is considered completed
+        block_partially_struck = {
+            "type": "paragraph",
+            "paragraph": {
+                "rich_text": [
+                    {
+                        "plain_text": "Done task ",
+                        "annotations": {"strikethrough": True}
+                    },
+                    {
+                        "plain_text": "and unstruck part",
+                        "annotations": {"strikethrough": False}
+                    }
+                ]
+            }
+        }
+        res = parse_block(block_partially_struck)
+        self.assertIsNotNone(res)
+        self.assertTrue(res["completed"])
+
+        # A block with no strikethrough elements is not completed
+        block_not_struck = {
+            "type": "paragraph",
+            "paragraph": {
+                "rich_text": [
+                    {
+                        "plain_text": "Unstruck text",
+                        "annotations": {"strikethrough": False}
+                    }
+                ]
+            }
+        }
+        res2 = parse_block(block_not_struck)
+        self.assertIsNotNone(res2)
+        self.assertFalse(res2["completed"])
+
 
 
 if __name__ == "__main__":

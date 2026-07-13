@@ -80,13 +80,14 @@ def parse_block(block, parent_date=None):
 
     # Block type emoji prefix
     prefix = ""
+    is_checked = False
     if b_type == "bulleted_list_item":
         prefix = "• "
     elif b_type == "numbered_list_item":
         prefix = "1. "
     elif b_type == "to_do":
-        checked = block_data.get("checked", False) if isinstance(block_data, dict) else False
-        prefix = "☑ " if checked else "☐ "
+        is_checked = block_data.get("checked", False) if isinstance(block_data, dict) else False
+        prefix = "☑ " if is_checked else "☐ "
     elif b_type == "callout":
         icon_data = block_data.get("icon") if isinstance(block_data, dict) else None
         icon = (icon_data.get("emoji") if isinstance(icon_data, dict) else None) or "💡"
@@ -97,13 +98,20 @@ def parse_block(block, parent_date=None):
 
     deadline = dates[0] if (isinstance(dates, list) and dates) else parent_date
 
+    has_strikethrough = any(
+        isinstance(item, dict) and
+        isinstance(item.get("annotations"), dict) and
+        item["annotations"].get("strikethrough", False)
+        for item in rich_text
+    )
+
     return {
         "type": b_type,
         "text": f"{prefix}{text}",
         "clean_text": f"{prefix}{clean_text}" if clean_text.strip() else "",
         "dates": dates,
         "deadline": deadline,
-        "completed": all_done,
+        "completed": is_checked or all_done or has_strikethrough,
         "block_type": b_type,
     }
 
