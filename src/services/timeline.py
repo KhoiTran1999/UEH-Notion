@@ -138,7 +138,7 @@ def get_timeline_summary():
             lines = []
             for item in raw:
                 pb = parse_block(item["block"])
-                if pb and not pb["completed"] and pb.get("dates"):
+                if pb and pb.get("type") == "to_do" and not pb["completed"] and pb.get("dates"):
                     text = pb.get("clean_text", "").strip()
                     if text:
                         lines.append(text)
