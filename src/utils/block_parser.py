@@ -17,9 +17,15 @@ def parse_rich_text(rich_text):
     dates = []
     all_struck = True
 
+    if not isinstance(rich_text, list):
+        return "", "", [], True
+
     for item in rich_text:
-        t = item.get("plain_text", "")
-        struck = item.get("annotations", {}).get("strikethrough", False)
+        if not isinstance(item, dict):
+            continue
+        t = item.get("plain_text") or ""
+        annotations = item.get("annotations")
+        struck = annotations.get("strikethrough", False) if isinstance(annotations, dict) else False
 
         if struck:
             parts.append(f"~~{t}~~")
@@ -27,9 +33,10 @@ def parse_rich_text(rich_text):
         else:
             all_struck = False
             # Extract @date mentions
-            mention = item.get("mention", {})
-            if mention.get("type") == "date":
-                d = mention.get("date", {}).get("start")
+            mention = item.get("mention")
+            if isinstance(mention, dict) and mention.get("type") == "date":
+                date_data = mention.get("date")
+                d = date_data.get("start") if isinstance(date_data, dict) else None
                 if d:
                     dates.append(d)
                 parts.append(t)
@@ -46,10 +53,25 @@ def parse_block(block, parent_date=None):
 
     Returns dict or None if block type is unsupported/skip.
     """
-    b_type = block.get("type")
-    rich_text = block.get(b_type, {}).get("rich_text", []) if b_type else []
-    if not rich_text:
+    if not isinstance(block, dict):
         return None
+    b_type = block.get("type")
+    if not b_type:
+        return None
+
+    block_data = block.get(b_type)
+    if not isinstance(block_data, dict):
+        return None
+
+    rich_text = block_data.get("rich_text", [])
+    if not isinstance(rich_text, list) or not rich_text:
+        # Some block types like 'divider' might not have rich_text
+        if b_type != "divider":
+            return None
+
+    if b_type == "divider":
+        return {"type": "divider", "text": "---", "clean_text": "---",
+                "dates": [], "completed": False, "block_type": "divider"}
 
     text, clean_text, dates, all_done = parse_rich_text(rich_text)
 
@@ -63,19 +85,17 @@ def parse_block(block, parent_date=None):
     elif b_type == "numbered_list_item":
         prefix = "1. "
     elif b_type == "to_do":
-        checked = block.get("to_do", {}).get("checked", False)
+        checked = block_data.get("checked", False) if isinstance(block_data, dict) else False
         prefix = "☑ " if checked else "☐ "
     elif b_type == "callout":
-        icon = block.get("callout", {}).get("icon", {}).get("emoji", "💡")
+        icon_data = block_data.get("icon") if isinstance(block_data, dict) else None
+        icon = (icon_data.get("emoji") if isinstance(icon_data, dict) else None) or "💡"
         prefix = f"{icon} "
     elif b_type in ("heading_1", "heading_2", "heading_3"):
         level = int(b_type.split("_")[1])
         prefix = "#" * level + " "
-    elif b_type == "divider":
-        return {"type": "divider", "text": "---", "clean_text": "---",
-                "dates": [], "completed": False, "block_type": "divider"}
 
-    deadline = dates[0] if dates else parent_date
+    deadline = dates[0] if (isinstance(dates, list) and dates) else parent_date
 
     return {
         "type": b_type,
