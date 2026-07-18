@@ -56,6 +56,30 @@ class TestUEHNotion(unittest.TestCase):
             self.assertIn("id", first)
             self.assertIn("title", first)
 
+    def test_get_page_title(self):
+        """Test get_page_title with cache and fallback."""
+        from src.services.study_logic import get_candidates, get_page_title
+        candidates = get_candidates()
+        if candidates:
+            title = get_page_title(candidates[0]["id"])
+            self.assertEqual(title, candidates[0]["title"])
+
+    def test_run_background_safe(self):
+        """Test background task safety wrapper."""
+        from src.api.main import run_background_safe
+
+        # Test success case
+        runs = []
+        run_background_safe(lambda x: runs.append(x), "ok")
+        self.assertEqual(runs, ["ok"])
+
+        # Test crash case (should swallow exception, log it, and not raise it)
+        def crashing_func():
+            raise ValueError("Test error alert")
+
+        # This shouldn't raise any exception
+        run_background_safe(crashing_func)
+
 
 if __name__ == "__main__":
     unittest.main()

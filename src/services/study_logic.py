@@ -369,18 +369,9 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
     if progress_callback:
         progress_callback("page_info", 40, "📖 Đang đồng bộ thông tin tiêu đề...")
 
-    try:
-        page_info = notion.retrieve_page(topic_id)
-        if page_info and page_info.get("url"):
-            note_url = page_info["url"]
-        props = page_info.get("properties", {}) if page_info else {}
-
-        for key, val in props.items():
-            if val.get("type") == "title" and val["title"]:
-                note_title = val["title"][0]["plain_text"]
-                break
-    except Exception as e:
-        logger.warning(f"Could not fetch full page info for title: {e}")
+    cached_title = get_page_title(topic_id)
+    if cached_title:
+        note_title = cached_title
 
     # 2. Call AI
     if progress_callback:

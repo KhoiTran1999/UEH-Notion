@@ -97,12 +97,25 @@ def api_study_timeline(force_refresh: bool = False):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+def run_background_safe(func, *args, **kwargs):
+    """Executes a background task safely, sending a Telegram error alert on failure."""
+    try:
+        func(*args, **kwargs)
+    except Exception as e:
+        import traceback
+        error_msg = f"Background task {func.__name__} failed: {str(e)}\n\nTraceback:\n{traceback.format_exc()}"
+        logger.error(error_msg)
+        try:
+            TelegramService().send_error_alert(error_msg)
+        except Exception as telegram_error:
+            logger.error(f"Failed to send Telegram alert for crashed background task: {telegram_error}")
+
 class ReportRequest(BaseModel):
     telegram_id: str | None = None
 
 @app.post("/api/tasks/report")
 def api_generate_report(request: ReportRequest, background_tasks: BackgroundTasks):
-    background_tasks.add_task(run_daily_report)
+    background_tasks.add_task(run_background_safe, run_daily_report)
     return {"success": True, "message": "Report generation started"}
 
 
@@ -135,10 +148,10 @@ def process_telegram_command(text: str, chat_id: str, background_tasks: Backgrou
         )
     elif text == "/taskreport":
         telegram.send_message("🚀 Đã nhận lệnh! Bắt đầu tạo báo cáo ngày cho bạn...")
-        background_tasks.add_task(run_daily_report)
+        background_tasks.add_task(run_background_safe, run_daily_report)
     elif text == "/timeline":
         telegram.send_message("📅 Đang tải timeline tasks...", disable_notification=True)
-        background_tasks.add_task(send_timeline, chat_id)
+        background_tasks.add_task(run_background_safe, send_timeline, chat_id)
     elif text == "/study":
         telegram.send_message(
             "📚 Mở góc ôn tập bằng Web App bên dưới nhé:",
