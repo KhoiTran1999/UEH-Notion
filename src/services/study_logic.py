@@ -140,77 +140,51 @@ def get_candidates(force_refresh=False):
 
     return results
 
-def replace_currency_dollars(text):
-    """Replace standalone currency $ signs (e.g. $50 or 50$) with 'USD ' or ' USD' to prevent KaTeX rendering issues."""
-    parts = list(text)
-    n = len(parts)
-    i = 0
-    while i < n:
-        if parts[i] == '$':
-            is_escaped = False
-            if i > 0 and parts[i-1] == '\\':
-                bs_count = 0
-                k = i - 1
-                while k >= 0 and parts[k] == '\\':
-                    bs_count += 1
-                    k -= 1
-                if bs_count % 2 == 1:
-                    is_escaped = True
+def sanitize_quiz_text(text):
+    """Post-process quiz text fields to clean broken backslashes and currency math delimiters."""
+    if not isinstance(text, str) or not text:
+        return text
 
-            if is_escaped:
-                i += 1
-                continue
+    import re
+    # 1. Clean bogus backslashes before USD, $, digits or spaces
+    text = re.sub(r'\\+USD\s*(\d+(?:[\.,]\d+)?)', r' \1 USD ', text)
+    text = re.sub(r'\\+USD', ' USD ', text)
+    text = re.sub(r'\\+\$\s*([+-]?\d+(?:[\.,]\d+)?)', r' \1 USD ', text)
+    text = re.sub(r'\\+\$', '$', text)
+    text = re.sub(r'\\+\s*([+-]?\d+(?:[\.,]\d+)?)', r' \1 ', text)
 
-            next_dollar_idx = -1
-            j = i + 1
-            while j < n:
-                if parts[j] == '$':
-                    next_is_escaped = False
-                    if parts[j-1] == '\\':
-                        bs_count = 0
-                        k = j - 1
-                        while k >= 0 and parts[k] == '\\':
-                            bs_count += 1
-                            k -= 1
-                        if bs_count % 2 == 1:
-                            next_is_escaped = True
-                    if not next_is_escaped:
-                        next_dollar_idx = j
-                        break
-                j += 1
+    # 2. Convert raw currency $ (e.g., $1.000, +$250, -$250, $750 USD) to clean USD
+    text = re.sub(r'([+-]?)\s*\$\s*(\d+(?:[\.,]\d+)?)\s*(USD)?', r' \1\2 USD ', text)
+    text = re.sub(r'(\d+(?:[\.,]\d+)?)\s*\$', r' \1 USD ', text)
 
-            if next_dollar_idx == -1:
-                if i + 1 < n and parts[i+1].isdigit():
-                    parts[i] = 'USD '
-                else:
-                    parts[i] = ' USD'
-                i += 1
-                continue
+    # 3. Clean up extra spaces around punctuation and words
+    text = re.sub(r'\bUSD\s+USD\b', 'USD', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    text = re.sub(r'\s+([\.,!\?\)])', r'\1', text)
+    text = re.sub(r'(\()\s+', r'\1', text)
+    text = re.sub(r'([+-])\s+(\d)', r'\1\2', text)
 
-            math_content = "".join(parts[i+1:next_dollar_idx])
+    # 4. Fix unescaped Vietnamese text mistakenly wrapped inside $ ... $ delimiters
+    def unwrap_fake_math(match):
+        inner = match.group(1)
+        has_math_ops = any(c in inner for c in ['\\', '_', '^', '=', '+', '*', '/', '{', '}'])
+        if inner.count(' ') > 2 and not has_math_ops:
+            return inner
+        return f"${inner}$"
 
-            is_math = True
-            if '\n' in math_content:
-                is_math = False
-            elif len(math_content) > 100:
-                is_math = False
-            else:
-                has_math_chars = any(c in math_content for c in ['\\', '_', '^', '=', '+', '*', '/', '{', '}'])
-                if math_content.count(' ') > 3 and not has_math_chars:
-                    is_math = False
+    text = re.sub(r'\$([^$\n]+)\$', unwrap_fake_math, text)
 
-            if not is_math:
-                if i + 1 < n and parts[i+1].isdigit():
-                    parts[i] = 'USD '
-                else:
-                    parts[i] = ' USD'
-                i += 1
-            else:
-                i = next_dollar_idx + 1
-        else:
-            i += 1
+    return text
 
-    return "".join(parts)
+def sanitize_quiz_item(item):
+    """Recursively sanitize all string fields in a quiz question dict."""
+    if isinstance(item, dict):
+        return {k: sanitize_quiz_item(v) for k, v in item.items()}
+    elif isinstance(item, list):
+        return [sanitize_quiz_item(v) for v in item]
+    elif isinstance(item, str):
+        return sanitize_quiz_text(item)
+    return item
 
 def clean_json_string(json_str):
     """Clean unescaped LaTeX backslashes and invalid escape sequences inside JSON string literals."""
@@ -219,7 +193,6 @@ def clean_json_string(json_str):
     def replace_string(match):
         s = match.group(0)
         content = s[1:-1]
-        content = replace_currency_dollars(content)
         fixed = []
         i = 0
         n = len(content)
@@ -388,6 +361,7 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
     if match:
         try:
             questions = json.loads(clean_json_string(match.group(0)))
+            questions = sanitize_quiz_item(questions)
         except Exception as e:
             logger.error(f"Failed to parse JSON quiz: {e}")
             questions = [{
