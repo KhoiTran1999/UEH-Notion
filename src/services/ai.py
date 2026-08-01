@@ -415,15 +415,6 @@ class AIService:
         additional_instructions = f"""
         QUAN TRỌNG VỀ SỐ LƯỢNG:
         - Phải tạo chính xác 15 câu hỏi trắc nghiệm.
-
-        QUAN TRỌNG VỀ ĐỊNH DẠNG TOÁN HỌC & KATEX (QUY TẮC NGHIÊM NGẶT):
-        1. Phân biệt rõ Tiền tệ và Công thức toán:
-           - Tuyệt đối KHÔNG dùng ký tự $ cho tiền tệ hoặc phần trăm (ví dụ: viết "100 USD", "+250 USD", "8%" thay vì "$100", "+$250", "8%$", "8\\%$", "\\text{{ USD}}").
-           - Tuyệt đối KHÔNG thêm \\text{{ USD}} hay \\text{{ ...}} vào bên trong cặp dấu toán $. Đơn vị tiền tệ chỉ viết bằng chữ thường bên ngoài khối toán.
-           - Ký tự $ CHỈ ĐƯỢC DÙNG DUY NHẤT để kẹp mở và đóng một biểu thức/công thức toán học hoặc tên biến toán (ví dụ: $V = B + S$, $EBIT$, $EPS$, $ROE$).
-        2. Tuyệt đối KHÔNG chèn ký tự thoát gạch chéo ngược (\\) trước chữ thường, tiền tệ hoặc dấu phần trăm (ví dụ KHÔNG viết \\USD, \\$, \\%, \\ 1.000).
-        3. Mọi khối công thức toán bắt đầu bằng ký tự $ PHẢI được đóng lại bằng đúng một ký tự $ ở cuối biểu thức. Đảm bảo toàn văn bản luôn có tổng số dấu $ là một SỐ CHẴN.
-        4. Loại bỏ hoàn toàn định dạng Markdown (như *, **) bên trong cặp dấu $: Viết *$V*$ hoặc $V$ thay vì $*V*$.
         """
 
         user_prompt = user_template.replace("{content}", content)
@@ -431,8 +422,8 @@ class AIService:
             f"{system_prompt}\n\n{additional_instructions}\n\n"
             "QUY TẮC PHÂN CHIA VAI TRÒ:\n"
             "- Bạn là MODEL_BRAIN: Tập trung hoàn toàn vào việc tư duy, phân tích kiến thức sâu, tính toán bài tập, sáng tạo các câu hỏi trắc nghiệm chất lượng.\n"
-            "- Bạn có công cụ `delegate_to_worker` để sai khiến MODEL_WORKER làm việc cơ học như: trích xuất từ khóa thô từ bài học, định dạng lại công thức hoặc cấu trúc đề thi thô, hay tóm tắt sơ bộ.\n"
-            "Hãy giữ vai trò thiết kế và tư duy logic, giao phó việc định dạng hoặc xử lý dữ liệu thô cho MODEL_WORKER."
+            "- Bạn có công cụ `delegate_to_worker` để sai khiến MODEL_WORKER làm việc cơ học như: trích xuất từ khóa thô từ bài học hay tóm tắt sơ bộ.\n"
+            "Hãy giữ vai trò thiết kế và tư duy logic cho câu hỏi."
         )
 
         return self.run_agent(system_prompt=agent_system_prompt, user_prompt=user_prompt, model=Config.MODEL_BRAIN)
@@ -449,13 +440,12 @@ Hãy thực hiện kiểm tra kỹ lượng danh sách câu hỏi này theo các
 1. Số lượng câu hỏi: Phải đủ chính xác 15 câu hỏi trắc nghiệm. Nếu thiếu hoặc thừa, hãy điều chỉnh để có đúng 15 câu.
 2. Sự chính xác và phù hợp: Tất cả các câu hỏi phải dựa trên thực tế từ nội dung ghi chép, không được tự bịa ra thông tin không có trong tài liệu.
 3. Chất lượng câu hỏi: Câu hỏi phải rõ ràng, phân biệt được độ khó, không mập mờ, không bị lỗi hành văn, lỗi dịch thuật hay lỗi logic. Các đáp án sai phải là các đáp án nhiễu hợp lý (distractors), không được quá ngớ ngẩn. Chỉ có duy nhất một đáp án đúng.
-4. Định dạng Toán học & Công thức:
-   - Xử lý triệt để ký tự $ tiền tệ và Markdown: Tuyệt đối KHÔNG viết $ cho tiền tệ hoặc phần trăm. Viết "100 USD", "+250 USD", "8%" thay vì "$100", "+$250", "\\$100", "\\USD 100", "8%$", "\\text{{ USD}}".
-   - Ký tự $ CHỈ dùng bọc công thức toán/tài chính ($V = B + S$, $EPS$). Không để thẻ Markdown (*, **) chui vào bên trong cặp dấu $ (viết *$V*$ thay vì $*V*$).
-   - Tuyệt đối KHÔNG xuất ra gạch chéo ngược (\\) trước văn bản thường hay tiền tệ (KHÔNG viết \\USD, \\$, \\%, \\ 1.000).
-   - Đảm bảo tổng số dấu $ trong toàn bộ văn bản câu hỏi, lựa chọn và giải thích luôn là SỐ CHẴN (mỗi $ mở đầu phải có đúng 1 $ đóng lại).
-   - Tất cả các công thức toán học, thống kê, ký hiệu tài chính (như NPV, IRR, độ lệch chuẩn, kỳ vọng, mũ, phân số, ma trận, chỉ số dưới/trên...) PHẢI được định dạng chuẩn bằng LaTeX, đặt trong cặp dấu $ cho công thức cùng dòng (inline) và $$ cho công thức nằm riêng dòng (block).
-   - Đảm bảo cú pháp LaTeX chính xác và chuẩn chỉnh để thư viện KaTeX có thể hiển thị thành công. Ví dụ: viết $x_i$ thay vị xi, viết \\sigma thay vì sigma, viết \\frac{{a}}{{b}} thay vì a/b khi viết công thức phức tạp.
+4. Kiểm tra & Chuẩn hóa định dạng Toán học KaTeX / LaTeX (NHIỆM VỤ TRỌNG TÂM):
+   - Đánh giá toàn bộ câu hỏi, lựa chọn đáp án và lời giải thích: Nếu có bất kỳ dấu $ tiền tệ, phần trăm hay ký tự thoát lỗi nào (như $100, +$250, 8%$, \\USD, \\$, \\%, \\text{ USD}), BẮT BUỘC SỬA LẠI THÀNH DẠNG CHUẨN: "100 USD", "+250 USD", "8%".
+   - Ký tự $ CHỈ ĐƯỢC DÙNG DUY NHẤT để bọc các công thức toán học/tài chính (như $V = B + S$, $EPS$, $EBIT$).
+   - Đảm bảo mỗi dấu $ mở đầu công thức toán phải có đúng 1 dấu $ đóng lại ở cuối biểu thức. Tổng số dấu $ ở mỗi trường văn bản phải là một SỐ CHẴN.
+   - Loại bỏ các thẻ Markdown (*, **) nằm bên trong cặp dấu $: Sửa $*V*$ thành *$V*$ hoặc $V$.
+   - Kiểm tra mọi công thức phân số, ký hiệu (như \\frac{a}{b}, \\iff, \\cdot): Đảm bảo nằm trong cặp dấu $...$ và đóng $ đúng vị trí.
 5. Định dạng JSON Đầu ra:
    - Đầu ra của bạn PHẢI là một mảng JSON chứa chính xác các câu hỏi theo đúng định dạng sau, KHÔNG được chứa bất kỳ văn bản giải thích, markdown nào bên ngoài khối JSON. Chỉ trả về một mảng JSON hợp lệ duy nhất:
    [
