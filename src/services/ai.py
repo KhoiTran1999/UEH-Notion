@@ -416,10 +416,10 @@ class AIService:
         QUAN TRỌNG VỀ SỐ LƯỢNG:
         - Phải tạo chính xác 15 câu hỏi trắc nghiệm.
 
-        QUAN TRỌNG VỀ ĐỊNH DẠNG TOÁN HỌC:
-        1. SỬ DỤNG định dạng LaTeX (kẹp giữa ký tự $ cho công thức cùng dòng và $$ cho công thức nằm riêng dòng) để viết các công thức toán học, tài chính, thống kê, ma trận phức tạp.
-        2. Đảm bảo cú pháp LaTeX chính xác và chuẩn chỉnh để bộ thư viện KaTeX có thể render được.
-        3. Đối với các biểu thức cực kỳ đơn giản, có thể dùng ký tự thường hoặc Unicode nếu muốn, nhưng ưu tiên sử dụng LaTeX ($...$) cho các công thức, ký hiệu toán học để hiển thị chuyên nghiệp nhất.
+        QUAN TRỌNG VỀ ĐỊNH DẠNG TOÁN HỌC & KATEX:
+        1. Phân biệt rõ Tiền tệ và Công thức: Các con số tiền tệ như $10, $1.000 trong bài gốc PHẢI được viết lại thành USD 10, 1.000 USD hoặc \\$10 để không bị nhầm thành dấu kẹp toán học.
+        2. Loại bỏ hoàn toàn định dạng Markdown (như *, **) bên trong cặp dấu $: Ví dụ tuyệt đối KHÔNG viết $*V*$, mà viết *$V*$ hoặc $V$.
+        3. SỬ DỤNG định dạng LaTeX (kẹp giữa ký tự $ cho công thức cùng dòng và $$ cho công thức nằm riêng dòng) để viết công thức toán, tài chính. Đảm bảo cú pháp chuẩn KaTeX.
         """
 
         user_prompt = user_template.replace("{content}", content)
@@ -446,6 +446,7 @@ Hãy thực hiện kiểm tra kỹ lượng danh sách câu hỏi này theo các
 2. Sự chính xác và phù hợp: Tất cả các câu hỏi phải dựa trên thực tế từ nội dung ghi chép, không được tự bịa ra thông tin không có trong tài liệu.
 3. Chất lượng câu hỏi: Câu hỏi phải rõ ràng, phân biệt được độ khó, không mập mờ, không bị lỗi hành văn, lỗi dịch thuật hay lỗi logic. Các đáp án sai phải là các đáp án nhiễu hợp lý (distractors), không được quá ngớ ngẩn. Chỉ có duy nhất một đáp án đúng.
 4. Định dạng Toán học & Công thức:
+   - Xử lý triệt để ký tự $ tiền tệ và Markdown: Chuyển các con số tiền tệ như $100 thành 100 USD hoặc \\$100. KHÔNG để thẻ Markdown (*, **) chui vào bên trong cặp dấu $ (viết *$V*$ thay vì $*V*$).
    - Tất cả các công thức toán học, thống kê, ký hiệu tài chính (như NPV, IRR, độ lệch chuẩn, kỳ vọng, mũ, phân số, ma trận, chỉ số dưới/trên...) PHẢI được định dạng chuẩn bằng LaTeX, đặt trong cặp dấu $ cho công thức cùng dòng (inline) và $$ cho công thức nằm riêng dòng (block).
    - Đảm bảo cú pháp LaTeX chính xác và chuẩn chỉnh để thư viện KaTeX có thể hiển thị thành công. Ví dụ: viết $x_i$ thay vị xi, viết \\sigma thay vì sigma, viết \\frac{{a}}{{b}} thay vì a/b khi viết công thức phức tạp.
 5. Định dạng JSON Đầu ra:

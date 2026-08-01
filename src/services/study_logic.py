@@ -336,7 +336,14 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
 
     # 1. Fetch content
     content_lines = notion.fetch_page_content(topic_id, progress_callback=progress_callback)
-    full_content = "\n".join(content_lines)
+    # Pre-clean markdown input before sending to AI to strip math-breaking formatting like $*V*$ or raw currency $
+    cleaned_lines = []
+    import re
+    for line in content_lines:
+        # Strip Markdown italic/bold tags surrounding LaTeX math dollars like $*V*$ or $**V**$
+        l = re.sub(r'\$\*+(.*?)\*+\$', r'$\1$', line)
+        cleaned_lines.append(l)
+    full_content = replace_currency_dollars("\n".join(cleaned_lines))
 
     if not full_content.strip():
         return None
