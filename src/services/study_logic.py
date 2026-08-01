@@ -154,11 +154,10 @@ def sanitize_quiz_text(text):
     text = re.sub(r'\\+\s*([+-]?\d+(?:[\.,]\d+)?)', r' \1 ', text)
 
     # 2. Convert raw currency $ (e.g., $1.000, +$250, -$250, $750 USD) to clean USD
-    text = re.sub(r'([+-]?)\s*\$\s*(\d+(?:[\.,]\d+)?)\s*(USD)?', r' \1\2 USD ', text)
-    text = re.sub(r'(\d+(?:[\.,]\d+)?)\s*\$', r' \1 USD ', text)
-
-    # 3. Clean up extra spaces around punctuation and words
-    text = re.sub(r'\bUSD\s+USD\b', 'USD', text)
+    text = re.sub(r'([+-]?)\s*\$\s*(\d+(?:[\.,]\d+)?)\s*(?:USD|\$)?', r' \1\2 USD ', text)
+    text = re.sub(r'(\d+(?:[\.,]\d+)?)\s*\$\s*(?:USD|\$)?', r' \1 USD ', text)
+    text = re.sub(r'\bUSD\s*\$\s*USD\b', 'USD', text)
+    text = re.sub(r'\bUSD\s*USD\b', 'USD', text)
     text = re.sub(r'\s+', ' ', text).strip()
     text = re.sub(r'\s+([\.,!\?\)])', r'\1', text)
     text = re.sub(r'(\()\s+', r'\1', text)
@@ -316,7 +315,7 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
         # Strip Markdown italic/bold tags surrounding LaTeX math dollars like $*V*$ or $**V**$
         l = re.sub(r'\$\*+(.*?)\*+\$', r'$\1$', line)
         cleaned_lines.append(l)
-    full_content = replace_currency_dollars("\n".join(cleaned_lines))
+    full_content = sanitize_quiz_text("\n".join(cleaned_lines))
 
     if not full_content.strip():
         return None
