@@ -236,48 +236,27 @@ def clean_json_string(json_str):
                     i += 1
                 continue
             if content[i] == '\\':
-                is_double = False
-                if i + 1 < n and content[i+1] == '\\':
-                    is_double = True
+                is_double = (i + 1 < n and content[i+1] == '\\')
+                next_char = content[i+2] if is_double and i + 2 < n else (content[i+1] if i + 1 < n else '')
 
-                if in_math:
-                    if is_double:
-                        if i + 2 < n and content[i+2].isalpha():
-                            fixed.append('\\\\')
-                            i += 2
-                        else:
-                            fixed.append('\\\\\\\\')
-                            i += 2
-                    else:
-                        if i + 1 < n and content[i+1].isalpha():
-                            fixed.append('\\\\')
-                            i += 1
-                        else:
-                            fixed.append('\\\\\\\\')
-                            i += 1
+                # In JSON strings, \n and \t might be literal escapes or intended as \n / \t LaTeX commands (\nu, \theta, \times)
+                # If followed by letters (e.g. \frac, \nu, \theta, \times), treat as LaTeX backslash -> escape as \\
+                if not is_double and next_char in ['n', 't', 'f', 'b', 'r'] and i + 2 < n and content[i+2].isalpha():
+                    fixed.append('\\\\')
+                    i += 1
+                elif not is_double and next_char in ['"', '\\', '/', 'b', 'f', 'n', 'r', 't']:
+                    fixed.append('\\')
+                    fixed.append(next_char)
+                    i += 2
+                elif not is_double and next_char == 'u' and i + 5 < n and all(c in '0123456789abcdefABCDEF' for c in content[i+2:i+6]):
+                    fixed.append('\\')
+                    fixed.append('u')
+                    fixed.extend(content[i+2:i+6])
+                    i += 6
                 else:
-                    if is_double:
-                        fixed.append('\\\\')
-                        i += 2
-                    else:
-                        next_char = content[i+1] if i + 1 < n else ''
-                        if next_char in ['"', '\\', '/', 'b', 'f', 'n', 'r', 't']:
-                            fixed.append('\\')
-                            fixed.append(next_char)
-                            i += 2
-                        elif next_char == 'u':
-                            if i + 5 < n and all(c in '0123456789abcdefABCDEF' for c in content[i+2:i+6]):
-                                fixed.append('\\')
-                                fixed.append('u')
-                                fixed.extend(content[i+2:i+6])
-                                i += 6
-                            else:
-                                fixed.append('\\\\')
-                                fixed.append('u')
-                                i += 2
-                        else:
-                            fixed.append('\\\\')
-                            i += 1
+                    # Escape raw single backslash for LaTeX commands so JSON parsing succeeds without corrupting TeX
+                    fixed.append('\\\\')
+                    i += (2 if is_double else 1)
             elif content[i] == '\n':
                 fixed.append('\\n')
                 i += 1
