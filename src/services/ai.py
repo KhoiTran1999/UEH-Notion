@@ -416,10 +416,13 @@ class AIService:
         QUAN TRỌNG VỀ SỐ LƯỢNG:
         - Phải tạo chính xác 15 câu hỏi trắc nghiệm.
 
-        QUAN TRỌNG VỀ ĐỊNH DẠNG TOÁN HỌC & KATEX:
-        1. Phân biệt rõ Tiền tệ và Công thức: Tuyệt đối KHÔNG sử dụng ký tự $ cho số tiền tệ. Ví dụ: Viết "100 USD", "+250 USD", "1.000 VNĐ" thay vì "$100", "+$250".
-        2. Ký tự $ CHỈ ĐƯỢC DÙNG DUY NHẤT để bọc các công thức toán học/tài chính (như $V = B + S$, $PV$, $FV$, $r$).
-        3. Tuyệt đối KHÔNG xuất ra các ký tự thoát thừa như \\USD, \\$ hoặc \\ trước số tiền hay trước văn bản thường.
+        QUAN TRỌNG VỀ ĐỊNH DẠNG TOÁN HỌC & KATEX (QUY TẮC NGHIÊM NGẶT):
+        1. Phân biệt rõ Tiền tệ và Công thức toán:
+           - Tuyệt đối KHÔNG dùng ký tự $ cho tiền tệ hoặc phần trăm (ví dụ: viết "100 USD", "+250 USD", "8%" thay vì "$100", "+$250", "8%$", "8\\%$", "\\text{{ USD}}").
+           - Tuyệt đối KHÔNG thêm \\text{{ USD}} hay \\text{{ ...}} vào bên trong cặp dấu toán $. Đơn vị tiền tệ chỉ viết bằng chữ thường bên ngoài khối toán.
+           - Ký tự $ CHỈ ĐƯỢC DÙNG DUY NHẤT để kẹp mở và đóng một biểu thức/công thức toán học hoặc tên biến toán (ví dụ: $V = B + S$, $EBIT$, $EPS$, $ROE$).
+        2. Tuyệt đối KHÔNG chèn ký tự thoát gạch chéo ngược (\\) trước chữ thường, tiền tệ hoặc dấu phần trăm (ví dụ KHÔNG viết \\USD, \\$, \\%, \\ 1.000).
+        3. Mọi khối công thức toán bắt đầu bằng ký tự $ PHẢI được đóng lại bằng đúng một ký tự $ ở cuối biểu thức. Đảm bảo toàn văn bản luôn có tổng số dấu $ là một SỐ CHẴN.
         4. Loại bỏ hoàn toàn định dạng Markdown (như *, **) bên trong cặp dấu $: Viết *$V*$ hoặc $V$ thay vì $*V*$.
         """
 
@@ -447,8 +450,10 @@ Hãy thực hiện kiểm tra kỹ lượng danh sách câu hỏi này theo các
 2. Sự chính xác và phù hợp: Tất cả các câu hỏi phải dựa trên thực tế từ nội dung ghi chép, không được tự bịa ra thông tin không có trong tài liệu.
 3. Chất lượng câu hỏi: Câu hỏi phải rõ ràng, phân biệt được độ khó, không mập mờ, không bị lỗi hành văn, lỗi dịch thuật hay lỗi logic. Các đáp án sai phải là các đáp án nhiễu hợp lý (distractors), không được quá ngớ ngẩn. Chỉ có duy nhất một đáp án đúng.
 4. Định dạng Toán học & Công thức:
-   - Xử lý triệt để ký tự $ tiền tệ và Markdown: Tuyệt đối KHÔNG viết $ cho tiền tệ. Viết "100 USD", "+250 USD" thay vì "$100", "+$250", "\\$100", "\\USD 100".
-   - Ký tự $ CHỈ dùng bọc công thức toán/tài chính. Không để thẻ Markdown (*, **) chui vào bên trong cặp dấu $ (viết *$V*$ thay vì $*V*$).
+   - Xử lý triệt để ký tự $ tiền tệ và Markdown: Tuyệt đối KHÔNG viết $ cho tiền tệ hoặc phần trăm. Viết "100 USD", "+250 USD", "8%" thay vì "$100", "+$250", "\\$100", "\\USD 100", "8%$", "\\text{{ USD}}".
+   - Ký tự $ CHỈ dùng bọc công thức toán/tài chính ($V = B + S$, $EPS$). Không để thẻ Markdown (*, **) chui vào bên trong cặp dấu $ (viết *$V*$ thay vì $*V*$).
+   - Tuyệt đối KHÔNG xuất ra gạch chéo ngược (\\) trước văn bản thường hay tiền tệ (KHÔNG viết \\USD, \\$, \\%, \\ 1.000).
+   - Đảm bảo tổng số dấu $ trong toàn bộ văn bản câu hỏi, lựa chọn và giải thích luôn là SỐ CHẴN (mỗi $ mở đầu phải có đúng 1 $ đóng lại).
    - Tất cả các công thức toán học, thống kê, ký hiệu tài chính (như NPV, IRR, độ lệch chuẩn, kỳ vọng, mũ, phân số, ma trận, chỉ số dưới/trên...) PHẢI được định dạng chuẩn bằng LaTeX, đặt trong cặp dấu $ cho công thức cùng dòng (inline) và $$ cho công thức nằm riêng dòng (block).
    - Đảm bảo cú pháp LaTeX chính xác và chuẩn chỉnh để thư viện KaTeX có thể hiển thị thành công. Ví dụ: viết $x_i$ thay vị xi, viết \\sigma thay vì sigma, viết \\frac{{a}}{{b}} thay vì a/b khi viết công thức phức tạp.
 5. Định dạng JSON Đầu ra:
