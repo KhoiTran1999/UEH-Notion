@@ -33,6 +33,7 @@ class AIService:
                 messages=[
                     {"role": "user", "content": prompt}
                 ],
+                reasoning_effort=Config.REASONING_EFFORT,
                 stream=False
             )
 
@@ -50,6 +51,7 @@ class AIService:
                         messages=[
                             {"role": "user", "content": prompt}
                         ],
+                        reasoning_effort=Config.REASONING_EFFORT,
                         stream=False
                     )
                     content = response.choices[0].message.content
@@ -177,6 +179,7 @@ class AIService:
                     messages=messages,
                     tools=tools,
                     tool_choice="auto",
+                    reasoning_effort=Config.REASONING_EFFORT,
                     stream=False
                 )
 
