@@ -44,9 +44,9 @@ def get_page_title(page_id):
 
     return None
 
-def get_candidates(force_refresh=False):
-    """Fetch review notes, sort by 'Last Review At', return top 5 with metadata."""
-    cache_key = "study_candidates"
+def get_candidates(limit=5, force_refresh=False):
+    """Fetch review notes, sort by 'Last Review At', return top candidates with metadata."""
+    cache_key = f"study_candidates_{limit}"
     r = None
     if not force_refresh:
         try:
@@ -54,10 +54,14 @@ def get_candidates(force_refresh=False):
             if r:
                 cached = r.get(cache_key)
                 if cached:
-                    logger.info("Using cached study candidates list")
+                    logger.info(f"Using cached study candidates list (limit={limit})")
                     return json.loads(cached)
         except Exception as e:
             logger.warning(f"Redis get candidates cache error: {e}")
+
+    # Fallback to check if smaller limit cache exists when force_refresh=False is requested
+    # But wait, if force_refresh is True, we bypass cache.
+    # If limit=10 was cached previously under 'study_candidates_5', no, cache keys are distinct.
 
     notion = NotionService()
     candidates = notion.get_review_notes()
@@ -76,7 +80,7 @@ def get_candidates(force_refresh=False):
         return ""
 
     candidates.sort(key=get_last_review_sort_key)
-    top_candidates = candidates[:5]
+    top_candidates = candidates[:limit]
 
     results = []
     relation_tasks = [] # list of (idx, prop_name, page_id)
@@ -141,37 +145,80 @@ def get_candidates(force_refresh=False):
     return results
 
 def sanitize_quiz_text(text):
-    """Post-process quiz text fields to clean broken backslashes and currency math delimiters."""
+    """Post-process quiz text fields to clean broken backslashes, fix unescaped math, and fix misplaced math delimiters."""
     if not isinstance(text, str) or not text:
         return text
 
     import re
-    # 1. Clean bogus backslashes before USD, $, digits or spaces
-    text = re.sub(r'\\+USD\s*(\d+(?:[\.,]\d+)?)', r' \1 USD ', text)
+
+    # 1. Clean broken backslashes before USD, %, or $
+    text = re.sub(r'\\text\s*\{\s*USD\s*\}', ' USD', text)
+    text = re.sub(r'\\+USD\s*(\d+(?:[\.,]\d+)?)', r' \1 USD', text)
     text = re.sub(r'\\+USD', ' USD ', text)
     text = re.sub(r'\\+\$\s*([+-]?\d+(?:[\.,]\d+)?)', r' \1 USD ', text)
     text = re.sub(r'\\+\$', '$', text)
+    text = re.sub(r'\\+%', '%', text)
     text = re.sub(r'\\+\s*([+-]?\d+(?:[\.,]\d+)?)', r' \1 ', text)
 
-    # 2. Convert raw currency $ (e.g., $1.000, +$250, -$250, $750 USD) to clean USD
+    # 2. Convert raw currency $ (e.g. $1.000, +$250) to clean USD
     text = re.sub(r'([+-]?)\s*\$\s*(\d+(?:[\.,]\d+)?)\s*(?:USD|\$)?', r' \1\2 USD ', text)
     text = re.sub(r'(\d+(?:[\.,]\d+)?)\s*\$\s*(?:USD|\$)?', r' \1 USD ', text)
     text = re.sub(r'\bUSD\s*\$\s*USD\b', 'USD', text)
     text = re.sub(r'\bUSD\s*USD\b', 'USD', text)
+
+    # 3. Fix misplaced $ ... $ enclosing prose headers (e.g. $I = ... USD. Thiết lập phương trình ... $)
+    vn_prose_keywords = r'(?:Thiết\s*lập|thiết\s*lập|Giải|giải|phương\s*trình|cân\s*bằng|so\s*với|ban\s*đầu|lỗ\s*vốn|lãi\s*ròng)'
+
+    def unwrap_prose_math(match):
+        inner = match.group(1).strip()
+        if re.search(vn_prose_keywords, inner):
+            parts = re.split(f'({vn_prose_keywords}[^:\\$\\n]*:?)', inner)
+            cleaned_parts = []
+            for p in parts:
+                p_str = p.strip()
+                if not p_str: continue
+                if re.search(vn_prose_keywords, p_str):
+                    cleaned_parts.append(p_str)
+                else:
+                    p_clean = p_str.strip('$')
+                    if p_clean:
+                        cleaned_parts.append(f"${p_clean}$")
+            return " ".join(cleaned_parts)
+        return f"${inner}$"
+
+    text = re.sub(r'(?<!\$)\$([^$\n]+)\$(?!\$)', unwrap_prose_math, text)
+
+    # 4. Wrap unwrapped LaTeX math formulas (containing \times, \implies, \frac, \cdot) in $...$
+    def wrap_unwrapped_latex(sentence):
+        if any(cmd in sentence for cmd in ['\\times', '\\implies', '\\frac', '\\cdot', '\\sqrt']) and '$' not in sentence:
+            if ':' in sentence:
+                prefix, eq = sentence.split(':', 1)
+                return f"{prefix}: ${eq.strip()}$"
+            else:
+                return f"${sentence.strip()}$"
+        return sentence
+
+    sentences = re.split(r'(\. |\n)', text)
+    processed = []
+    for s in sentences:
+        if s.strip():
+            processed.append(wrap_unwrapped_latex(s))
+        else:
+            processed.append(s)
+
+    text = "".join(processed)
+
+    # 5. Clean up redundant spaces and dollar formatting
+    text = re.sub(r'(?<!\$)\$\$\$(?!\$)', '$', text)
     text = re.sub(r'\s+', ' ', text).strip()
     text = re.sub(r'\s+([\.,!\?\)])', r'\1', text)
     text = re.sub(r'(\()\s+', r'\1', text)
     text = re.sub(r'([+-])\s+(\d)', r'\1\2', text)
 
-    # 4. Fix unescaped Vietnamese text mistakenly wrapped inside $ ... $ delimiters
-    def unwrap_fake_math(match):
-        inner = match.group(1)
-        has_math_ops = any(c in inner for c in ['\\', '_', '^', '=', '+', '*', '/', '{', '}'])
-        if inner.count(' ') > 2 and not has_math_ops:
-            return inner
-        return f"${inner}$"
-
-    text = re.sub(r'\$([^$\n]+)\$', unwrap_fake_math, text)
+    # 6. Remove stray $ if total count of $ is odd
+    if text.count('$') % 2 != 0:
+        text = re.sub(r'(?<=\w)\$', '', text)
+        text = re.sub(r'\$\s*$', '', text)
 
     return text
 
@@ -347,7 +394,17 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
         logger.error(f"❌ Failed to review/self-correct quiz: {e}")
         reviewed_content = raw_content
 
-    # 4. Parse into structured Dict format
+    # 4. Final dedicated AI step to verify & correct KaTeX / LaTeX math formatting
+    if progress_callback:
+        progress_callback("reviewing_latex", 90, "📐 AI đang kiểm định và chuẩn hóa KaTeX toán học...")
+
+    try:
+        final_latex_content = ai.review_latex_quiz(reviewed_content)
+    except Exception as e:
+        logger.error(f"❌ Failed in final AI LaTeX review step: {e}")
+        final_latex_content = reviewed_content
+
+    # 5. Parse into structured Dict format
     if progress_callback:
         progress_callback("parsing_quiz", 95, "✨ Đang kiểm tra cấu trúc câu hỏi...")
 
@@ -356,7 +413,7 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
     import re
     import json
 
-    match = re.search(r'\[\s*\{.*\}\s*\]', reviewed_content, re.DOTALL)
+    match = re.search(r'\[\s*\{.*\}\s*\]', final_latex_content, re.DOTALL)
     if match:
         try:
             questions = json.loads(clean_json_string(match.group(0)))

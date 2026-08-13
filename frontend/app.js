@@ -62,12 +62,15 @@ const ui = {
     timelineMonthFilter: document.getElementById('timeline-month-filter'),
     timelineDateFilter: document.getElementById('timeline-date-filter'),
     refreshTimelineBtn: document.getElementById('refresh-timeline-btn'),
+    loadMoreContainer: document.getElementById('load-more-container'),
+    loadMoreBtn: document.getElementById('load-more-btn'),
 };
 
 
 // State
 let telegramData = { id: 123456789 }; // Mock for local testing
 let allTopics = [];
+let candidatesLimit = 5;
 let currentTopic = null;
 let currentQuiz = [];
 let currentQuestionIndex = 0;
@@ -133,15 +136,22 @@ function showLoading(text) {
 }
 
 // API Calls
-async function fetchTopics(forceRefresh = false) {
+async function fetchTopics(forceRefresh = false, limit = candidatesLimit) {
     showLoading('Đang tải danh sách chủ đề...');
     try {
-        const res = await fetch(`${API_BASE_URL}/api/study/candidates?telegram_id=${telegramData.id}&force_refresh=${forceRefresh ? 'true' : 'false'}`);
+        const res = await fetch(`${API_BASE_URL}/api/study/candidates?telegram_id=${telegramData.id}&limit=${limit}&force_refresh=${forceRefresh ? 'true' : 'false'}`);
         if (!res.ok) throw new Error('Lỗi tải danh sách chủ đề');
         const data = await res.json();
         allTopics = data.candidates || [];
         populateCourseFilter();
         filterAndRenderTopics();
+        if (ui.loadMoreContainer) {
+            if (allTopics.length >= limit) {
+                ui.loadMoreContainer.classList.remove('hidden');
+            } else {
+                ui.loadMoreContainer.classList.add('hidden');
+            }
+        }
     } catch (error) {
         console.error(error);
         alert('Lỗi tải chủ đề. Vui lòng kiểm tra kết nối.');
@@ -241,7 +251,8 @@ async function startQuiz(topic, forceRefresh = false, numQuestions) {
                             [4, '🧠 Trợ lý AI đang đọc hiểu bài học...'],
                             [8, '🧠 Trợ lý AI đang biên soạn câu hỏi...'],
                             [13, '🧠 Trợ lý AI đang tối ưu hóa các đáp án nhiễu...'],
-                            [19, '🧠 Trợ lý AI đang hoàn tất việc tạo đề...']
+                            [18, '📐 Trợ lý AI đang kiểm định và chuẩn hóa KaTeX toán học...'],
+                            [23, '✨ Trợ lý AI đang hoàn tất việc tạo đề...']
                         ];
                         aiTimer = setInterval(() => {
                             aiSeconds += 1;
@@ -1017,7 +1028,16 @@ ui.courseFilter.addEventListener('change', filterAndRenderTopics);
 ui.quickReviewBtn.addEventListener('click', () => startQuickReview());
 
 ui.quizDoneBtn.addEventListener('click', () => showView('topics'));
-ui.refreshCandidatesBtn.addEventListener('click', () => fetchTopics(true));
+ui.refreshCandidatesBtn.addEventListener('click', () => {
+    candidatesLimit = 5;
+    fetchTopics(true, candidatesLimit);
+});
+if (ui.loadMoreBtn) {
+    ui.loadMoreBtn.addEventListener('click', () => {
+        candidatesLimit += 5;
+        fetchTopics(true, candidatesLimit);
+    });
+}
 
 ui.toggleTimelineBtn.addEventListener('click', () => fetchTimeline());
 ui.closeTimelineBtn.addEventListener('click', () => showView('topics'));
