@@ -438,13 +438,23 @@ function renderTopics(topics) {
         card.className = 'w-full bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 hover:shadow-md transition duration-200 flex flex-col space-y-3';
 
         let metaHtml = '';
-        if (topic.course || topic.chapter) {
-            metaHtml += `<div class="flex flex-wrap gap-1.5 w-full">`;
+        if (topic.course || topic.chapter || topic.updated_at) {
+            metaHtml += `<div class="flex flex-wrap gap-1.5 w-full items-center">`;
             if (topic.course) {
                 metaHtml += `<span class="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-[10px] font-semibold px-2 py-0.5 rounded border border-blue-100 dark:border-blue-900/50 truncate max-w-[150px]">🔹 ${escapeHtml(topic.course)}</span>`;
             }
             if (topic.chapter) {
                 metaHtml += `<span class="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-[10px] font-semibold px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700 truncate max-w-[200px]">📍 ${escapeHtml(topic.chapter)}</span>`;
+            }
+            if (topic.updated_at) {
+                let dateStr = topic.updated_at;
+                try {
+                    const d = new Date(topic.updated_at);
+                    if (!isNaN(d.getTime())) {
+                        dateStr = d.toLocaleDateString('vi-VN');
+                    }
+                } catch (e) {}
+                metaHtml += `<span class="bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-[10px] font-semibold px-2 py-0.5 rounded border border-amber-100 dark:border-amber-900/50">🕒 ${escapeHtml(dateStr)}</span>`;
             }
             metaHtml += `</div>`;
         }

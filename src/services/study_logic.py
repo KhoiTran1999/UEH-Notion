@@ -110,7 +110,8 @@ def get_candidates(limit=5, force_refresh=False):
             "id": c_id,
             "title": title,
             "chapter": None,
-            "course": None
+            "course": None,
+            "updated_at": c.get("last_edited_time") or get_last_review_sort_key(c)
         })
 
         if chapter_id:
