@@ -440,12 +440,12 @@ Hãy thực hiện kiểm tra kỹ lượng danh sách câu hỏi này theo các
 1. Số lượng câu hỏi: Phải đủ chính xác 15 câu hỏi trắc nghiệm. Nếu thiếu hoặc thừa, hãy điều chỉnh để có đúng 15 câu.
 2. Sự chính xác và phù hợp: Tất cả các câu hỏi phải dựa trên thực tế từ nội dung ghi chép, không được tự bịa ra thông tin không có trong tài liệu.
 3. Chất lượng câu hỏi: Câu hỏi phải rõ ràng, phân biệt được độ khó, không mập mờ, không bị lỗi hành văn, lỗi dịch thuật hay lỗi logic. Các đáp án sai phải là các đáp án nhiễu hợp lý (distractors), không được quá ngớ ngẩn. Chỉ có duy nhất một đáp án đúng.
-4. Kiểm tra & Chuẩn hóa định dạng Toán học KaTeX / LaTeX (NHIỆM VỤ TRỌNG TÂM):
-   - Đánh giá toàn bộ câu hỏi, lựa chọn đáp án và lời giải thích: Nếu có bất kỳ dấu $ tiền tệ, phần trăm hay ký tự thoát lỗi nào (như $100, +$250, 8%$, \\USD, \\$, \\%, \\text{ USD}), BẮT BUỘC SỬA LẠI THÀNH DẠNG CHUẨN: "100 USD", "+250 USD", "8%".
-   - Ký tự $ CHỈ ĐƯỢC DÙNG DUY NHẤT để bọc các công thức toán học/tài chính (như $V = B + S$, $EPS$, $EBIT$).
-   - Đảm bảo mỗi dấu $ mở đầu công thức toán phải có đúng 1 dấu $ đóng lại ở cuối biểu thức. Tổng số dấu $ ở mỗi trường văn bản phải là một SỐ CHẴN.
-   - Loại bỏ các thẻ Markdown (*, **) nằm bên trong cặp dấu $: Sửa $*V*$ thành *$V*$ hoặc $V$.
-   - Kiểm tra mọi công thức phân số, ký hiệu (như \\frac{a}{b}, \\iff, \\cdot): Đảm bảo nằm trong cặp dấu $...$ và đóng $ đúng vị trí.
+4. Kiểm tra & Chuẩn hóa định dạng Toán học KaTeX / LaTeX (NHIỆM VỤ TRỌNG TÂM TỐI CAO):
+   - Tuyệt đối KHÔNG dùng dấu $ cho giá trị tiền tệ, số liệu hay phần trăm (như $100, +$250, 8%$, \\USD, \\$, \\%, \\text{ USD}). Hãy quy đổi thành văn bản thuần: "100 USD", "+250 USD", "8%".
+   - Dấu $ CHỈ DÙNG DUY NHẤT để bọc các biến/công thức toán thực sự (như $V = B + S$, $EPS$, $EBIT$, $T_c = 0$, $\\frac{a}{b}$).
+   - TUYỆT ĐỐI KHÔNG bọc dấu $ quanh văn bản tiếng Việt hay cả câu diễn giải (Ví dụ SAI: "$lỗ vốn - 250 USD so với 1.000 USD$". Phải SỬA THÀNH: "lỗ vốn 250 USD so với 1.000 USD").
+   - Mỗi dấu $ mở công thức PHẢI có đúng 1 dấu $ đóng công thức ngay sau biểu thức toán đó. Không được để thừa hay thiếu dấu $.
+   - Loại bỏ các ký tự Markdown (*, **) nằm bên trong cặp dấu $: Sửa $*V*$ thành $V$ hoặc *$V*$.
 5. Định dạng JSON Đầu ra:
    - Đầu ra của bạn PHẢI là một mảng JSON chứa chính xác các câu hỏi theo đúng định dạng sau, KHÔNG được chứa bất kỳ văn bản giải thích, markdown nào bên ngoài khối JSON. Chỉ trả về một mảng JSON hợp lệ duy nhất:
    [
@@ -483,3 +483,34 @@ Hãy đánh giá, chỉnh sửa, bổ sung và xuất ra danh sách 15 câu hỏ
         final_prompt = final_prompt.replace("{raw_quiz}", raw_quiz)
 
         return self.generate_content(final_prompt, model=model)
+
+    def review_latex_quiz(self, quiz_json_str):
+        """Dedicated final AI step to review and perfect ONLY KaTeX/LaTeX math formatting in quiz JSON."""
+        if not quiz_json_str:
+            return quiz_json_str
+
+        system_prompt = r"""Bạn là một Chuyên gia Kiểm định Định dạng KaTeX và LaTeX cho hệ thống trắc nghiệm.
+Nhiệm vụ DUY NHẤT của bạn là nhận vào danh sách câu hỏi trắc nghiệm dưới dạng JSON và CHUẨN HÓA TOÀN BỘ ĐỊNH DẠNG KaTeX / LaTeX trong tất cả các trường văn bản (`q`, `options`, `explanation`).
+
+CÁC QUY TẮC CHUẨN HÓA LATEX / KATEX BẮT BUỘC:
+1. Phân biệt văn bản tiếng Việt và công thức toán:
+   - TUYỆT ĐỐI KHÔNG bọc câu văn tiếng Việt, định nghĩa hay lời diễn giải vào cặp dấu $ ... $.
+   - Ví dụ SAI 1: "$Hệ số s biểu thị tốc độ điều chỉnh mức cổ tức...$" -> Phải SỬA THÀNH: "Hệ số $s$ biểu thị tốc độ điều chỉnh mức cổ tức..."
+   - Ví dụ SAI 2: "$Chi phí lãi vay hàng năm là I = 2.000.000 \times 8% = 160.000 USD. Thiết lập phương trình EPS: \frac{EBIT}{200.000} = ...$" -> Phải SỬA THÀNH: "Chi phí lãi vay hàng năm ở phương án có nợ là $I = 2.000.000 \times 8\% = 160.000\text{ USD}$. Thiết lập phương trình cân bằng EPS: $\frac{EBIT}{200.000} = \frac{EBIT - 160.000}{150.000}$."
+2. Bọc đầy đủ cặp dấu $ ... $ cho mọi biểu thức/lệnh LaTeX:
+   - Nếu một biểu thức chứa các lệnh LaTeX như `\frac`, `\times`, `\implies`, `\cdot`, `\sqrt`, `\left`, `\right` hoặc phép toán `=`, `+`, `-`, `\times` mà đứng ngoài dấu $, BẮT BUỘC phải bọc cặp dấu $ ... $ xung quanh biểu thức toán đó.
+   - Ví dụ SAI: "Giải phương trình: 150.000 USD \times EBIT = 200.000 \times EBIT - 32.000.000.000 \implies EBIT = 640.000 USD"
+   - Phải SỬA THÀNH: "Giải phương trình: $150.000\text{ USD} \times EBIT = 200.000 \times EBIT - 32.000.000.000 \implies EBIT = 640.000\text{ USD}$"
+3. Tiền tệ và số liệu:
+   - Tiền tệ thông thường (như 100 USD, 5.000 USD) ghi bằng chữ thuần không cần bọc $, trừ khi nó nằm trong một công thức toán KaTeX (thì dùng `\text{ USD}`).
+   - Loại bỏ các ký tự thoát lỗi như `\$100`, `\USD`, `\text{ USD}$`.
+4. Giữ nguyên 100% nội dung, ý nghĩa câu hỏi, các đáp án và cấu trúc JSON. Không thay đổi đáp án đúng (`correct`).
+5. Đầu ra PHẢI là một mảng JSON hợp lệ duy nhất, KHÔNG chứa bất kỳ văn bản giải thích nào bên ngoài."""
+
+        user_prompt = f"""--- RAW QUIZ JSON CẦN CHUẨN HÓA LATEX ---
+{quiz_json_str}
+----------------------------------------
+
+Hãy kiểm tra toàn bộ định dạng KaTeX/LaTeX và xuất ra mảng JSON duy nhất đã được chuẩn hóa hoàn toàn."""
+
+        return self.generate_content(f"{user_prompt}\n\n{system_prompt}", model=Config.MODEL_WORKER)

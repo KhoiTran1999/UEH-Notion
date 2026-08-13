@@ -144,94 +144,6 @@ def get_candidates(limit=5, force_refresh=False):
 
     return results
 
-def sanitize_quiz_text(text):
-    """Post-process quiz text fields to clean broken backslashes, fix unescaped math, and fix misplaced math delimiters."""
-    if not isinstance(text, str) or not text:
-        return text
-
-    import re
-
-    # 1. Clean broken backslashes before USD, %, or $
-    text = re.sub(r'\\text\s*\{\s*USD\s*\}', ' USD', text)
-    text = re.sub(r'\\+USD\s*(\d+(?:[\.,]\d+)?)', r' \1 USD', text)
-    text = re.sub(r'\\+USD', ' USD ', text)
-    text = re.sub(r'\\+\$\s*([+-]?\d+(?:[\.,]\d+)?)', r' \1 USD ', text)
-    text = re.sub(r'\\+\$', '$', text)
-    text = re.sub(r'\\+%', '%', text)
-    text = re.sub(r'\\+\s*([+-]?\d+(?:[\.,]\d+)?)', r' \1 ', text)
-
-    # 2. Convert raw currency $ (e.g. $1.000, +$250) to clean USD
-    text = re.sub(r'([+-]?)\s*\$\s*(\d+(?:[\.,]\d+)?)\s*(?:USD|\$)?', r' \1\2 USD ', text)
-    text = re.sub(r'(\d+(?:[\.,]\d+)?)\s*\$\s*(?:USD|\$)?', r' \1 USD ', text)
-    text = re.sub(r'\bUSD\s*\$\s*USD\b', 'USD', text)
-    text = re.sub(r'\bUSD\s*USD\b', 'USD', text)
-
-    # 3. Fix misplaced $ ... $ enclosing prose headers (e.g. $I = ... USD. Thiết lập phương trình ... $)
-    vn_prose_keywords = r'(?:Thiết\s*lập|thiết\s*lập|Giải|giải|phương\s*trình|cân\s*bằng|so\s*với|ban\s*đầu|lỗ\s*vốn|lãi\s*ròng)'
-
-    def unwrap_prose_math(match):
-        inner = match.group(1).strip()
-        if re.search(vn_prose_keywords, inner):
-            parts = re.split(f'({vn_prose_keywords}[^:\\$\\n]*:?)', inner)
-            cleaned_parts = []
-            for p in parts:
-                p_str = p.strip()
-                if not p_str: continue
-                if re.search(vn_prose_keywords, p_str):
-                    cleaned_parts.append(p_str)
-                else:
-                    p_clean = p_str.strip('$')
-                    if p_clean:
-                        cleaned_parts.append(f"${p_clean}$")
-            return " ".join(cleaned_parts)
-        return f"${inner}$"
-
-    text = re.sub(r'(?<!\$)\$([^$\n]+)\$(?!\$)', unwrap_prose_math, text)
-
-    # 4. Wrap unwrapped LaTeX math formulas (containing \times, \implies, \frac, \cdot) in $...$
-    def wrap_unwrapped_latex(sentence):
-        if any(cmd in sentence for cmd in ['\\times', '\\implies', '\\frac', '\\cdot', '\\sqrt']) and '$' not in sentence:
-            if ':' in sentence:
-                prefix, eq = sentence.split(':', 1)
-                return f"{prefix}: ${eq.strip()}$"
-            else:
-                return f"${sentence.strip()}$"
-        return sentence
-
-    sentences = re.split(r'(\. |\n)', text)
-    processed = []
-    for s in sentences:
-        if s.strip():
-            processed.append(wrap_unwrapped_latex(s))
-        else:
-            processed.append(s)
-
-    text = "".join(processed)
-
-    # 5. Clean up redundant spaces and dollar formatting
-    text = re.sub(r'(?<!\$)\$\$\$(?!\$)', '$', text)
-    text = re.sub(r'\s+', ' ', text).strip()
-    text = re.sub(r'\s+([\.,!\?\)])', r'\1', text)
-    text = re.sub(r'(\()\s+', r'\1', text)
-    text = re.sub(r'([+-])\s+(\d)', r'\1\2', text)
-
-    # 6. Remove stray $ if total count of $ is odd
-    if text.count('$') % 2 != 0:
-        text = re.sub(r'(?<=\w)\$', '', text)
-        text = re.sub(r'\$\s*$', '', text)
-
-    return text
-
-def sanitize_quiz_item(item):
-    """Recursively sanitize all string fields in a quiz question dict."""
-    if isinstance(item, dict):
-        return {k: sanitize_quiz_item(v) for k, v in item.items()}
-    elif isinstance(item, list):
-        return [sanitize_quiz_item(v) for v in item]
-    elif isinstance(item, str):
-        return sanitize_quiz_text(item)
-    return item
-
 def clean_json_string(json_str):
     """Clean unescaped LaTeX backslashes and invalid escape sequences inside JSON string literals."""
     import re
@@ -362,7 +274,7 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
         # Strip Markdown italic/bold tags surrounding LaTeX math dollars like $*V*$ or $**V**$
         l = re.sub(r'\$\*+(.*?)\*+\$', r'$\1$', line)
         cleaned_lines.append(l)
-    full_content = sanitize_quiz_text("\n".join(cleaned_lines))
+    full_content = "\n".join(cleaned_lines)
 
     if not full_content.strip():
         return None
@@ -417,7 +329,6 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
     if match:
         try:
             questions = json.loads(clean_json_string(match.group(0)))
-            questions = sanitize_quiz_item(questions)
         except Exception as e:
             logger.error(f"Failed to parse JSON quiz: {e}")
             questions = [{

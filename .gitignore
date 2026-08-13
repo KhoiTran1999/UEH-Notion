@@ -28,5 +28,8 @@ notion_data_dump.json
 daily_report_voice.mp3
 test_voice.mp3
 
+# Node
+node_modules/
+
 # Logs
 *.log
