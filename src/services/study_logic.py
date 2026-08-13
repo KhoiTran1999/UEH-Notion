@@ -144,6 +144,39 @@ def get_candidates(limit=5, force_refresh=False):
 
     return results
 
+def split_into_3_chunks(text: str) -> list[str]:
+    """Split text into 3 chunks using Markdown H1 (#) headings if possible."""
+    import math
+    import re
+
+    sections = [s.strip() for s in re.split(r'\n(?=#\s)|^(?=#\s)', text) if s.strip()]
+    if len(sections) >= 3:
+        group_size = math.ceil(len(sections) / 3)
+        return [
+            "\n\n".join(sections[i : i + group_size])
+            for i in range(0, len(sections), group_size)
+        ]
+
+    # Fallback to H2 (##) if H1 is less than 3
+    h2_sections = [s.strip() for s in re.split(r'\n(?=##\s)|^(?=##\s)', text) if s.strip()]
+    if len(h2_sections) >= 3:
+        group_size = math.ceil(len(h2_sections) / 3)
+        return [
+            "\n\n".join(h2_sections[i : i + group_size])
+            for i in range(0, len(h2_sections), group_size)
+        ]
+
+    # Final fallback for plain text or very short notes
+    lines = text.splitlines()
+    if len(lines) >= 3:
+        group_size = math.ceil(len(lines) / 3)
+        return [
+            "\n".join(lines[i : i + group_size])
+            for i in range(0, len(lines), group_size)
+        ]
+
+    return [text]
+
 def clean_json_string(json_str):
     """Clean unescaped LaTeX backslashes and invalid escape sequences inside JSON string literals."""
     import re
@@ -290,11 +323,26 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
     if cached_title:
         note_title = cached_title
 
-    # 2. Call AI
+    # 2. Call AI in 3 parallel chunks
     if progress_callback:
-        progress_callback("calling_ai", 45, "🧠 Đang gửi nội dung bài học tới AI...")
+        progress_callback("calling_ai", 45, "🧠 Đang chia 3 phần bài học và gửi AI xử lý song song...")
 
-    raw_content = ai.generate_quiz(full_content)
+    chunks = split_into_3_chunks(full_content)
+    from concurrent.futures import ThreadPoolExecutor
+
+    def generate_single_chunk(chunk_text):
+        try:
+            return ai.generate_quiz(chunk_text)
+        except Exception as e:
+            logger.error(f"❌ Worker failed to generate quiz for chunk: {e}")
+            return ""
+
+    with ThreadPoolExecutor(max_workers=min(len(chunks), 3)) as executor:
+        raw_results = list(executor.map(generate_single_chunk, chunks))
+
+    raw_content = "\n\n".join([r for r in raw_results if r.strip()])
+    if not raw_content.strip():
+        raw_content = ai.generate_quiz(full_content)
 
     # 3. Review and self-correct quiz
     if progress_callback:
@@ -329,6 +377,9 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
     if match:
         try:
             questions = json.loads(clean_json_string(match.group(0)))
+            for idx, q in enumerate(questions, 1):
+                if isinstance(q, dict):
+                    q["id"] = idx
         except Exception as e:
             logger.error(f"Failed to parse JSON quiz: {e}")
             questions = [{
