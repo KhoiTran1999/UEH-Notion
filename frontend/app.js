@@ -451,7 +451,9 @@ function renderTopics(topics) {
                 try {
                     const d = new Date(topic.updated_at);
                     if (!isNaN(d.getTime())) {
-                        dateStr = d.toLocaleDateString('vi-VN');
+                        const h = String(d.getHours()).padStart(2, '0');
+                        const m = String(d.getMinutes()).padStart(2, '0');
+                        dateStr = `${h}:${m} ${d.toLocaleDateString('vi-VN')}`;
                     }
                 } catch (e) {}
                 metaHtml += `<span class="bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-[10px] font-semibold px-2 py-0.5 rounded border border-amber-100 dark:border-amber-900/50">🕒 ${escapeHtml(dateStr)}</span>`;
