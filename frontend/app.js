@@ -332,7 +332,7 @@ async function startQuiz(topic, forceRefresh = false, numQuestions) {
             aiTimer = null;
         }
         console.error(error);
-        alert('Lỗi khi tạo bộ câu hỏi.');
+        alert(error.message || 'Lỗi khi tạo bộ câu hỏi.');
         showView('topics');
     }
 }

@@ -113,12 +113,14 @@ def fetch_in_progress_tasks():
 
         tasks = []
         for page in resp.json().get("results", []):
-            props = page.get("properties", {})
-            name_arr = props.get("Name", {}).get("title", [])
-            name = name_arr[0]["plain_text"] if name_arr else ""
+            if not isinstance(page, dict):
+                continue
+            props = page.get("properties") or {}
+            name_arr = (props.get("Name") or {}).get("title") or []
+            name = name_arr[0].get("plain_text", "") if name_arr and isinstance(name_arr[0], dict) else ""
             if not name or name == "All Tasks Timeline":
                 continue
-            tasks.append({"page_id": page["id"], "name": name})
+            tasks.append({"page_id": page.get("id"), "name": name})
         return tasks
 
 

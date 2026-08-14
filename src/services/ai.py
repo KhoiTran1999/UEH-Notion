@@ -79,10 +79,14 @@ class AIService:
                 notes = notion.get_review_notes()
                 simplified_notes = []
                 for note in notes:
+                    if not isinstance(note, dict):
+                        continue
                     title = "Unknown Note"
-                    for key, val in note.get("properties", {}).items():
-                        if val.get("type") == "title" and val["title"]:
-                            title = val["title"][0]["plain_text"]
+                    props = note.get("properties") or {}
+                    for key, val in props.items():
+                        if isinstance(val, dict) and val.get("type") == "title" and val.get("title"):
+                            first_title = val["title"][0] if len(val["title"]) > 0 else {}
+                            title = first_title.get("plain_text", "Unknown Note") if isinstance(first_title, dict) else "Unknown Note"
                             break
                     simplified_notes.append({
                         "id": note["id"],

@@ -28,17 +28,18 @@ def get_page_title(page_id):
     notion = NotionService()
     try:
         page_info = notion.retrieve_page(page_id)
-        if page_info:
-            props = page_info.get("properties", {})
+        if isinstance(page_info, dict):
+            props = page_info.get("properties") or {}
             for key, val in props.items():
-                if val.get("type") == "title" and val["title"]:
-                    title = val["title"][0]["plain_text"]
-                    if r:
-                        try:
-                            r.setex(cache_key, CACHE_PAGE_TITLE_TTL, title)
-                        except Exception as ce:
-                            logger.warning(f"Redis set error: {ce}")
-                    return title
+                if isinstance(val, dict) and val.get("type") == "title" and val.get("title"):
+                    title = "".join([t.get("plain_text", "") for t in val["title"] if isinstance(t, dict)]).strip() or None
+                    if title:
+                        if r:
+                            try:
+                                r.setex(cache_key, CACHE_PAGE_TITLE_TTL, title)
+                            except Exception as ce:
+                                logger.warning(f"Redis set error: {ce}")
+                        return title
     except Exception as e:
         logger.error(f"Error fetching page title for {page_id}: {e}")
 
@@ -71,11 +72,13 @@ def get_candidates(limit=5, force_refresh=False):
 
     def get_last_review_sort_key(note):
         try:
-            props = note.get("properties", {})
-            last_review = props.get("Last Review At", {}).get("date", {})
-            if last_review and last_review.get("start"):
+            if not isinstance(note, dict): return ""
+            props = note.get("properties") or {}
+            last_review_prop = props.get("Last Review At") or {}
+            last_review = last_review_prop.get("date") or {}
+            if isinstance(last_review, dict) and last_review.get("start"):
                  return last_review["start"]
-        except:
+        except Exception:
             pass
         return ""
 
@@ -88,22 +91,22 @@ def get_candidates(limit=5, force_refresh=False):
     for idx, c in enumerate(top_candidates):
         c_id = c["id"]
         title = "Unknown Note"
-        props = c.get("properties", {})
+        props = c.get("properties") or {}
 
         for key, val in props.items():
-            if val.get("type") == "title" and val["title"]:
-                title = val["title"][0]["plain_text"]
+            if isinstance(val, dict) and val.get("type") == "title" and val.get("title"):
+                title = "".join([t.get("plain_text", "") for t in val["title"] if isinstance(t, dict)]).strip() or "Unknown Note"
                 break
 
         chapter_id = None
         course_id = None
 
-        chapter_prop = props.get("📍DB Chương", {})
-        if chapter_prop.get("type") == "relation" and chapter_prop.get("relation"):
+        chapter_prop = props.get("📍DB Chương") or {}
+        if isinstance(chapter_prop, dict) and chapter_prop.get("type") == "relation" and chapter_prop.get("relation"):
             chapter_id = chapter_prop["relation"][0]["id"]
 
-        course_prop = props.get("🔹 DB Học Phần - UEH", {})
-        if course_prop.get("type") == "relation" and course_prop.get("relation"):
+        course_prop = props.get("🔹 DB Học Phần - UEH") or {}
+        if isinstance(course_prop, dict) and course_prop.get("type") == "relation" and course_prop.get("relation"):
             course_id = course_prop["relation"][0]["id"]
 
         results.append({
@@ -457,7 +460,7 @@ def generate_quiz_stream(topic_id, force_refresh=False):
             if res:
                 q.put({"type": "result", "data": res})
             else:
-                q.put({"type": "error", "message": "Topic not found or content empty"})
+                q.put({"type": "error", "message": "Nội dung bài học trống hoặc không tìm thấy trang Notion."})
         except Exception as e:
             q.put({"type": "error", "message": str(e)})
 

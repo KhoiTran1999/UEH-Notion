@@ -272,23 +272,29 @@ class NotionService:
 
     def _process_block(self, block, depth=0):
         """Formats a block into text."""
+        if not isinstance(block, dict):
+            return ""
+
         b_type = block.get("type")
         indent = "  " * depth
         content = ""
-        
-        def ex_text(rich_list):
-            return "".join([t.get("plain_text", "") for t in rich_list])
 
-        if b_type == "paragraph":
+        def ex_text(rich_list):
+            if not isinstance(rich_list, list):
+                return ""
+            return "".join([t.get("plain_text", "") for t in rich_list if isinstance(t, dict)])
+
+        if b_type == "paragraph" and isinstance(block.get("paragraph"), dict):
             content = ex_text(block["paragraph"].get("rich_text", []))
         elif b_type in ["heading_1", "heading_2", "heading_3"]:
             level = int(b_type.split("_")[1])
-            content = f"\n{'#'*level} {ex_text(block[b_type].get('rich_text', []))}"
-        elif b_type == "bulleted_list_item":
+            b_data = block.get(b_type)
+            content = f"\n{'#'*level} {ex_text(b_data.get('rich_text', []))}" if isinstance(b_data, dict) else ""
+        elif b_type == "bulleted_list_item" and isinstance(block.get("bulleted_list_item"), dict):
             content = f"• {ex_text(block['bulleted_list_item'].get('rich_text', []))}"
-        # ... (Include other types as needed from original) ...
-        elif b_type == "callout":
-            icon = block["callout"].get("icon", {}).get("emoji", "💡")
+        elif b_type == "callout" and isinstance(block.get("callout"), dict):
+            icon_obj = block["callout"].get("icon")
+            icon = icon_obj.get("emoji", "💡") if isinstance(icon_obj, dict) else "💡"
             content = f"> {icon} {ex_text(block['callout'].get('rich_text', []))}"
             
         return f"{indent}{content}" if content.strip() else ""
