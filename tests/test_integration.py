@@ -64,6 +64,18 @@ class TestUEHNotion(unittest.TestCase):
             title = get_page_title(candidates[0]["id"])
             self.assertEqual(title, candidates[0]["title"])
 
+    def test_clear_quiz_cache(self):
+        """Test clear_quiz_cache function."""
+        from src.services.study_logic import clear_quiz_cache
+        from src.utils.cache import get_redis
+        r = get_redis()
+        if r:
+            r.set("quiz_test-uuid-123", "dummy_quiz")
+            self.assertEqual(r.get("quiz_test-uuid-123"), "dummy_quiz")
+            res = clear_quiz_cache("test-uuid-123")
+            self.assertTrue(res)
+            self.assertIsNone(r.get("quiz_test-uuid-123"))
+
     def test_run_background_safe(self):
         """Test background task safety wrapper."""
         from src.api.main import run_background_safe

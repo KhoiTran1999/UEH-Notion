@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, field_validator
 
-from src.services.study_logic import get_candidates, generate_quiz, generate_quiz_stream, update_status, generate_quick_review
+from src.services.study_logic import get_candidates, generate_quiz, generate_quiz_stream, update_status, generate_quick_review, clear_quiz_cache
 from src.jobs.daily_report import run_daily_report
 from src.services.timeline import get_timeline_summary, fetch_in_progress_tasks
 from src.services.telegram import TelegramService
@@ -69,6 +69,13 @@ def api_generate_quiz(request: QuizRequest):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/study/quiz/{topic_id}")
+def api_clear_quiz_cache(topic_id: str):
+    if not UUID_PATTERN.match(topic_id):
+        raise HTTPException(status_code=422, detail="Invalid topic_id format: must be a valid UUID")
+    clear_quiz_cache(topic_id)
+    return {"success": True, "message": f"Cleared quiz cache for topic {topic_id}"}
 
 @app.post("/api/study/status")
 def api_update_status(request: StatusRequest):

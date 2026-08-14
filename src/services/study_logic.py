@@ -234,6 +234,18 @@ def clean_json_string(json_str):
         return '"' + "".join(fixed) + '"'
     return pattern.sub(replace_string, json_str)
 
+def clear_quiz_cache(topic_id: str) -> bool:
+    """Delete cached quiz for a specific topic from Redis."""
+    try:
+        r = get_redis()
+        if r:
+            r.delete(f"quiz_{topic_id}")
+            logger.info(f"Cleared quiz cache for topic {topic_id}")
+            return True
+    except Exception as e:
+        logger.warning(f"Redis cache delete failed for topic {topic_id}: {e}")
+    return False
+
 def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
     """Fetch content from Notion, call AI to generate quiz, parse into JSON/Dict format."""
     notion = NotionService()
@@ -261,13 +273,7 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
         except Exception as e:
             logger.warning(f"Redis cache check failed: {e}")
     else:
-        try:
-            r = get_redis()
-            if r:
-                r.delete(f"quiz_{topic_id}")
-                logger.info(f"Cleared quiz cache for topic {topic_id} due to force refresh")
-        except Exception as e:
-            logger.warning(f"Redis cache delete failed: {e}")
+        clear_quiz_cache(topic_id)
 
     # Acquire Redis lock to prevent concurrent generation for same topic
     lock_key = f"quiz_lock_{topic_id}"
