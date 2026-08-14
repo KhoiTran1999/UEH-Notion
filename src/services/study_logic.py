@@ -45,9 +45,9 @@ def get_page_title(page_id):
 
     return None
 
-def get_candidates(limit=5, force_refresh=False):
+def get_candidates(limit=None, force_refresh=False):
     """Fetch review notes, sort by 'Last Review At', return top candidates with metadata."""
-    cache_key = f"study_candidates_{limit}"
+    cache_key = f"study_candidates_{limit if limit is not None else 'all'}"
     r = None
     if not force_refresh:
         try:
@@ -83,7 +83,7 @@ def get_candidates(limit=5, force_refresh=False):
         return ""
 
     candidates.sort(key=get_last_review_sort_key)
-    top_candidates = candidates[:limit]
+    top_candidates = candidates[:limit] if limit is not None else candidates
 
     results = []
     relation_tasks = [] # list of (idx, prop_name, page_id)

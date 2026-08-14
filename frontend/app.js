@@ -1,4 +1,4 @@
-const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:'
     ? 'http://127.0.0.1:8000'
     : 'https://ueh-notion.onrender.com';
 
@@ -63,15 +63,12 @@ const ui = {
     timelineMonthFilter: document.getElementById('timeline-month-filter'),
     timelineDateFilter: document.getElementById('timeline-date-filter'),
     refreshTimelineBtn: document.getElementById('refresh-timeline-btn'),
-    loadMoreContainer: document.getElementById('load-more-container'),
-    loadMoreBtn: document.getElementById('load-more-btn'),
 };
 
 
 // State
 let telegramData = { id: 123456789 }; // Mock for local testing
 let allTopics = [];
-let candidatesLimit = 5;
 let currentTopic = null;
 let currentQuiz = [];
 let currentQuestionIndex = 0;
@@ -137,22 +134,15 @@ function showLoading(text) {
 }
 
 // API Calls
-async function fetchTopics(forceRefresh = false, limit = candidatesLimit) {
+async function fetchTopics(forceRefresh = false) {
     showLoading('Đang tải danh sách chủ đề...');
     try {
-        const res = await fetch(`${API_BASE_URL}/api/study/candidates?telegram_id=${telegramData.id}&limit=${limit}&force_refresh=${forceRefresh ? 'true' : 'false'}`);
+        const res = await fetch(`${API_BASE_URL}/api/study/candidates?telegram_id=${telegramData.id}&force_refresh=${forceRefresh ? 'true' : 'false'}`);
         if (!res.ok) throw new Error('Lỗi tải danh sách chủ đề');
         const data = await res.json();
         allTopics = data.candidates || [];
         populateCourseFilter();
         filterAndRenderTopics();
-        if (ui.loadMoreContainer) {
-            if (allTopics.length >= limit) {
-                ui.loadMoreContainer.classList.remove('hidden');
-            } else {
-                ui.loadMoreContainer.classList.add('hidden');
-            }
-        }
     } catch (error) {
         console.error(error);
         alert('Lỗi tải chủ đề. Vui lòng kiểm tra kết nối.');
@@ -1092,15 +1082,8 @@ ui.quickReviewBtn.addEventListener('click', () => startQuickReview());
 
 ui.quizDoneBtn.addEventListener('click', () => showView('topics'));
 ui.refreshCandidatesBtn.addEventListener('click', () => {
-    candidatesLimit = 5;
-    fetchTopics(true, candidatesLimit);
+    fetchTopics(true);
 });
-if (ui.loadMoreBtn) {
-    ui.loadMoreBtn.addEventListener('click', () => {
-        candidatesLimit += 5;
-        fetchTopics(true, candidatesLimit);
-    });
-}
 
 ui.toggleTimelineBtn.addEventListener('click', () => fetchTimeline());
 ui.closeTimelineBtn.addEventListener('click', () => showView('topics'));

@@ -53,7 +53,7 @@ def read_root():
     return {"status": "alive"}
 
 @app.get("/api/study/candidates")
-def api_get_candidates(limit: int = 5, force_refresh: bool = False):
+def api_get_candidates(limit: int = None, force_refresh: bool = False):
     try:
         candidates = get_candidates(limit=limit, force_refresh=force_refresh)
         return {"candidates": candidates}

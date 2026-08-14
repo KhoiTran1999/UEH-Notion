@@ -153,7 +153,6 @@ class NotionService:
                 query_url = f"https://api.notion.com/v1/data_sources/{real_source_id}/query"
 
                 cursor = None
-                max_fetch = 200
 
                 while True:
                     current_payload = dict(payload)
@@ -167,12 +166,16 @@ class NotionService:
                         err_body = resp.json()
                         if err_body.get("code") == "validation_error":
                             logger.warning("⚠️ Filter select failed, switching to status...")
-                            current_payload.update({
+                            payload = {
                                 "filter": {
                                     "property": "Trạng thái",
                                     "status": { "equals": "In progress" }
-                                }
-                            })
+                                },
+                                "page_size": 50
+                            }
+                            current_payload = dict(payload)
+                            if cursor:
+                                current_payload["start_cursor"] = cursor
                             resp = client.post(query_url, headers=self.headers, json=current_payload)
 
                     if resp.status_code != 200:
@@ -184,7 +187,7 @@ class NotionService:
                     all_pages.extend(pages)
                     logger.info(f"📄 Fetched {len(pages)} pages (total so far: {len(all_pages)})")
 
-                    if not data.get("has_more") or len(all_pages) >= max_fetch:
+                    if not data.get("has_more"):
                         break
                     cursor = data.get("next_cursor")
 
