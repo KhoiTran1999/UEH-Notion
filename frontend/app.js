@@ -356,6 +356,25 @@ async function clearQuizCache() {
     }
 }
 
+async function clearQuizCacheForTopic(topic) {
+    if (!topic || !topic.id || topic.id === 'quick_review') return;
+    if (!confirm(`Bạn có chắc muốn xóa cache cho chủ đề "${topic.title}"?`)) return;
+
+    showLoading('Đang xóa cache Redis...');
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/study/quiz/${topic.id}`, {
+            method: 'DELETE'
+        });
+        if (!res.ok) throw new Error('Lỗi xóa cache');
+        alert('Đã xóa cache thành công!');
+        showView('topics');
+    } catch (error) {
+        console.error(error);
+        alert('Lỗi xóa cache. Vui lòng thử lại.');
+        showView('topics');
+    }
+}
+
 async function updateStatus(status) {
     showLoading('Đang lưu kết quả...');
     try {
@@ -490,9 +509,14 @@ function renderTopics(topics) {
             </div>
             <div class="flex justify-between items-center pt-2 border-t border-gray-100 dark:border-gray-800 mt-1">
                 <span class="text-[11px] text-blue-500 dark:text-blue-400 font-semibold cursor-pointer topic-link">Ôn tập &rarr;</span>
-                <button class="mastered-btn bg-green-50 hover:bg-green-100 dark:bg-green-950/40 dark:hover:bg-green-950/60 text-green-700 dark:text-green-400 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-green-200 dark:border-green-900/50 transition duration-150 flex items-center gap-1">
-                    ✅ Đã nắm vững
-                </button>
+                <div class="flex items-center gap-1.5">
+                    <button class="clear-cache-topic-btn bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 text-red-500 text-xs font-semibold px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 transition duration-150 flex items-center" title="Xóa cache quiz của chủ đề này">
+                        🗑️
+                    </button>
+                    <button class="mastered-btn bg-green-50 hover:bg-green-100 dark:bg-green-950/40 dark:hover:bg-green-950/60 text-green-700 dark:text-green-400 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-green-200 dark:border-green-900/50 transition duration-150 flex items-center gap-1">
+                        ✅ Đã nắm vững
+                    </button>
+                </div>
             </div>
         `;
 
@@ -503,6 +527,11 @@ function renderTopics(topics) {
         card.querySelector('.mastered-btn').onclick = (e) => {
             e.stopPropagation();
             markTopicAsMastered(topic.id, card);
+        };
+
+        card.querySelector('.clear-cache-topic-btn').onclick = (e) => {
+            e.stopPropagation();
+            clearQuizCacheForTopic(topic);
         };
 
         ui.topicsList.appendChild(card);
@@ -1049,9 +1078,6 @@ ui.forceRefreshBtn.addEventListener('click', () => {
         startQuiz(currentTopic, true);
     }
 });
-if (ui.clearCacheBtn) {
-    ui.clearCacheBtn.addEventListener('click', clearQuizCache);
-}
 ui.closeQuizBtn.addEventListener('click', () => showView('topics'));
 ui.showResultsBtn.addEventListener('click', showQuizResults);
 ui.reviewAnswersBtn.addEventListener('click', reviewAnswers);
