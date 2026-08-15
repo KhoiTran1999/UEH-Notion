@@ -508,11 +508,17 @@ def update_status(topic_id, status=None):
         logger.error(f"❌ Failed to update Last Review At: {e}")
         return False
 
-def generate_quick_review():
-    """Fetch all candidate topics, generate/fetch their quizzes in parallel, and combine them."""
+def generate_quick_review(course=None):
+    """Fetch all candidate topics (optionally filtered by course), generate/fetch their quizzes in parallel, and combine them."""
     candidates = get_candidates()
     if not candidates:
         return None
+
+    if course and course.strip():
+        c_filter = course.strip().lower()
+        candidates = [c for c in candidates if c.get("course") and c.get("course").strip().lower() == c_filter]
+        if not candidates:
+            return None
 
     from concurrent.futures import ThreadPoolExecutor
     import random
@@ -539,13 +545,14 @@ def generate_quick_review():
     if not all_questions:
         return None
 
-    # Shuffle and pick up to 10 questions
+    # Shuffle all combined questions
     random.shuffle(all_questions)
-    selected_questions = all_questions[:10]
+
+    title = f"Ôn tập nhanh - {course.strip()}" if course and course.strip() else "Ôn tập tổng hợp"
 
     return {
         "id": "quick_review",
-        "title": "Ôn tập tổng hợp",
-        "questions": selected_questions
+        "title": title,
+        "questions": all_questions
     }
 

@@ -86,9 +86,9 @@ def api_update_status(request: StatusRequest):
         raise HTTPException(status_code=500, detail="Failed to update status")
 
 @app.get("/api/study/quick-review")
-def api_quick_review():
+def api_quick_review(course: str = None):
     try:
-        quiz_data = generate_quick_review()
+        quiz_data = generate_quick_review(course=course)
         if not quiz_data:
             raise HTTPException(status_code=404, detail="No topics or questions found for quick review")
         return quiz_data

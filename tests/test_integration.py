@@ -92,6 +92,46 @@ class TestUEHNotion(unittest.TestCase):
         # This shouldn't raise any exception
         run_background_safe(crashing_func)
 
+    def test_generate_quick_review_filter_and_all_questions(self):
+        """Test generate_quick_review logic with course filtering and taking all questions."""
+        from unittest.mock import patch
+        from src.services.study_logic import generate_quick_review
+
+        mock_candidates = [
+            {"id": "uuid-1", "title": "Bài 1", "course": "Tài chính doanh nghiệp"},
+            {"id": "uuid-2", "title": "Bài 2", "course": "Tài chính doanh nghiệp"},
+            {"id": "uuid-3", "title": "Bài 3", "course": "Kinh tế vi mô"}
+        ]
+
+        def mock_generate_quiz(topic_id, **kwargs):
+            if topic_id == "uuid-1":
+                return {"id": topic_id, "title": "Bài 1", "questions": [{"q": f"Q1-{i}", "options": ["A"], "correct": 0} for i in range(6)]}
+            elif topic_id == "uuid-2":
+                return {"id": topic_id, "title": "Bài 2", "questions": [{"q": f"Q2-{i}", "options": ["A"], "correct": 0} for i in range(6)]}
+            elif topic_id == "uuid-3":
+                return {"id": topic_id, "title": "Bài 3", "questions": [{"q": f"Q3-{i}", "options": ["A"], "correct": 0} for i in range(4)]}
+            return None
+
+        with patch("src.services.study_logic.get_candidates", return_value=mock_candidates), \
+             patch("src.services.study_logic.generate_quiz", side_effect=mock_generate_quiz):
+            # 1. Test filtered by course -> should get 6 + 6 = 12 questions (more than 10)
+            res_course = generate_quick_review(course="Tài chính doanh nghiệp")
+            self.assertIsNotNone(res_course)
+            self.assertEqual(len(res_course["questions"]), 12)
+            self.assertEqual(res_course["title"], "Ôn tập nhanh - Tài chính doanh nghiệp")
+            for q in res_course["questions"]:
+                self.assertIn(q["topic_title"], ["Bài 1", "Bài 2"])
+
+            # 2. Test All courses -> should get 6 + 6 + 4 = 16 questions
+            res_all = generate_quick_review()
+            self.assertIsNotNone(res_all)
+            self.assertEqual(len(res_all["questions"]), 16)
+            self.assertEqual(res_all["title"], "Ôn tập tổng hợp")
+
+            # 3. Test non-existent course -> returns None
+            res_none = generate_quick_review(course="Môn không tồn tại")
+            self.assertIsNone(res_none)
+
 
 if __name__ == "__main__":
     unittest.main()

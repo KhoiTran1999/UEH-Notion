@@ -152,13 +152,22 @@ async function fetchTopics(forceRefresh = false) {
 }
 
 async function startQuickReview() {
-    showLoading('Đang chuẩn bị bộ câu hỏi tổng hợp...');
+    const selectedCourse = ui.courseFilter.value;
+    const courseParam = selectedCourse ? `?course=${encodeURIComponent(selectedCourse)}` : '';
+    const loadingMsg = selectedCourse
+        ? `Đang chuẩn bị toàn bộ câu hỏi cho "${selectedCourse}"...`
+        : 'Đang chuẩn bị bộ câu hỏi tổng hợp...';
+
+    showLoading(loadingMsg);
     try {
-        const res = await fetch(`${API_BASE_URL}/api/study/quick-review`);
+        const res = await fetch(`${API_BASE_URL}/api/study/quick-review${courseParam}`);
         if (!res.ok) throw new Error('Lỗi tải câu hỏi ôn tập nhanh');
         const data = await res.json();
 
-        currentTopic = { id: 'quick_review', title: 'Ôn tập tổng hợp' };
+        currentTopic = {
+            id: 'quick_review',
+            title: data.title || (selectedCourse ? `Ôn tập nhanh - ${selectedCourse}` : 'Ôn tập tổng hợp')
+        };
         currentQuiz = data.questions || [];
         currentQuestionIndex = 0;
 
@@ -173,12 +182,12 @@ async function startQuickReview() {
         ui.showResultsBtn.classList.add('hidden');
         ui.quizDoneBtn.classList.add('hidden');
 
-        ui.quizTopicTitle.textContent = 'Ôn tập tổng hợp';
+        ui.quizTopicTitle.textContent = currentTopic.title;
         renderQuestion();
         showView('quiz');
     } catch (error) {
         console.error(error);
-        alert('Lỗi tải câu hỏi ôn tập nhanh. Có thể danh sách chủ đề đang trống.');
+        alert('Lỗi tải câu hỏi ôn tập nhanh. Có thể không có chủ đề hoặc câu hỏi nào thuộc môn học đã chọn.');
         showView('topics');
     }
 }
