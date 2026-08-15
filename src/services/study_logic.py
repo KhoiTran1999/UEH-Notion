@@ -10,6 +10,7 @@ from src.utils.cache import (
     CACHE_PAGE_TITLE_TTL,
     CACHE_CANDIDATES_TTL,
     CACHE_QUIZ_TTL,
+    CACHE_QUIZ_PROGRESS_TTL,
     LOCK_QUIZ_TTL,
 )
 
@@ -555,4 +556,47 @@ def generate_quick_review(course=None):
         "title": title,
         "questions": all_questions
     }
+
+
+def save_quiz_progress(telegram_id: str | int, progress_data: dict) -> bool:
+    """Save quiz progress for a user into Redis."""
+    r = get_redis()
+    if not r:
+        return False
+    try:
+        cache_key = f"quiz_progress_{telegram_id}"
+        r.setex(cache_key, CACHE_QUIZ_PROGRESS_TTL, json.dumps(progress_data, ensure_ascii=False))
+        return True
+    except Exception as e:
+        logger.warning(f"Failed to save quiz progress for user {telegram_id}: {e}")
+        return False
+
+
+def get_quiz_progress(telegram_id: str | int) -> dict | None:
+    """Retrieve quiz progress for a user from Redis."""
+    r = get_redis()
+    if not r:
+        return None
+    try:
+        cache_key = f"quiz_progress_{telegram_id}"
+        cached = r.get(cache_key)
+        if cached:
+            return json.loads(cached)
+    except Exception as e:
+        logger.warning(f"Failed to get quiz progress for user {telegram_id}: {e}")
+    return None
+
+
+def clear_quiz_progress(telegram_id: str | int) -> bool:
+    """Delete quiz progress for a user in Redis."""
+    r = get_redis()
+    if not r:
+        return False
+    try:
+        cache_key = f"quiz_progress_{telegram_id}"
+        r.delete(cache_key)
+        return True
+    except Exception as e:
+        logger.warning(f"Failed to clear quiz progress for user {telegram_id}: {e}")
+        return False
 

@@ -132,6 +132,43 @@ class TestUEHNotion(unittest.TestCase):
             res_none = generate_quick_review(course="Môn không tồn tại")
             self.assertIsNone(res_none)
 
+    def test_quiz_progress_endpoints(self):
+        """Test quiz progress save, get, and clear endpoints."""
+        from fastapi.testclient import TestClient
+        from src.api.main import app
+
+        client = TestClient(app)
+        telegram_id = "test_user_9999"
+        progress_payload = {
+            "topic": {"id": "test-topic-1", "title": "Test Topic"},
+            "quiz": [{"q": "Q1", "options": ["A", "B"], "correct": 0, "selected": 0}],
+            "currentIndex": 0,
+            "savedAt": 1234567890
+        }
+
+        # 1. Save progress
+        save_res = client.post("/api/study/progress", json={"telegram_id": telegram_id, "progress": progress_payload})
+        self.assertEqual(save_res.status_code, 200)
+        self.assertTrue(save_res.json().get("success"))
+
+        # 2. Get progress
+        get_res = client.get(f"/api/study/progress?telegram_id={telegram_id}")
+        self.assertEqual(get_res.status_code, 200)
+        retrieved = get_res.json().get("progress")
+        self.assertIsNotNone(retrieved)
+        self.assertEqual(retrieved["topic"]["id"], "test-topic-1")
+        self.assertEqual(len(retrieved["quiz"]), 1)
+
+        # 3. Clear progress
+        del_res = client.delete(f"/api/study/progress/{telegram_id}")
+        self.assertEqual(del_res.status_code, 200)
+        self.assertTrue(del_res.json().get("success"))
+
+        # 4. Verify cleared
+        get_res_after = client.get(f"/api/study/progress?telegram_id={telegram_id}")
+        self.assertEqual(get_res_after.status_code, 200)
+        self.assertIsNone(get_res_after.json().get("progress"))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -67,6 +67,26 @@
                 </div>
             </div>
 
+            <!-- Resume Quiz Banner -->
+            <div id="resume-quiz-banner" class="hidden mb-4 p-3.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl shadow-md flex items-center justify-between gap-3 fade-in">
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-1.5 text-xs font-semibold opacity-90">
+                        <span>⏱️</span>
+                        <span>Đang làm dở</span>
+                        <span id="resume-quiz-badge" class="bg-white/20 text-[10px] px-1.5 py-0.5 rounded-full font-bold">Câu 1/5</span>
+                    </div>
+                    <p id="resume-quiz-title" class="font-bold text-sm truncate mt-0.5">Tên chủ đề</p>
+                </div>
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <button id="resume-quiz-btn" class="bg-white text-blue-600 hover:bg-blue-50 text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm transition active:scale-95">
+                        Làm tiếp
+                    </button>
+                    <button id="discard-resume-btn" class="text-white/70 hover:text-white text-lg p-1 transition" title="Bỏ qua" aria-label="Bỏ qua bài làm dở">
+                        ✕
+                    </button>
+                </div>
+            </div>
+
 
             <div id="topics-list" class="space-y-3 overflow-y-auto pb-4">
                 <!-- Topics injected here -->

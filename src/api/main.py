@@ -5,7 +5,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, field_validator
 
-from src.services.study_logic import get_candidates, generate_quiz, generate_quiz_stream, update_status, generate_quick_review, clear_quiz_cache
+from src.services.study_logic import (
+    get_candidates,
+    generate_quiz,
+    generate_quiz_stream,
+    update_status,
+    generate_quick_review,
+    clear_quiz_cache,
+    save_quiz_progress,
+    get_quiz_progress,
+    clear_quiz_progress,
+)
 from src.jobs.daily_report import run_daily_report
 from src.services.timeline import get_timeline_summary, fetch_in_progress_tasks
 from src.services.telegram import TelegramService
@@ -47,6 +57,10 @@ class StatusRequest(BaseModel):
             raise ValueError(f'Invalid topic_id format: must be a valid UUID')
         return v
 
+class QuizProgressRequest(BaseModel):
+    telegram_id: str | int
+    progress: dict
+
 @app.api_route("/", methods=["GET", "HEAD"])
 def read_root():
     """Health check endpoint for UptimeRobot"""
@@ -84,6 +98,23 @@ def api_update_status(request: StatusRequest):
         return {"success": True, "message": "Status updated successfully"}
     else:
         raise HTTPException(status_code=500, detail="Failed to update status")
+
+@app.get("/api/study/progress")
+def api_get_quiz_progress(telegram_id: str):
+    progress = get_quiz_progress(telegram_id)
+    return {"progress": progress}
+
+@app.post("/api/study/progress")
+def api_save_quiz_progress(request: QuizProgressRequest):
+    success = save_quiz_progress(request.telegram_id, request.progress)
+    if success:
+        return {"success": True, "message": "Quiz progress saved"}
+    raise HTTPException(status_code=500, detail="Failed to save progress to Redis")
+
+@app.delete("/api/study/progress/{telegram_id}")
+def api_clear_quiz_progress(telegram_id: str):
+    success = clear_quiz_progress(telegram_id)
+    return {"success": True, "message": "Quiz progress cleared"}
 
 @app.get("/api/study/quick-review")
 def api_quick_review(course: str = None):

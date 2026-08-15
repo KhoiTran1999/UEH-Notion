@@ -63,6 +63,11 @@ const ui = {
     timelineMonthFilter: document.getElementById('timeline-month-filter'),
     timelineDateFilter: document.getElementById('timeline-date-filter'),
     refreshTimelineBtn: document.getElementById('refresh-timeline-btn'),
+    resumeBanner: document.getElementById('resume-quiz-banner'),
+    resumeTitle: document.getElementById('resume-quiz-title'),
+    resumeBadge: document.getElementById('resume-quiz-badge'),
+    resumeBtn: document.getElementById('resume-quiz-btn'),
+    discardResumeBtn: document.getElementById('discard-resume-btn'),
 };
 
 
@@ -74,6 +79,109 @@ let currentQuiz = [];
 let currentQuestionIndex = 0;
 let searchDebounceTimer = null;
 let currentTimeline = [];
+
+let savedProgressCache = null;
+
+// Helper: Quiz Progress Persistence via Redis Backend
+async function saveQuizProgress() {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+    if (!currentTopic || !currentQuiz || currentQuiz.length === 0) return;
+
+    const data = {
+        topic: currentTopic,
+        quiz: currentQuiz,
+        currentIndex: currentQuestionIndex,
+        savedAt: Date.now()
+    };
+    savedProgressCache = data;
+    checkAndRenderResumeBanner();
+
+    try {
+        await fetch(`${API_BASE_URL}/api/study/progress`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                telegram_id: telegramData.id,
+                progress: data
+            })
+        });
+    } catch (e) {
+        console.warn('Cannot save quiz progress to Redis:', e);
+    }
+}
+
+async function clearQuizProgress() {
+    savedProgressCache = null;
+    checkAndRenderResumeBanner();
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+    try {
+        await fetch(`${API_BASE_URL}/api/study/progress/${telegramData.id}`, {
+            method: 'DELETE'
+        });
+    } catch (e) {
+        console.warn('Cannot clear quiz progress from Redis:', e);
+    }
+}
+
+async function fetchSavedQuizProgress() {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return null;
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/study/progress?telegram_id=${telegramData.id}`);
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (data && data.progress && data.progress.topic && Array.isArray(data.progress.quiz) && data.progress.quiz.length > 0) {
+            savedProgressCache = data.progress;
+            return data.progress;
+        }
+    } catch (e) {
+        console.warn('Cannot fetch quiz progress from Redis:', e);
+    }
+    savedProgressCache = null;
+    return null;
+}
+
+function checkAndRenderResumeBanner() {
+    if (!ui.resumeBanner) return;
+    const saved = savedProgressCache;
+    if (!saved) {
+        ui.resumeBanner.classList.add('hidden');
+        return;
+    }
+    const answeredCount = saved.quiz.filter(q => q.selected !== undefined).length;
+    const total = saved.quiz.length;
+    if (ui.resumeTitle) ui.resumeTitle.textContent = saved.topic.title || 'Chủ đề ôn tập';
+    if (ui.resumeBadge) ui.resumeBadge.textContent = `Đã làm ${answeredCount}/${total} câu`;
+    ui.resumeBanner.classList.remove('hidden');
+}
+
+function resumeSavedQuiz() {
+    const saved = savedProgressCache;
+    if (!saved) return;
+    currentTopic = saved.topic;
+    currentQuiz = saved.quiz;
+    currentQuestionIndex = (typeof saved.currentIndex === 'number' && saved.currentIndex >= 0 && saved.currentIndex < saved.quiz.length)
+        ? saved.currentIndex
+        : 0;
+
+    document.getElementById('quiz-content').classList.remove('hidden');
+    ui.quizResults.classList.add('hidden');
+    ui.quizProgress.classList.remove('hidden');
+    if (ui.progressContainer) ui.progressContainer.classList.remove('hidden');
+
+    if (currentTopic.id === 'quick_review') {
+        ui.forceRefreshBtn.classList.add('hidden');
+        if (ui.clearCacheBtn) ui.clearCacheBtn.classList.add('hidden');
+    } else {
+        ui.forceRefreshBtn.classList.remove('hidden');
+        if (ui.clearCacheBtn) ui.clearCacheBtn.classList.remove('hidden');
+    }
+    ui.showResultsBtn.classList.add('hidden');
+    ui.quizDoneBtn.classList.add('hidden');
+
+    ui.quizTopicTitle.textContent = currentTopic.title;
+    renderQuestion();
+    showView('quiz');
+}
 
 
 // Navigation
@@ -170,6 +278,7 @@ async function startQuickReview() {
         };
         currentQuiz = data.questions || [];
         currentQuestionIndex = 0;
+        saveQuizProgress();
 
         document.getElementById('quiz-content').classList.remove('hidden');
         ui.quizResults.classList.add('hidden');
@@ -308,6 +417,7 @@ async function startQuiz(topic, forceRefresh = false, numQuestions) {
 
         currentQuiz = questions;
         currentQuestionIndex = 0;
+        saveQuizProgress();
 
         // Reset results UI to initial quiz state
         document.getElementById('quiz-content').classList.remove('hidden');
@@ -466,6 +576,7 @@ function renderTopics(topics) {
     if (topics.length === 0) {
         ui.topicsList.classList.add('hidden');
         ui.noTopics.classList.remove('hidden');
+        checkAndRenderResumeBanner();
         showView('topics');
         return;
     }
@@ -536,6 +647,7 @@ function renderTopics(topics) {
         ui.topicsList.appendChild(card);
     });
 
+    checkAndRenderResumeBanner();
     showView('topics');
 }
 
@@ -651,6 +763,8 @@ function renderQuestion() {
                     ui.explanationBox.classList.remove('hidden');
                 }
 
+                saveQuizProgress();
+
                 if (currentQuestionIndex < currentQuiz.length - 1) {
                     ui.nextBtn.classList.remove('hidden');
                 } else {
@@ -749,6 +863,7 @@ function showQuizResults() {
         feedback = 'Cần cố gắng thêm! Hãy đọc kỹ phần giải thích của mỗi câu hỏi để nắm vững kiến thức.';
     }
     ui.resultsFeedback.textContent = feedback;
+    clearQuizProgress();
 
     if (currentTopic.id === 'quick_review') {
         ui.statusBtns.classList.add('hidden');
@@ -1060,6 +1175,7 @@ function renderTimeline(timelineItems) {
 ui.prevBtn.addEventListener('click', () => {
     if (currentQuestionIndex > 0) {
         currentQuestionIndex--;
+        saveQuizProgress();
         renderQuestion();
     }
 });
@@ -1067,7 +1183,13 @@ ui.prevBtn.addEventListener('click', () => {
 
 ui.nextBtn.addEventListener('click', () => {
     currentQuestionIndex++;
+    saveQuizProgress();
     renderQuestion();
+});
+
+if (ui.resumeBtn) ui.resumeBtn.addEventListener('click', resumeSavedQuiz);
+if (ui.discardResumeBtn) ui.discardResumeBtn.addEventListener('click', () => {
+    clearQuizProgress();
 });
 
 ui.btnChua.addEventListener('click', () => updateStatus('chua_nam_vung'));
@@ -1170,6 +1292,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchTimeline();
     } else {
         // Normal topics view
+        fetchSavedQuizProgress().then(() => checkAndRenderResumeBanner());
         fetchTopics();
     }
 
