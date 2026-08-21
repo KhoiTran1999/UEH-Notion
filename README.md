@@ -1,155 +1,176 @@
 # 🎓 UEH Notion Smart Assistant
 
-**UEH Notion Smart Assistant** là một hệ thống trợ lý học tập và quản lý công việc cá nhân toàn diện. Dự án kết hợp chặt chẽ giữa **Notion** (lưu trữ), **Telegram** (giao tiếp) và **Trí tuệ Nhân tạo - AI** (phân tích & sinh nội dung), giúp biến kho dữ liệu thụ động của bạn thành một cỗ máy chủ động nhắc nhở và tối ưu hóa năng suất.
+**UEH Notion Smart Assistant** là hệ thống trợ lý học tập và quản lý công việc cá nhân tự động hoá toàn diện, kết hợp giữa **Notion** (lưu trữ dữ liệu), **Telegram** (giao diện tương tác & thông báo), **Redis** (caching siêu tốc & đồng bộ tiến trình) và **AI Router** (phân tích, trắc nghiệm, tóm tắt & Text-to-Speech).
 
 ---
 
-## 🌟 Các Tính Năng Nổi Bật
+## 🌟 Tính Năng Chính
 
-### 1. 📚 Góc Ôn Tập Khắc Sâu (Study Assistant - Telegram Web App)
-- **Thuật toán Spaced Repetition:** Hệ thống tự động quét Notion để tìm các bài học có trạng thái "Cần xem lại" hoặc đã lâu chưa ôn tập (dựa trên trường `Last Review At`).
-- **Trắc nghiệm Đa lựa chọn (Multiple Choice) bằng AI:** Đọc nội dung ghi chép và tự động biên soạn bộ câu hỏi trắc nghiệm (A, B, C, D) sinh động.
-- **Giao diện Telegram Web App Hiện đại:**
-  - Trải nghiệm mượt mà ngay trong Telegram, không cần mở trình duyệt ngoài.
-  - Thiết kế dạng thẻ (Card) với hiệu ứng animation phong cách Apple (bouncy, fade-in).
-  - Phản hồi trực quan: Đổi màu gradient (Xanh/Đỏ), hiển thị icon (✅/❌) và giải thích chi tiết ngay khi chọn đáp án.
-  - Hỗ trợ di chuyển Tới/Lùi (Next/Previous) có ghi nhớ lịch sử chọn đáp án.
-- **Caching Thông minh (Redis):** Đề thi được sinh ra sẽ lưu vào bộ nhớ đệm trong **14 ngày**. Giúp tải đề cực nhanh và tiết kiệm Quota AI. Hỗ trợ nút "Bỏ qua Cache" để ép AI tạo đề hoàn toàn mới.
-- **Đồng bộ hóa 2 chiều:** Khi hoàn thành bài ôn tập, trạng thái mức độ hiểu bài sẽ được đồng bộ ngược lại vào Notion của bạn.
+### 1. 📚 Trợ Lý Ôn Tập Thông Minh (Study Assistant - Telegram Web App)
+- **Spaced Repetition (Lặp lại ngắt quãng):** Tự động lọc các bài học/ghi chép cần xem lại dựa trên trạng thái và mốc thời gian `Last Review At` từ Notion.
+- **Tự Động Tạo Đề Trắc Nghiệm Bằng AI:**
+  - Phân tích nội dung ghi chép (chia luồng AI song song xử lý bài dài).
+  - Tự động sinh bộ câu hỏi trắc nghiệm 4 lựa chọn (A, B, C, D) kèm giải thích chi tiết.
+  - Hỗ trợ công thức Toán học / Tài chính chuẩn **KaTeX / LaTeX** hiển thị sắc nét.
+  - Chế độ **Ôn tập nhanh (Quick Review)** tổng hợp ngẫu nhiên theo môn học.
+- **Lưu Tiến Trình & Caching (Redis):**
+  - Lưu và khôi phục tiến trình làm bài dở dang theo từng chủ đề và người dùng.
+  - Cache đề thi trong 14 ngày giúp tải tức thì, tiết kiệm chi phí AI; hỗ trợ nút xóa cache trực tiếp trên từng thẻ bài học.
+- **Trải Nghiệm Web App Đỉnh Cao:**
+  - Đồng hồ đếm giờ làm bài, thanh tiến trình trực quan.
+  - Đánh dấu câu hỏi cần xem lại, xem lại danh sách câu làm sai và làm lại câu sai.
+  - Đồng bộ 2 chiều: Tự động cập nhật trạng thái mức độ nắm vững và `Last Review At` ngược lại Notion.
 
-### 2. 📅 Báo Cáo Công Việc Hằng Ngày (Daily Task Report)
-- **Trích xuất thông minh:** Lọc các công việc (Task) trong ngày từ cơ sở dữ liệu Notion.
-- **AI Lập Kế Hoạch:** Phân tích, phân loại công việc theo mức độ ưu tiên và viết một bản tóm tắt tạo động lực.
-- **Bản tin Giọng nói (Voice Briefing):** Sử dụng công nghệ Text-to-Speech (TTS) đọc báo cáo thành file âm thanh MP3 và gửi thẳng qua Telegram như một đoạn tin nhắn thoại (Voice Note) để bạn nghe mỗi sáng. Xử lý thông minh việc băm nhỏ văn bản (chunking) để vượt qua giới hạn độ dài của các API giọng nói.
+### 2. 📅 Theo Dõi Timeline & Deadline (Task Timeline)
+- **Trích xuất Task đang thực hiện (`In Progress`):** Đọc nội dung block, checkbox, to-do list và các mention ngày tháng (`@Today`, `@Tomorrow`, `@ThứHai`, v.v.) trong Notion.
+- **Xem Timeline qua Telegram Chat (`/timeline`):** AI phân tích, tổng hợp tiến độ và định dạng báo cáo HTML trực quan gửi thẳng vào chat.
+- **Giao Diện Timeline trên Web App (`?view=timeline`):** Xem danh sách deadline dạng trực quan, hỗ trợ bộ lọc theo môn học, tháng và ngày.
 
-### 3. 🧠 Quản Lý Prompt Linh Hoạt (Prompt Database)
-- Không có dòng lệnh ép buộc (hardcode prompt) nào trong mã nguồn. Toàn bộ tính cách, ngữ cảnh của AI được lưu trên một bảng (Database) riêng tại Notion.
-- Bạn có thể tùy ý sửa đổi cách AI phản hồi (giọng điệu, định dạng JSON) bằng cách chỉnh sửa trực tiếp trên Notion.
+### 3. 🎙️ Báo Cáo Công Việc Hàng Ngày & Bản Tin Giọng Nói (Daily Voice Briefing)
+- **AI Task Prioritization:** Lọc và phân loại các công việc trong ngày theo độ ưu tiên, viết bản tin tổng kết tạo động lực.
+- **Bản tin Voice Note (TTS):** Tự động chuyển đổi nội dung báo cáo thành file âm thanh MP3 (hỗ trợ chunking tránh giới hạn ký tự) và gửi qua Telegram dưới dạng tin nhắn thoại mỗi sáng.
+
+### 4. 🧠 Quản Lý Prompt Linh Hoạt (Dynamic Prompt Database)
+- Toàn bộ Prompt và Persona của AI được quản lý trên Notion Database riêng biệt, dễ dàng tinh chỉnh trực tiếp mà không cần sửa mã nguồn hoặc deploy lại.
 
 ---
 
-## 🏗 Kiến Trúc Hệ Thống
+## 🏗️ Kiến Trúc Hệ Thống
 
-Dự án được cấu trúc theo mô hình phân tán, hoạt động 24/7 trên Cloud:
-
-1. **API Backend (FastAPI - Hosted trên Render):** 
-   - Đóng vai trò là "Bộ não trung tâm".
-   - Nhận Webhook trực tiếp từ Telegram.
-   - Kết nối với Notion API để đọc/ghi dữ liệu.
-   - Giao tiếp với AI Router và Redis.
-2. **Frontend (Cloudflare Pages):**
-   - Lưu trữ giao diện tĩnh (HTML, JS, CSS/Tailwind) cho Web App Trắc nghiệm.
-   - Giao tiếp trực tiếp với Backend API.
-3. **AI Engine (Custom OpenAI-Compatible Router):**
-   - Sử dụng thư viện `OpenAI SDK` để linh hoạt kết nối với các Router AI tùy chỉnh (như 9Router trên HuggingFace).
-   - Dễ dàng thay đổi các mô hình ngôn ngữ (Claude, Gemini, ChatGPT) chỉ bằng cấu hình môi trường mà không cần sửa code.
-4. **Cơ sở dữ liệu & Caching:**
-   - **Notion:** Cơ sở dữ liệu chính.
-   - **Redis (Aiven):** Lưu trữ bộ đệm siêu tốc cho các bài trắc nghiệm.
+```text
+[ Notion Databases ] ── (Ghi chép / Tasks / Prompts)
+        │
+        ▼
+[ FastAPI Backend (Render) ] ── [ Redis Cache ] (Lưu trữ đề thi, tiến trình, lock)
+   │        │            │
+   │        │            └── [ AI Engine / TTS Router ] (Claude / GPT / Gemini)
+   │        │
+   │        ▼
+   │   [ Telegram Bot ] ── (Thông báo, Voice Note, Timeline, Menu WebApp)
+   │
+   ▼
+[ Frontend Web App (Cloudflare Pages) ] ── (Giao diện trắc nghiệm KaTeX, Timeline)
+```
 
 ---
 
 ## 💻 Tech Stack
 
-- **Ngôn ngữ:** Python 3.12, JavaScript (ES6+), HTML5.
-- **Backend Framework:** FastAPI, Uvicorn, Pydantic, HTTPX.
-- **Frontend UI:** Tailwind CSS (qua CDN), Telegram Web App SDK.
-- **AI Integration:** OpenAI Python SDK (hỗ trợ cả Chat Completions & TTS).
-- **Lưu trữ / CI-CD:** Render (Web Service), Cloudflare Pages (Frontend), GitHub.
+- **Backend:** Python 3.12, FastAPI, Uvicorn, Pydantic v2, HTTPX, Redis (`redis-py`).
+- **Frontend:** HTML5, Vanilla JavaScript (ES6+), Tailwind CSS (CDN), KaTeX, Telegram WebApp SDK.
+- **AI & Voice:** OpenAI Python SDK (Custom Router / 9Router / HuggingFace Spaces), Gemini API (Fallback / Legacy TTS).
+- **Cơ sở dữ liệu:** Notion API (`2025-09-03`), Redis (Aiven / Upstash).
+- **Hạ tầng & CI/CD:** Render (Web Service), Cloudflare Pages (Frontend Hosting), GitHub Actions.
 
 ---
 
-## ⚙️ Hướng Dẫn Cài Đặt & Triển Khai (Deployment)
-
-### Bước 1: Cấu hình Biến Môi Trường (Environment Variables)
-Bạn cần thiết lập các biến sau (có thể lưu trong file `.env` khi chạy local hoặc trên mục Environment Variables của Render):
-
-```env
-# 1. Cấu hình Notion
-NOTION_TOKEN=secret_xxxxxxxxxxxxxxxxxxxxxxxxxxx
-NOTION_DB_GHI_CHEP_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-NOTION_DB_TASK=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-NOTION_PROMPT_DATABASE_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-# 2. Cấu hình AI Router (Chuẩn OpenAI)
-USE_CUSTOM_AI=true
-CUSTOM_AI_BASE_URL=https://khoitran1999-claude-server.hf.space/v1
-CUSTOM_AI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-CUSTOM_AI_MODEL=my-combo
-CUSTOM_AI_VOICE_MODEL=google-tts/vi
-
-# 3. Cấu hình Telegram
-TELEGRAM_BOT_TOKEN=1234567890:ABCDEFGHIJKLMNOPQRSTUVWXYZ
-TELEGRAM_CHAT_ID=123456789
-
-# 4. Cấu hình Redis Cache
-REDIS_URL=rediss://user:password@host:port
-
-# 5. Cấu hình Frontend
-WEBAPP_URL=https://ueh-notion.pages.dev
-```
-
-### Bước 2: Triển khai Backend API (Render)
-1. Truy cập [Render.com](https://render.com), tạo một **Web Service** mới và kết nối với Repository GitHub của bạn.
-2. Render sẽ tự động nhận diện file `render.yaml` trong mã nguồn và tự thiết lập các thông số (Build command, Start command).
-3. Điền các Biến môi trường ở Bước 1 vào Render.
-4. Triển khai. URL API của bạn sẽ có dạng `https://ueh-notion.onrender.com`.
-*(Mẹo: Dự án đã có sẵn Endpoint `/` hỗ trợ cả `GET` và `HEAD`. Hãy cấu hình UptimeRobot gọi vào endpoint này mỗi 10 phút để server không bị rơi vào trạng thái ngủ đông).*
-
-### Bước 3: Triển khai Frontend Web App (Cloudflare Pages)
-1. Truy cập Dashboard Cloudflare -> **Workers & Pages** -> Chọn tab **Pages** -> **Connect to Git**.
-2. Kết nối tới Repository này.
-3. Ở phần **Build settings**:
-   - Framework preset: `None`
-   - Build command: *(Để trống)*
-   - Build output directory: `frontend`
-4. Deploy để lấy URL Frontend (ví dụ: `https://ueh-notion.pages.dev`).
-5. Vào file `frontend/app.js` trong mã nguồn, đảm bảo biến `API_BASE_URL` trỏ đúng về URL Render API của bạn ở Bước 2. Cập nhật URL Frontend này vào biến `WEBAPP_URL` trên Render.
-
-### Bước 4: Thiết lập Webhook Telegram
-Để Bot Telegram biết nơi gửi tin nhắn đến, bạn mở Terminal hoặc trình duyệt và chạy đường dẫn sau:
-```text
-https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook?url=<RENDER_API_URL>/webhook/telegram
-```
-*Lưu ý thay các thông số bằng Token Bot và Link Render của bạn.*
-
----
-
-## 🎮 Cách Sử Dụng
-
-Mở ứng dụng Telegram, tìm đến Bot của bạn và sử dụng các lệnh:
-- `/start` hoặc `/help`: Khởi động bot, hiển thị Menu tương tác và cấu hình nút Menu của Telegram thành `/start` (mở nhanh Web App ôn tập).
-- `/timeline`: Xem dòng thời gian (timeline) công việc trực tiếp dưới dạng tin nhắn.
-- `/study`: Mở nhanh Web App ôn tập.
-- `/taskreport`: Tạo báo cáo công việc hàng ngày kèm file âm thanh tin nhắn thoại (Voice Note).
-
----
-
-## 📂 Cấu Trúc Mã Nguồn
+## 📂 Cấu Trúc Thư Mục
 
 ```text
 UEH-Notion/
-├── frontend/               # Mã nguồn Frontend (Web App)
-│   ├── app.js              # Logic xử lý giao diện Trắc nghiệm, gọi API
-│   └── index.html          # Cấu trúc UI HTML/TailwindCSS
+├── frontend/                   # Frontend Telegram Web App
+│   ├── index.html              # Giao diện chính (Quiz, Results, Timeline)
+│   └── app.js                  # State management, API client, KaTeX rendering
 ├── src/
-│   ├── api/                
-│   │   └── main.py         # FastAPI App, Định tuyến API & Webhook
-│   ├── config/             
-│   │   └── settings.py     # Quản lý và xác thực Biến môi trường
-│   ├── jobs/               
-│   │   └── daily_report.py # Tác vụ lập báo cáo ngày
-│   └── services/           
-│       ├── ai.py           # Kết nối Custom AI Router (Text & Analyze)
-│       ├── notion.py       # Tương tác Notion API
-│       ├── prompt_service.py # Quản lý Prompt động từ Notion DB
-│       ├── study_logic.py  # Xử lý Caching Redis & Tạo Quiz
-│       ├── telegram.py     # Gửi tin nhắn và phản hồi Telegram
-│       └── voice.py        # Xử lý Text-to-Speech & Chunking âm thanh
-├── render.yaml             # Cấu hình triển khai hạ tầng trên Render
-├── requirements.txt        # Các thư viện phụ thuộc Python
-└── README.md               # Tài liệu dự án
+│   ├── api/
+│   │   └── main.py             # FastAPI router, webhook handler, background tasks
+│   ├── config/
+│   │   └── settings.py         # Quản lý biến môi trường & validation
+│   ├── jobs/
+│   │   ├── daily_report.py     # Job lập báo cáo ngày & gửi Voice note
+│   │   ├── study_assistant.py  # Background job ôn tập
+│   │   └── update_study_status.py # Đồng bộ trạng thái về Notion
+│   ├── services/
+│   │   ├── ai.py               # Tương tác với AI Router & quản lý model
+│   │   ├── notion.py           # Notion API client (lấy task, note, blocks)
+│   │   ├── prompt_service.py   # Lấy prompt động từ Notion DB
+│   │   ├── study_logic.py      # Xử lý tạo đề quiz, streaming, cache & progress
+│   │   ├── telegram.py         # Telegram Bot client & menu handler
+│   │   ├── timeline.py         # Xử lý timeline, parse mention ngày & phân tích
+│   │   └── voice.py            # Text-to-Speech & audio chunking
+│   └── utils/
+│       ├── block_parser.py     # Parser bóc tách Notion blocks sang text
+│       ├── cache.py            # Redis client & helper TTL
+│       ├── katex_validator.py  # KaTeX math cleaner & validation
+│       └── logger.py           # Logging chuẩn hóa
+├── render.yaml                 # Cấu hình deploy Render Blueprint
+├── requirements.txt            # Danh sách thư viện Python
+└── README.md
 ```
 
 ---
-**Made with ❤️ for Productivity.**
+
+## ⚙️ Cài Đặt & Triển Khai
+
+### 1. Biến Môi Trường (`.env`)
+
+Tạo file `.env` tại thư mục gốc dựa theo cấu hình mẫu:
+
+```env
+# 1. Notion API
+NOTION_TOKEN=secret_xxxxxxxxxxxxxxxxxxxxxxxxxxx
+NOTION_PROMPT_TOKEN=secret_xxxxxxxxxxxxxxxxxxxxxxxxxxx # (Tùy chọn: token phụ cho Prompt DB)
+NOTION_DB_GHI_CHEP_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+NOTION_DB_TASK=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+NOTION_PROMPT_DATABASE_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+NOTION_VERSION=2025-09-03
+
+# 2. AI Router (Chuẩn OpenAI)
+USE_CUSTOM_AI=true
+CUSTOM_AI_BASE_URL=https://your-custom-ai-router.hf.space/v1
+CUSTOM_AI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+CUSTOM_AI_MODEL=claude-3-5-sonnet
+REASONING_EFFORT=high
+CUSTOM_AI_VOICE_MODEL=google-tts/vi
+
+# 3. Telegram Bot
+TELEGRAM_BOT_TOKEN=1234567890:ABCDEFGHIJKLMNOPQRSTUVWXYZ
+TELEGRAM_CHAT_ID=123456789
+WEBAPP_URL=https://ueh-notion.pages.dev
+
+# 4. Redis Cache
+REDIS_URL=rediss://user:password@host:port
+```
+
+### 2. Chạy Cục Bộ (Local Development)
+
+```bash
+# 1. Tạo và kích hoạt môi trường ảo
+python -m venv .venv
+source .venv/bin/activate  # Trên Windows: .venv\Scripts\activate
+
+# 2. Cài đặt dependencies
+pip install -r requirements.txt
+
+# 3. Khởi chạy FastAPI server
+uvicorn src.api.main:app --reload --port 8000
+```
+
+### 3. Triển Khai Lên Cloud
+
+1. **Backend (Render):**
+   - Tạo Web Service từ repo GitHub (hoặc dùng `render.yaml`).
+   - Thiết lập các biến môi trường tương ứng trong mục Environment.
+2. **Frontend (Cloudflare Pages):**
+   - Connect Git repository vào Cloudflare Pages.
+   - Build output directory: `frontend` (Build command để trống).
+   - Cập nhật `API_BASE_URL` trong `frontend/app.js` và cấu hình `WEBAPP_URL` trên Backend.
+3. **Cài Đặt Telegram Webhook:**
+   ```text
+   https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook?url=<RENDER_API_URL>/webhook/telegram
+   ```
+
+---
+
+## 📱 Lệnh Telegram Bot
+
+| Lệnh | Mô tả |
+| :--- | :--- |
+| `/start` hoặc `/help` | Khởi động bot, hiển thị menu chính và cập nhật nút Menu WebApp |
+| `/timeline` | Tải và gửi timeline công việc/deadline dạng HTML tóm tắt |
+| `/study` | Mở nhanh Web App góc ôn tập trắc nghiệm |
+| `/taskreport` | Kích hoạt tạo báo cáo công việc và gửi bản tin âm thanh Voice Note |
+
+---
+
+**Made with ❤️ for High Productivity & Academic Excellence.**
