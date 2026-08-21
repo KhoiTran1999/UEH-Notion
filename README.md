@@ -8,10 +8,11 @@
 
 ### 1. 📚 Trợ Lý Ôn Tập Thông Minh (Study Assistant - Telegram Web App)
 - **Spaced Repetition (Lặp lại ngắt quãng):** Tự động lọc các bài học/ghi chép cần xem lại dựa trên trạng thái và mốc thời gian `Last Review At` từ Notion.
-- **Tự Động Tạo Đề Trắc Nghiệm Bằng AI:**
-  - Phân tích nội dung ghi chép (chia luồng AI song song xử lý bài dài).
-  - Tự động sinh bộ câu hỏi trắc nghiệm 4 lựa chọn (A, B, C, D) kèm giải thích chi tiết.
-  - Hỗ trợ công thức Toán học / Tài chính chuẩn **KaTeX / LaTeX** hiển thị sắc nét.
+- **Tự Động Tạo Đề Trắc Nghiệm Bằng AI (Multi-Stage Pipeline):**
+  - **Sinh câu hỏi song song:** Phân tích nội dung ghi chép và chia thành 3 phần xử lý đồng thời (`ThreadPoolExecutor`).
+  - **Nâng cấp chuẩn đề thi Đại học (`MODEL_BRAIN`):** Tự động chuyển đổi các câu hỏi lý thuyết bề nổi thành câu hỏi tình huống thực tế, đòi hỏi tư duy phân tích sâu, phương án nhiễu (distractors) gài bẫy thông minh và phần giải thích chi tiết.
+  - **Tự động thẩm định & Chuẩn hóa:** Kiểm tra đủ số lượng câu hỏi, loại bỏ ảo giác (hallucination) và đối chiếu với tài liệu gốc.
+  - **Kiểm định KaTeX / LaTeX chuyên biệt:** Rà soát và chuẩn hóa toàn bộ công thức toán học/tài chính, tách biệt ký hiệu tiền tệ và biểu thức toán giúp hiển thị KaTeX sắc nét, không lỗi render.
   - Chế độ **Ôn tập nhanh (Quick Review)** tổng hợp ngẫu nhiên theo môn học.
 - **Lưu Tiến Trình & Caching (Redis):**
   - Lưu và khôi phục tiến trình làm bài dở dang theo từng chủ đề và người dùng.

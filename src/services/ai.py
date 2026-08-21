@@ -432,6 +432,36 @@ class AIService:
 
         return self.run_agent(system_prompt=agent_system_prompt, user_prompt=user_prompt, model=Config.MODEL_BRAIN)
 
+    def enhance_quiz(self, raw_quiz, content):
+        """Enhances raw quiz questions to be higher quality, more engaging, and rigorous for college-level exams using MODEL_BRAIN."""
+        if not raw_quiz or not content:
+            return raw_quiz
+
+        system_prompt = (
+            "Bạn là Chuyên gia Khảo thí và Thiết kế Đề thi Đại học.\n"
+            "Nhiệm vụ của bạn là nhận danh sách câu hỏi trắc nghiệm thô và NÂNG CẤP thành bộ câu hỏi trắc nghiệm CHẤT LƯỢNG CAO, phù hợp cho đề thi sinh viên đại học ở mọi môn học.\n\n"
+            "TIÊU CHUẨN NÂNG CẤP ĐỀ THI ĐẠI HỌC:\n"
+            "1. Tính ứng dụng & Tình huống (Application & Case-based): Chuyển hóa các câu hỏi lý thuyết đơn thuần thành câu hỏi phân tích, tình huống thực tế hoặc bài toán đa bước.\n"
+            "2. Đòi hỏi tư duy sâu: Đặt câu hỏi kích thích suy luận logic, so sánh, phân biệt khái niệm dễ nhầm lẫn thay vì chỉ ghi nhớ máy móc.\n"
+            "3. Bẫy đề thi & Phương án nhiễu thông minh: Các phương án sai (distractors) phải hợp lý, đánh trúng vào những hiểu lầm hoặc lỗi sai phổ biến của sinh viên.\n"
+            "4. Giải thích rõ ràng, chặt chẽ: Nêu rõ lập luận, công thức hoặc dẫn chứng từ bài học để sinh viên hiểu bản chất vì sao đáp án đó đúng.\n"
+            "5. Đảm bảo chuẩn format JSON mảng các câu hỏi (q, options, correct, explanation)."
+        )
+        user_prompt = (
+            f"--- TÀI LIỆU GHI CHÉP GỐC ---\n{content}\n-----------------------------\n\n"
+            f"--- CÂU HỎI THÔ CẦN NÂNG CẤP ---\n{raw_quiz}\n--------------------------------\n\n"
+            "Hãy nâng cấp toàn bộ câu hỏi trên theo chuẩn đề thi đại học chất lượng cao và trả về danh sách câu hỏi dưới dạng JSON:"
+        )
+
+        agent_system_prompt = (
+            f"{system_prompt}\n\n"
+            "QUY TẮC PHÂN CHIA VAI TRÒ:\n"
+            "- Bạn là MODEL_BRAIN: Vận dụng tư duy phản biện, logic và sư phạm cao nhất để thẩm định và nâng cấp từng câu hỏi.\n"
+            "- Giữ vai trò chuyên gia biên soạn đề thi, loại bỏ câu hỏi quá đơn giản hoặc mang tính bề nổi."
+        )
+
+        return self.run_agent(system_prompt=agent_system_prompt, user_prompt=user_prompt, model=Config.MODEL_BRAIN)
+
     def review_quiz(self, raw_quiz, content):
         """Reviews and self-corrects the generated quiz using Notion prompt or a robust fallback."""
         if not raw_quiz or not content: return raw_quiz

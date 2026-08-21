@@ -356,7 +356,18 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
         if not raw_content.strip():
             raw_content = ai.generate_quiz(full_content)
 
-        # 3. Review and self-correct quiz
+        # 3. Enhance quiz with MODEL_BRAIN for university-level exam quality
+        if progress_callback:
+            progress_callback("enhancing_quiz", 60, "🎯 AI đang tư duy và nâng cao chất lượng câu hỏi...")
+
+        try:
+            enhanced_content = ai.enhance_quiz(raw_content, full_content)
+            if enhanced_content and enhanced_content.strip():
+                raw_content = enhanced_content
+        except Exception as e:
+            logger.error(f"❌ Failed to enhance quiz with MODEL_BRAIN: {e}")
+
+        # 4. Review and self-correct quiz
         if progress_callback:
             progress_callback("reviewing_quiz", 75, "🔍 AI đang tự động đánh giá và chuẩn hóa câu hỏi...")
 
@@ -366,7 +377,7 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
             logger.error(f"❌ Failed to review/self-correct quiz: {e}")
             reviewed_content = raw_content
 
-        # 4. Final dedicated AI step to verify & correct KaTeX / LaTeX math formatting
+        # 5. Final dedicated AI step to verify & correct KaTeX / LaTeX math formatting
         if progress_callback:
             progress_callback("reviewing_latex", 90, "📐 AI đang kiểm định và chuẩn hóa KaTeX toán học...")
 
@@ -376,7 +387,7 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
             logger.error(f"❌ Failed in final AI LaTeX review step: {e}")
             final_latex_content = reviewed_content
 
-        # 5. Parse into structured Dict format
+        # 6. Parse into structured Dict format
         if progress_callback:
             progress_callback("parsing_quiz", 95, "✨ Đang kiểm tra cấu trúc câu hỏi...")
 
