@@ -43,6 +43,14 @@ const ui = {
     resultsScore: document.getElementById('results-score'),
     resultsPercentage: document.getElementById('results-percentage'),
     resultsFeedback: document.getElementById('results-feedback'),
+    resultsTime: document.getElementById('results-time'),
+    resultsGrid: document.getElementById('results-grid'),
+    reviewMistakesBtn: document.getElementById('review-mistakes-btn'),
+    mistakesCount: document.getElementById('mistakes-count'),
+    retakeMistakesBtn: document.getElementById('retake-mistakes-btn'),
+    shareResultsBtn: document.getElementById('share-results-btn'),
+    quizTimerText: document.getElementById('quiz-timer-text'),
+    flagQuestionBtn: document.getElementById('flag-question-btn'),
     searchInput: document.getElementById('search-input'),
     courseFilter: document.getElementById('course-filter'),
     quickReviewBtn: document.getElementById('quick-review-btn'),
@@ -82,6 +90,33 @@ let currentTimeline = [];
 
 let savedProgressMap = {};
 
+// Quiz Timer State
+let quizTimerInterval = null;
+let quizElapsedSeconds = 0;
+
+function formatDuration(totalSeconds) {
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+function startQuizTimer(initialSeconds = 0) {
+    stopQuizTimer();
+    quizElapsedSeconds = initialSeconds;
+    if (ui.quizTimerText) ui.quizTimerText.textContent = formatDuration(quizElapsedSeconds);
+    quizTimerInterval = setInterval(() => {
+        quizElapsedSeconds++;
+        if (ui.quizTimerText) ui.quizTimerText.textContent = formatDuration(quizElapsedSeconds);
+    }, 1000);
+}
+
+function stopQuizTimer() {
+    if (quizTimerInterval) {
+        clearInterval(quizTimerInterval);
+        quizTimerInterval = null;
+    }
+}
+
 // Helper: Quiz Progress Persistence via Redis Backend
 async function saveQuizProgress() {
     if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
@@ -92,6 +127,7 @@ async function saveQuizProgress() {
         topic: currentTopic,
         quiz: currentQuiz,
         currentIndex: currentQuestionIndex,
+        elapsedSeconds: quizElapsedSeconds,
         savedAt: Date.now()
     };
     savedProgressMap[topicId] = data;
@@ -112,7 +148,7 @@ async function saveQuizProgress() {
     }
 }
 
-async function clearQuizProgress(topicId = null) {
+async function clearQuizProgress(topicId = null, refreshTopicsView = true) {
     const tid = topicId || (currentTopic ? currentTopic.id : null);
     if (tid) {
         delete savedProgressMap[tid];
@@ -120,7 +156,9 @@ async function clearQuizProgress(topicId = null) {
         savedProgressMap = {};
     }
     checkAndRenderResumeBanner();
-    filterAndRenderTopics();
+    if (refreshTopicsView) {
+        filterAndRenderTopics();
+    }
 
     if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
     try {
@@ -197,6 +235,8 @@ function resumeSavedQuiz(savedData = null) {
     currentQuestionIndex = (typeof saved.currentIndex === 'number' && saved.currentIndex >= 0 && saved.currentIndex < saved.quiz.length)
         ? saved.currentIndex
         : 0;
+
+    startQuizTimer(saved.elapsedSeconds || 0);
 
     document.getElementById('quiz-content').classList.remove('hidden');
     ui.quizResults.classList.add('hidden');
@@ -319,6 +359,7 @@ async function startQuickReview() {
         };
         currentQuiz = data.questions || [];
         currentQuestionIndex = 0;
+        startQuizTimer(0);
         saveQuizProgress();
 
         document.getElementById('quiz-content').classList.remove('hidden');
@@ -466,6 +507,7 @@ async function startQuiz(topic, forceRefresh = false, numQuestions) {
 
         currentQuiz = questions;
         currentQuestionIndex = 0;
+        startQuizTimer(0);
         saveQuizProgress();
 
         // Reset results UI to initial quiz state
@@ -712,6 +754,17 @@ function renderQuestion() {
 
     const q = currentQuiz[currentQuestionIndex];
 
+    // Update Flag Button state
+    if (ui.flagQuestionBtn) {
+        if (q.flagged) {
+            ui.flagQuestionBtn.classList.remove('text-gray-400', 'bg-white', 'dark:bg-gray-900');
+            ui.flagQuestionBtn.classList.add('text-amber-500', 'bg-amber-50', 'dark:bg-amber-950/40', 'border-amber-300', 'dark:border-amber-700');
+        } else {
+            ui.flagQuestionBtn.classList.add('text-gray-400', 'bg-white', 'dark:bg-gray-900');
+            ui.flagQuestionBtn.classList.remove('text-amber-500', 'bg-amber-50', 'dark:bg-amber-950/40', 'border-amber-300', 'dark:border-amber-700');
+        }
+    }
+
     // Fallback cho câu hỏi bị lỗi dữ liệu
     const questionText = q.question || q.q || '⚠️ Nội dung câu hỏi bị thiếu';
     if (currentTopic.id === 'quick_review' && q.topic_title) {
@@ -732,30 +785,52 @@ function renderQuestion() {
         ui.progressBar.style.width = `${progressPercent}%`;
     }
 
-    // Render dot progress indicator
+    // Render interactive dot progress indicator
     if (ui.dotContainer) {
         ui.dotContainer.innerHTML = '';
-        currentQuiz.forEach((_, idx) => {
-            const dot = document.createElement('span');
+        currentQuiz.forEach((item, idx) => {
+            const dot = document.createElement('button');
             const isActive = idx === currentQuestionIndex;
-            const isAnswered = currentQuiz[idx].selected !== undefined;
-            const isCorrect = currentQuiz[idx].selected === currentQuiz[idx].correct;
-            let dotClass = 'w-2.5 h-2.5 rounded-full transition-all duration-300 ';
+            const isAnswered = item.selected !== undefined;
+            const isCorrect = item.selected === item.correct;
+            const isFlagged = !!item.flagged;
+
+            let dotClasses = 'w-7 h-7 rounded-lg text-xs font-bold transition-all duration-200 flex items-center justify-center relative cursor-pointer active:scale-90 ';
+
             if (isActive) {
-                dotClass += 'bg-blue-500 scale-125 shadow-sm shadow-blue-300';
+                dotClasses += 'bg-blue-500 text-white ring-2 ring-blue-300 dark:ring-blue-800 shadow-sm ';
             } else if (isAnswered && isCorrect) {
-                dotClass += 'bg-green-400';
+                dotClasses += 'bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400 border border-green-300 dark:border-green-800 ';
             } else if (isAnswered && !isCorrect) {
-                dotClass += 'bg-red-400';
+                dotClasses += 'bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400 border border-red-300 dark:border-red-800 ';
             } else {
-                dotClass += 'bg-gray-300 dark:bg-gray-600';
+                dotClasses += 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 ';
             }
-            dot.className = dotClass;
+
+            dot.className = dotClasses;
+            dot.textContent = idx + 1;
+            dot.title = `Câu ${idx + 1}${isFlagged ? ' (Đã gắn cờ)' : ''}`;
+
+            if (isFlagged) {
+                const flagMarker = document.createElement('span');
+                flagMarker.className = 'absolute -top-1 -right-1 text-[9px] select-none';
+                flagMarker.textContent = '🚩';
+                dot.appendChild(flagMarker);
+            }
+
+            dot.onclick = () => {
+                currentQuestionIndex = idx;
+                saveQuizProgress();
+                renderQuestion();
+            };
+
             ui.dotContainer.appendChild(dot);
         });
     }
 
     const options = q.options || [];
+    const optionLabels = ['A', 'B', 'C', 'D', 'E', 'F'];
+
     if (options.length === 0) {
         // Fallback khi không có đáp án nào
         const fallbackBtn = document.createElement('button');
@@ -765,9 +840,34 @@ function renderQuestion() {
     } else {
         options.forEach((opt, idx) => {
             const btn = document.createElement('button');
-            const defaultClasses = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out active:scale-95 shadow-sm border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md text-gray-700 dark:text-gray-300 whitespace-normal break-words';
-            btn.className = defaultClasses;
-            btn.textContent = opt;
+            const letter = optionLabels[idx] || (idx + 1);
+            const isAnswered = q.selected !== undefined;
+
+            let containerClasses = 'w-full text-left p-3.5 rounded-xl border-2 font-medium transition-all duration-200 ease-out active:scale-[0.99] shadow-sm flex items-start gap-3 whitespace-normal break-words ';
+            let badgeClasses = 'w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 transition-colors ';
+
+            if (isAnswered) {
+                if (idx === q.correct) {
+                    containerClasses += 'border-green-500 dark:border-green-600 bg-green-50/80 dark:bg-green-950/30 text-green-900 dark:text-green-200 font-bold';
+                    badgeClasses += 'bg-green-500 text-white';
+                } else if (idx === q.selected) {
+                    containerClasses += 'border-red-500 dark:border-red-600 bg-red-50/80 dark:bg-red-950/30 text-red-900 dark:text-red-200 font-bold line-through';
+                    badgeClasses += 'bg-red-500 text-white';
+                } else {
+                    containerClasses += 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400 opacity-50';
+                    badgeClasses += 'bg-gray-100 dark:bg-gray-800 text-gray-500';
+                }
+            } else {
+                containerClasses += 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md text-gray-700 dark:text-gray-300';
+                badgeClasses += 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 group-hover:bg-blue-100';
+            }
+
+            btn.className = containerClasses;
+            btn.innerHTML = `
+                <span class="${badgeClasses}">${letter}</span>
+                <span class="flex-1 pt-0.5 leading-snug">${escapeHtml(opt)}</span>
+            `;
+
             btn.onclick = () => {
                 if (q.selected !== undefined) return;
                 q.selected = idx;
@@ -786,54 +886,16 @@ function renderQuestion() {
                     }
                 }
 
-                if (idx === q.correct) {
-                    btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-green-500 dark:border-green-600 bg-gradient-to-r from-green-50 to-green-100 dark:from-green-950/20 dark:to-green-950/40 text-green-800 dark:text-green-300 font-bold whitespace-normal break-words';
-                    btn.textContent = '✅ ' + opt;
-                } else {
-                    btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-red-500 dark:border-red-600 bg-gradient-to-r from-red-50 to-red-100 dark:from-red-950/20 dark:to-red-950/40 text-red-800 dark:text-red-300 font-bold line-through whitespace-normal break-words';
-                    btn.textContent = '❌ ' + opt;
-
-                    const correctBtn = ui.optionsContainer.children[q.correct];
-                    if (correctBtn) {
-                        correctBtn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-green-500 dark:border-green-600 bg-green-50 dark:bg-green-950/20 text-green-800 dark:text-green-300 font-bold whitespace-normal break-words';
-                        correctBtn.textContent = '✅ ' + options[q.correct];
-                    }
-
-                }
-
-                if (q.explanation) {
-                    ui.explanationBox.innerHTML = `<div class="flex items-start gap-2.5">
-                        <span class="text-xl select-none">💡</span>
-                        <div>
-                            <div class="font-bold text-blue-800 dark:text-blue-400 mb-0.5 text-xs uppercase tracking-wider">Giải thích chi tiết</div>
-                            <div>${escapeHtml(q.explanation)}</div>
-                        </div>
-                    </div>`;
-                    ui.explanationBox.classList.remove('hidden');
-                }
-
                 saveQuizProgress();
+                renderQuestion();
 
                 if (currentQuestionIndex < currentQuiz.length - 1) {
                     ui.nextBtn.classList.remove('hidden');
                 } else {
                     ui.showResultsBtn.classList.remove('hidden');
                 }
-
-                renderMath();
             };
 
-            if (q.selected !== undefined) {
-                if (idx === q.correct) {
-                    btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-green-500 dark:border-green-600 bg-gradient-to-r from-green-50 to-green-100 dark:from-green-950/20 dark:to-green-950/40 text-green-800 dark:text-green-300 font-bold whitespace-normal break-words';
-                    btn.textContent = '✅ ' + opt;
-                } else if (idx === q.selected) {
-                    btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-red-500 dark:border-red-600 bg-gradient-to-r from-red-50 to-red-100 dark:from-red-950/20 dark:to-red-950/40 text-red-800 dark:text-red-300 font-bold line-through whitespace-normal break-words';
-                    btn.textContent = '❌ ' + opt;
-                } else {
-                    btn.className = 'w-full text-left p-4 rounded-xl border-2 font-medium transition-all duration-300 ease-out shadow-sm border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-400 opacity-50 whitespace-normal break-words';
-                }
-            }
             ui.optionsContainer.appendChild(btn);
         });
     }
@@ -872,6 +934,8 @@ function renderQuestion() {
 }
 
 function showQuizResults() {
+    stopQuizTimer();
+
     const tg = window.Telegram?.WebApp;
     if (tg?.HapticFeedback) {
         try {
@@ -897,22 +961,64 @@ function showQuizResults() {
     const total = currentQuiz.length;
     const correct = currentQuiz.filter(q => q.selected === q.correct).length;
     const percentage = Math.round((correct / total) * 100);
+    const mistakes = currentQuiz.map((q, idx) => ({ q, idx })).filter(item => item.q.selected !== item.q.correct);
 
     ui.resultsScore.textContent = `${correct} / ${total}`;
     ui.resultsPercentage.textContent = `${percentage}%`;
+    if (ui.resultsTime) ui.resultsTime.textContent = formatDuration(quizElapsedSeconds);
 
     let feedback = '';
     if (percentage === 100) {
-        feedback = 'Xuất sắc! Bạn đã trả lời đúng tất cả các câu hỏi. Hãy tiếp tục phát huy!';
+        feedback = '🌟 Xuất sắc! Bạn đã trả lời đúng tất cả các câu hỏi. Hãy tiếp tục phát huy!';
     } else if (percentage >= 80) {
-        feedback = 'Rất tốt! Bạn nắm vững hầu hết các kiến thức trong chủ đề này.';
+        feedback = '🎉 Rất tốt! Bạn nắm vững hầu hết các kiến thức trong chủ đề này.';
     } else if (percentage >= 50) {
-        feedback = 'Khá tốt! Hãy cố gắng ôn tập thêm một chút để đạt điểm tối đa nhé.';
+        feedback = '👍 Khá tốt! Hãy cố gắng ôn tập thêm một chút để đạt điểm tối đa nhé.';
     } else {
-        feedback = 'Cần cố gắng thêm! Hãy đọc kỹ phần giải thích của mỗi câu hỏi để nắm vững kiến thức.';
+        feedback = '💪 Cần cố gắng thêm! Hãy đọc kỹ phần giải thích của mỗi câu hỏi để nắm vững kiến thức.';
     }
     ui.resultsFeedback.textContent = feedback;
-    clearQuizProgress();
+
+    // Setup mistakes buttons
+    if (ui.mistakesCount) ui.mistakesCount.textContent = mistakes.length;
+    if (mistakes.length > 0) {
+        if (ui.reviewMistakesBtn) ui.reviewMistakesBtn.classList.remove('hidden');
+        if (ui.retakeMistakesBtn) ui.retakeMistakesBtn.classList.remove('hidden');
+    } else {
+        if (ui.reviewMistakesBtn) ui.reviewMistakesBtn.classList.add('hidden');
+        if (ui.retakeMistakesBtn) ui.retakeMistakesBtn.classList.add('hidden');
+    }
+
+    // Render results grid matrix
+    if (ui.resultsGrid) {
+        ui.resultsGrid.innerHTML = '';
+        currentQuiz.forEach((q, idx) => {
+            const btn = document.createElement('button');
+            const isCorrect = q.selected === q.correct;
+            const isFlagged = !!q.flagged;
+
+            let btnClasses = 'py-2 px-1 rounded-xl font-bold text-xs flex flex-col items-center justify-center gap-0.5 transition active:scale-95 border ';
+            if (isCorrect) {
+                btnClasses += 'bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400 border-green-300 dark:border-green-800 hover:bg-green-100';
+            } else {
+                btnClasses += 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400 border-red-300 dark:border-red-800 hover:bg-red-100';
+            }
+
+            btn.className = btnClasses;
+            btn.innerHTML = `
+                <span class="text-[10px] opacity-75">Câu ${idx + 1}</span>
+                <span>${isCorrect ? '✅' : '❌'}${isFlagged ? ' 🚩' : ''}</span>
+            `;
+
+            btn.onclick = () => {
+                reviewAnswers(idx);
+            };
+
+            ui.resultsGrid.appendChild(btn);
+        });
+    }
+
+    clearQuizProgress(null, false);
 
     ui.reviewAnswersBtn.classList.remove('hidden');
 
@@ -925,8 +1031,8 @@ function showQuizResults() {
     }
 }
 
-function reviewAnswers() {
-    currentQuestionIndex = 0;
+function reviewAnswers(targetIndex = 0) {
+    currentQuestionIndex = typeof targetIndex === 'number' ? targetIndex : 0;
     document.getElementById('quiz-content').classList.remove('hidden');
     ui.quizResults.classList.add('hidden');
     ui.quizProgress.classList.remove('hidden');
@@ -936,6 +1042,92 @@ function reviewAnswers() {
     ui.showResultsBtn.classList.add('hidden');
     ui.reviewAnswersBtn.classList.add('hidden');
     ui.quizDoneBtn.classList.add('hidden');
+    renderQuestion();
+}
+
+function reviewFirstMistake() {
+    const firstMistakeIdx = currentQuiz.findIndex(q => q.selected !== q.correct);
+    if (firstMistakeIdx !== -1) {
+        reviewAnswers(firstMistakeIdx);
+    } else {
+        reviewAnswers(0);
+    }
+}
+
+function retakeMistakes() {
+    const mistakesOnly = currentQuiz
+        .filter(q => q.selected !== q.correct)
+        .map(q => ({
+            ...q,
+            selected: undefined
+        }));
+
+    if (mistakesOnly.length === 0) {
+        alert('Bạn không có câu sai nào!');
+        return;
+    }
+
+    currentQuiz = mistakesOnly;
+    currentQuestionIndex = 0;
+    startQuizTimer(0);
+    saveQuizProgress();
+
+    document.getElementById('quiz-content').classList.remove('hidden');
+    ui.quizResults.classList.add('hidden');
+    ui.quizProgress.classList.remove('hidden');
+    if (ui.progressContainer) ui.progressContainer.classList.remove('hidden');
+    ui.showResultsBtn.classList.add('hidden');
+    ui.quizDoneBtn.classList.add('hidden');
+    renderQuestion();
+}
+
+function shareQuizResults() {
+    if (!currentTopic || !currentQuiz || currentQuiz.length === 0) return;
+    const total = currentQuiz.length;
+    const correct = currentQuiz.filter(q => q.selected === q.correct).length;
+    const percentage = Math.round((correct / total) * 100);
+    const timeStr = formatDuration(quizElapsedSeconds);
+
+    const shareText = `📊 Kết quả ôn tập: ${currentTopic.title}\n🏆 Điểm số: ${correct}/${total} (${percentage}%)\n⏱️ Thời gian: ${timeStr}\n\n#UEHStudyAssistant #Quiz`;
+
+    const triggerCopySuccess = () => {
+        if (ui.shareResultsBtn) {
+            const orig = ui.shareResultsBtn.innerHTML;
+            ui.shareResultsBtn.innerHTML = '✅ Đã sao chép!';
+            setTimeout(() => { ui.shareResultsBtn.innerHTML = orig; }, 1800);
+        }
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(shareText).then(triggerCopySuccess).catch(() => {
+            const ta = document.createElement('textarea');
+            ta.value = shareText;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            triggerCopySuccess();
+        });
+    } else {
+        const ta = document.createElement('textarea');
+        ta.value = shareText;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        triggerCopySuccess();
+    }
+}
+
+function toggleFlagCurrentQuestion() {
+    const q = currentQuiz[currentQuestionIndex];
+    if (!q) return;
+    q.flagged = !q.flagged;
+    saveQuizProgress();
     renderQuestion();
 }
 
@@ -1258,10 +1450,70 @@ ui.forceRefreshBtn.addEventListener('click', () => {
         startQuiz(currentTopic, true);
     }
 });
-ui.closeQuizBtn.addEventListener('click', () => showView('topics'));
+ui.closeQuizBtn.addEventListener('click', () => {
+    stopQuizTimer();
+    showView('topics');
+});
 ui.showResultsBtn.addEventListener('click', showQuizResults);
-ui.reviewAnswersBtn.addEventListener('click', reviewAnswers);
+ui.reviewAnswersBtn.addEventListener('click', () => reviewAnswers(0));
+if (ui.reviewMistakesBtn) ui.reviewMistakesBtn.addEventListener('click', reviewFirstMistake);
+if (ui.retakeMistakesBtn) ui.retakeMistakesBtn.addEventListener('click', retakeMistakes);
+if (ui.shareResultsBtn) ui.shareResultsBtn.addEventListener('click', shareQuizResults);
+if (ui.flagQuestionBtn) ui.flagQuestionBtn.addEventListener('click', toggleFlagCurrentQuestion);
 ui.copyQuestionBtn.addEventListener('click', copyCurrentQuestion);
+
+// Keyboard Shortcuts Support for Desktop / Web
+document.addEventListener('keydown', (e) => {
+    if (views.quiz.classList.contains('hidden')) return;
+
+    // Ignore shortcuts when typing in inputs/textareas
+    const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+    if (activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select') return;
+
+    const q = currentQuiz[currentQuestionIndex];
+    if (!q) return;
+
+    // Number keys 1-4 or letters A-D to select option
+    if (q.selected === undefined && ui.optionsContainer && ui.optionsContainer.children) {
+        let selectedIdx = null;
+        if (['1', 'a', 'A'].includes(e.key)) selectedIdx = 0;
+        else if (['2', 'b', 'B'].includes(e.key)) selectedIdx = 1;
+        else if (['3', 'c', 'C'].includes(e.key)) selectedIdx = 2;
+        else if (['4', 'd', 'D'].includes(e.key)) selectedIdx = 3;
+
+        if (selectedIdx !== null && ui.optionsContainer.children[selectedIdx]) {
+            ui.optionsContainer.children[selectedIdx].click();
+            return;
+        }
+    }
+
+    // Flag shortcut (F or f)
+    if (e.key === 'f' || e.key === 'F') {
+        toggleFlagCurrentQuestion();
+        return;
+    }
+
+    // Next question: ArrowRight, Enter, Space (when answered)
+    if ((e.key === 'ArrowRight' || (q.selected !== undefined && (e.key === 'Enter' || e.key === ' '))) && !ui.nextBtn.classList.contains('hidden')) {
+        e.preventDefault();
+        ui.nextBtn.click();
+        return;
+    }
+
+    // Prev question: ArrowLeft
+    if (e.key === 'ArrowLeft' && !ui.prevBtn.classList.contains('hidden')) {
+        e.preventDefault();
+        ui.prevBtn.click();
+        return;
+    }
+
+    // Show Results: Enter / Space on last question
+    if (q.selected !== undefined && (e.key === 'Enter' || e.key === ' ') && !ui.showResultsBtn.classList.contains('hidden')) {
+        e.preventDefault();
+        ui.showResultsBtn.click();
+        return;
+    }
+});
 
 ui.searchInput.addEventListener('input', () => {
     if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
@@ -1313,6 +1565,7 @@ function initTelegram() {
     const isTimelineOnly = urlParams.get('view') === 'timeline';
     if (tg.BackButton && tg.isVersionAtLeast && tg.isVersionAtLeast('6.1') && !isTimelineOnly) {
         tg.BackButton.onClick(() => {
+            stopQuizTimer();
             showView('topics');
         });
     }
