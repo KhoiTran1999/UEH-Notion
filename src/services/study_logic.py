@@ -309,135 +309,140 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
     except Exception as e:
         logger.warning(f"Redis lock acquire failed (non-fatal): {e}")
 
-    # 1. Fetch content
-    content_lines = notion.fetch_page_content(topic_id, progress_callback=progress_callback)
-    # Pre-clean markdown input before sending to AI to strip math-breaking formatting like $*V*$ or raw currency $
-    cleaned_lines = []
-    import re
-    for line in content_lines:
-        # Strip Markdown italic/bold tags surrounding LaTeX math dollars like $*V*$ or $**V**$
-        l = re.sub(r'\$\*+(.*?)\*+\$', r'$\1$', line)
-        cleaned_lines.append(l)
-    full_content = "\n".join(cleaned_lines)
-
-    if not full_content.strip():
-        return None
-
-    # Default info
-    note_url = f"https://notion.so/{topic_id.replace('-', '')}"
-    note_title = "Bài học đã chọn"
-
-    if progress_callback:
-        progress_callback("page_info", 40, "📖 Đang đồng bộ thông tin tiêu đề...")
-
-    cached_title = get_page_title(topic_id)
-    if cached_title:
-        note_title = cached_title
-
-    # 2. Call AI in 3 parallel chunks
-    if progress_callback:
-        progress_callback("calling_ai", 45, "🧠 Đang chia 3 phần bài học và gửi AI xử lý song song...")
-
-    chunks = split_into_3_chunks(full_content)
-    from concurrent.futures import ThreadPoolExecutor
-
-    def generate_single_chunk(chunk_text):
-        try:
-            return ai.generate_quiz(chunk_text)
-        except Exception as e:
-            logger.error(f"❌ Worker failed to generate quiz for chunk: {e}")
-            return ""
-
-    with ThreadPoolExecutor(max_workers=min(len(chunks), 3)) as executor:
-        raw_results = list(executor.map(generate_single_chunk, chunks))
-
-    raw_content = "\n\n".join([r for r in raw_results if r.strip()])
-    if not raw_content.strip():
-        raw_content = ai.generate_quiz(full_content)
-
-    # 3. Review and self-correct quiz
-    if progress_callback:
-        progress_callback("reviewing_quiz", 75, "🔍 AI đang tự động đánh giá và chuẩn hóa câu hỏi...")
-
     try:
-        reviewed_content = ai.review_quiz(raw_content, full_content)
-    except Exception as e:
-        logger.error(f"❌ Failed to review/self-correct quiz: {e}")
-        reviewed_content = raw_content
+        # 1. Fetch content
+        content_lines = notion.fetch_page_content(topic_id, progress_callback=progress_callback)
+        # Pre-clean markdown input before sending to AI to strip math-breaking formatting like $*V*$ or raw currency $
+        cleaned_lines = []
+        import re
+        for line in content_lines:
+            # Strip Markdown italic/bold tags surrounding LaTeX math dollars like $*V*$ or $**V**$
+            l = re.sub(r'\$\*+(.*?)\*+\$', r'$\1$', line)
+            cleaned_lines.append(l)
+        full_content = "\n".join(cleaned_lines)
 
-    # 4. Final dedicated AI step to verify & correct KaTeX / LaTeX math formatting
-    if progress_callback:
-        progress_callback("reviewing_latex", 90, "📐 AI đang kiểm định và chuẩn hóa KaTeX toán học...")
+        if not full_content.strip():
+            return None
 
-    try:
-        final_latex_content = ai.review_latex_quiz(reviewed_content)
-    except Exception as e:
-        logger.error(f"❌ Failed in final AI LaTeX review step: {e}")
-        final_latex_content = reviewed_content
+        # Default info
+        note_url = f"https://notion.so/{topic_id.replace('-', '')}"
+        note_title = "Bài học đã chọn"
 
-    # 5. Parse into structured Dict format
-    if progress_callback:
-        progress_callback("parsing_quiz", 95, "✨ Đang kiểm tra cấu trúc câu hỏi...")
+        if progress_callback:
+            progress_callback("page_info", 40, "📖 Đang đồng bộ thông tin tiêu đề...")
 
-    questions = []
+        cached_title = get_page_title(topic_id)
+        if cached_title:
+            note_title = cached_title
 
-    import re
-    import json
+        # 2. Call AI in 3 parallel chunks
+        if progress_callback:
+            progress_callback("calling_ai", 45, "🧠 Đang chia 3 phần bài học và gửi AI xử lý song song...")
 
-    match = re.search(r'\[\s*\{.*\}\s*\]', final_latex_content, re.DOTALL)
-    if match:
+        chunks = split_into_3_chunks(full_content)
+        from concurrent.futures import ThreadPoolExecutor
+
+        def generate_single_chunk(chunk_text):
+            try:
+                return ai.generate_quiz(chunk_text)
+            except Exception as e:
+                logger.error(f"❌ Worker failed to generate quiz for chunk: {e}")
+                return ""
+
+        with ThreadPoolExecutor(max_workers=min(len(chunks), 3)) as executor:
+            raw_results = list(executor.map(generate_single_chunk, chunks))
+
+        raw_content = "\n\n".join([r for r in raw_results if r.strip()])
+        if not raw_content.strip():
+            raw_content = ai.generate_quiz(full_content)
+
+        # 3. Review and self-correct quiz
+        if progress_callback:
+            progress_callback("reviewing_quiz", 75, "🔍 AI đang tự động đánh giá và chuẩn hóa câu hỏi...")
+
         try:
-            questions = json.loads(clean_json_string(match.group(0)))
-            for idx, q in enumerate(questions, 1):
-                if isinstance(q, dict):
-                    q["id"] = idx
+            reviewed_content = ai.review_quiz(raw_content, full_content)
         except Exception as e:
-            logger.error(f"Failed to parse JSON quiz: {e}")
+            logger.error(f"❌ Failed to review/self-correct quiz: {e}")
+            reviewed_content = raw_content
+
+        # 4. Final dedicated AI step to verify & correct KaTeX / LaTeX math formatting
+        if progress_callback:
+            progress_callback("reviewing_latex", 90, "📐 AI đang kiểm định và chuẩn hóa KaTeX toán học...")
+
+        try:
+            final_latex_content = ai.review_latex_quiz(reviewed_content)
+        except Exception as e:
+            logger.error(f"❌ Failed in final AI LaTeX review step: {e}")
+            final_latex_content = reviewed_content
+
+        # 5. Parse into structured Dict format
+        if progress_callback:
+            progress_callback("parsing_quiz", 95, "✨ Đang kiểm tra cấu trúc câu hỏi...")
+
+        questions = []
+        is_valid_quiz = False
+
+        import re
+        import json
+
+        match = re.search(r'\[\s*\{.*\}\s*\]', final_latex_content, re.DOTALL)
+        if match:
+            try:
+                parsed_questions = json.loads(clean_json_string(match.group(0)))
+                if isinstance(parsed_questions, list) and len(parsed_questions) > 0:
+                    valid_items = []
+                    for idx, q in enumerate(parsed_questions, 1):
+                        if isinstance(q, dict) and ("q" in q or "question" in q) and "options" in q:
+                            q["id"] = idx
+                            valid_items.append(q)
+                    if valid_items:
+                        questions = valid_items
+                        is_valid_quiz = True
+            except Exception as e:
+                logger.error(f"Failed to parse JSON quiz: {e}")
+
+        if not is_valid_quiz:
+            logger.error("No valid questions parsed from AI response")
             questions = [{
                 "q": "Lỗi tạo câu hỏi trắc nghiệm",
-                "options": ["A. Lỗi hệ thống"],
+                "options": ["A. Lỗi phân tích cú pháp AI"],
                 "correct": 0,
-                "explanation": "Không thể phân tích cú pháp phản hồi từ AI"
+                "explanation": "Không thể phân tích mảng câu hỏi JSON hợp lệ từ phản hồi AI. Vui lòng tải lại bài học."
             }]
-    else:
-        logger.error("No JSON array found in AI response")
-        questions = [{
-            "q": "Lỗi tạo câu hỏi trắc nghiệm",
-            "options": ["A. Lỗi hệ thống"],
-            "correct": 0,
-            "explanation": "Không tìm thấy mảng JSON hợp lệ từ phản hồi AI"
-        }]
 
-    result = {
-        "id": topic_id,
-        "title": note_title,
-        "url": note_url,
-        "questions": questions
-    }
+        result = {
+            "id": topic_id,
+            "title": note_title,
+            "url": note_url,
+            "questions": questions
+        }
 
-    # Try saving to cache
-    try:
-        r = get_redis()
-        if r:
-            cache_key = f"quiz_{topic_id}"
-            r.setex(cache_key, CACHE_QUIZ_TTL, json.dumps(result))
-            logger.info(f"Saved quiz to cache for topic {topic_id}")
-    except Exception as e:
-        logger.warning(f"Redis cache save failed: {e}")
+        # Try saving to cache only if questions are valid (never poison cache with dummy error)
+        if is_valid_quiz:
+            try:
+                r = r or get_redis()
+                if r:
+                    cache_key = f"quiz_{topic_id}"
+                    r.set(cache_key, json.dumps(result), ex=CACHE_QUIZ_TTL)
+                    logger.info(f"Saved quiz to cache for topic {topic_id}")
+            except Exception as e:
+                logger.warning(f"Redis cache save failed: {e}")
 
-    # Release the generation lock
-    if lock_acquired:
-        try:
-            r = r or get_redis()
-            if r:
-                r.eval(
-                    "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
-                    1, lock_key, lock_token
-                )
-        except Exception as e:
-            logger.warning(f"Failed to release quiz lock: {e}")
+        return result
 
-    return result
+    finally:
+        # Guarantee release of the generation lock
+        if lock_acquired:
+            try:
+                r = r or get_redis()
+                if r:
+                    r.eval(
+                        "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+                        1, lock_key, lock_token
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to release quiz lock: {e}")
 
 def generate_quiz_stream(topic_id, force_refresh=False):
     """Generate quiz with progress callbacks and yield progress updates as JSON lines."""
@@ -499,8 +504,9 @@ def update_status(topic_id, status=None):
         try:
             r = get_redis()
             if r:
-                r.delete("study_candidates")
-                logger.info("Cleared study_candidates cache due to status update")
+                for k in r.scan_iter("study_candidates*"):
+                    r.delete(k)
+                logger.info("Cleared study_candidates* cache due to status update")
         except Exception as e:
             logger.warning(f"Failed to clear study_candidates cache: {e}")
 
@@ -606,8 +612,7 @@ def get_quiz_progress(telegram_id: str | int, topic_id: str | None = None) -> di
         else:
             result = {}
             pattern = f"quiz_progress_{telegram_id}:*"
-            keys = r.keys(pattern)
-            for k in keys:
+            for k in r.scan_iter(pattern):
                 key_str = k if isinstance(k, str) else k.decode('utf-8')
                 val = r.get(key_str)
                 if val:
@@ -655,7 +660,7 @@ def clear_quiz_progress(telegram_id: str | int, topic_id: str | None = None) -> 
             return True
         else:
             pattern = f"quiz_progress_{telegram_id}:*"
-            keys = r.keys(pattern)
+            keys = list(r.scan_iter(pattern))
             if keys:
                 r.delete(*keys)
             r.delete(f"quiz_progress_{telegram_id}")

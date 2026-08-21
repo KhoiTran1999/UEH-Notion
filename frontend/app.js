@@ -914,14 +914,14 @@ function showQuizResults() {
     ui.resultsFeedback.textContent = feedback;
     clearQuizProgress();
 
+    ui.reviewAnswersBtn.classList.remove('hidden');
+
     if (currentTopic.id === 'quick_review') {
         ui.statusBtns.classList.add('hidden');
         ui.quizDoneBtn.classList.remove('hidden');
-        ui.reviewAnswersBtn.classList.remove('hidden');
     } else {
         ui.statusBtns.classList.remove('hidden');
         ui.quizDoneBtn.classList.add('hidden');
-        ui.reviewAnswersBtn.classList.add('hidden');
     }
 }
 
@@ -1243,7 +1243,12 @@ if (ui.resumeBtn) ui.resumeBtn.addEventListener('click', (e) => {
 if (ui.resumeBanner) ui.resumeBanner.addEventListener('click', () => resumeSavedQuiz());
 if (ui.discardResumeBtn) ui.discardResumeBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    clearQuizProgress();
+    const latest = getLatestSavedProgress();
+    if (latest && latest.topic && latest.topic.id) {
+        clearQuizProgress(latest.topic.id);
+    } else {
+        clearQuizProgress();
+    }
 });
 
 ui.btnChua.addEventListener('click', () => updateStatus('chua_nam_vung'));

@@ -176,6 +176,59 @@ class TestUEHNotion(unittest.TestCase):
         self.assertEqual(get_res_after.status_code, 200)
         self.assertIsNone(get_res_after.json().get("progress"))
 
+    def test_uuid_validation_pattern(self):
+        """Test UUID validation accepts both 36-char hyphenated and 32-char hex Notion IDs."""
+        from src.api.main import UUID_PATTERN
+        self.assertTrue(UUID_PATTERN.match("2eba5eb5-b9bd-81ef-830c-e6f5378ee35b"))
+        self.assertTrue(UUID_PATTERN.match("2eba5eb5b9bd81ef830ce6f5378ee35b"))
+        self.assertIsNone(UUID_PATTERN.match("invalid-uuid-format"))
+
+    def test_update_status_cache_invalidation_pattern(self):
+        """Test that update_status clears all study_candidates* parameterized keys."""
+        from src.services.study_logic import update_status
+        from src.utils.cache import get_redis
+        from unittest.mock import patch, MagicMock
+
+        r = get_redis()
+        if r:
+            r.set("study_candidates_all", "dummy_all")
+            r.set("study_candidates_10", "dummy_10")
+            r.set("study_candidates_5", "dummy_5")
+
+            with patch("src.services.notion.NotionService.update_page_property", return_value=True):
+                res = update_status("test-uuid-topic", status="da_nam_vung")
+                self.assertTrue(res)
+
+            # All candidate cache variations must be cleared
+            self.assertIsNone(r.get("study_candidates_all"))
+            self.assertIsNone(r.get("study_candidates_10"))
+            self.assertIsNone(r.get("study_candidates_5"))
+
+    def test_quiz_generation_cache_poisoning_guard(self):
+        """Test that invalid/failed quiz payloads are not cached into Redis."""
+        from src.services.study_logic import generate_quiz
+        from src.utils.cache import get_redis
+        from unittest.mock import patch
+
+        r = get_redis()
+        test_topic_id = "test-error-topic-uuid"
+        if r:
+            r.delete(f"quiz_{test_topic_id}")
+
+            with patch("src.services.notion.NotionService.fetch_page_content", return_value=["Some lesson content"]), \
+                 patch("src.services.study_logic.get_page_title", return_value="Test Lesson"), \
+                 patch("src.services.ai.AIService.generate_quiz", return_value="Broken AI raw response"), \
+                 patch("src.services.ai.AIService.review_quiz", return_value="Still broken"), \
+                 patch("src.services.ai.AIService.review_latex_quiz", return_value="Invalid JSON response not matching schema"):
+
+                res = generate_quiz(test_topic_id, force_refresh=True)
+                self.assertIsNotNone(res)
+                self.assertEqual(res["questions"][0]["q"], "Lỗi tạo câu hỏi trắc nghiệm")
+
+                # The cache MUST NOT store this broken quiz
+                cached = r.get(f"quiz_{test_topic_id}")
+                self.assertIsNone(cached, "Corrupted/error quiz should never be cached in Redis")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -12,6 +12,7 @@ def get_redis() -> redis.Redis | None:
         _client = redis.from_url(
             Config.REDIS_URL,
             socket_connect_timeout=5,
+            socket_timeout=5,
             decode_responses=True,
         )
     return _client
