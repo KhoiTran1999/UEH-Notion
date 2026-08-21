@@ -59,6 +59,7 @@ class StatusRequest(BaseModel):
 
 class QuizProgressRequest(BaseModel):
     telegram_id: str | int
+    topic_id: str | None = None
     progress: dict
 
 @app.api_route("/", methods=["GET", "HEAD"])
@@ -100,20 +101,20 @@ def api_update_status(request: StatusRequest):
         raise HTTPException(status_code=500, detail="Failed to update status")
 
 @app.get("/api/study/progress")
-def api_get_quiz_progress(telegram_id: str):
-    progress = get_quiz_progress(telegram_id)
+def api_get_quiz_progress(telegram_id: str, topic_id: str = None):
+    progress = get_quiz_progress(telegram_id, topic_id=topic_id)
     return {"progress": progress}
 
 @app.post("/api/study/progress")
 def api_save_quiz_progress(request: QuizProgressRequest):
-    success = save_quiz_progress(request.telegram_id, request.progress)
+    success = save_quiz_progress(request.telegram_id, request.progress, topic_id=request.topic_id)
     if success:
         return {"success": True, "message": "Quiz progress saved"}
     raise HTTPException(status_code=500, detail="Failed to save progress to Redis")
 
 @app.delete("/api/study/progress/{telegram_id}")
-def api_clear_quiz_progress(telegram_id: str):
-    success = clear_quiz_progress(telegram_id)
+def api_clear_quiz_progress(telegram_id: str, topic_id: str = None):
+    success = clear_quiz_progress(telegram_id, topic_id=topic_id)
     return {"success": True, "message": "Quiz progress cleared"}
 
 @app.get("/api/study/quick-review")

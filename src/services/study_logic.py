@@ -558,44 +558,108 @@ def generate_quick_review(course=None):
     }
 
 
-def save_quiz_progress(telegram_id: str | int, progress_data: dict) -> bool:
-    """Save quiz progress for a user into Redis."""
+def save_quiz_progress(telegram_id: str | int, progress_data: dict, topic_id: str | None = None) -> bool:
+    """Save quiz progress for a user and topic into Redis."""
     r = get_redis()
     if not r:
         return False
     try:
-        cache_key = f"quiz_progress_{telegram_id}"
+        tid = topic_id
+        if not tid and isinstance(progress_data, dict):
+            topic_obj = progress_data.get("topic")
+            if isinstance(topic_obj, dict):
+                tid = topic_obj.get("id")
+        if not tid:
+            tid = "default"
+        cache_key = f"quiz_progress_{telegram_id}:{tid}"
         r.setex(cache_key, CACHE_QUIZ_PROGRESS_TTL, json.dumps(progress_data, ensure_ascii=False))
         return True
     except Exception as e:
-        logger.warning(f"Failed to save quiz progress for user {telegram_id}: {e}")
+        logger.warning(f"Failed to save quiz progress for user {telegram_id}, topic {topic_id}: {e}")
         return False
 
 
-def get_quiz_progress(telegram_id: str | int) -> dict | None:
-    """Retrieve quiz progress for a user from Redis."""
+def get_quiz_progress(telegram_id: str | int, topic_id: str | None = None) -> dict | None:
+    """Retrieve quiz progress for a user from Redis.
+    If topic_id is provided, returns that topic's progress dict.
+    If topic_id is None, returns a dict of all in-progress topics: {topic_id: progress_data}
+    """
     r = get_redis()
     if not r:
         return None
     try:
-        cache_key = f"quiz_progress_{telegram_id}"
-        cached = r.get(cache_key)
-        if cached:
-            return json.loads(cached)
+        if topic_id:
+            cache_key = f"quiz_progress_{telegram_id}:{topic_id}"
+            cached = r.get(cache_key)
+            if cached:
+                return json.loads(cached)
+            # Fallback to old format key quiz_progress_{telegram_id}
+            old_cached = r.get(f"quiz_progress_{telegram_id}")
+            if old_cached:
+                try:
+                    data = json.loads(old_cached)
+                    if isinstance(data, dict) and data.get("topic", {}).get("id") == topic_id:
+                        return data
+                except Exception:
+                    pass
+            return None
+        else:
+            result = {}
+            pattern = f"quiz_progress_{telegram_id}:*"
+            keys = r.keys(pattern)
+            for k in keys:
+                key_str = k if isinstance(k, str) else k.decode('utf-8')
+                val = r.get(key_str)
+                if val:
+                    try:
+                        pdata = json.loads(val)
+                        tid = key_str.split(":", 1)[1]
+                        result[tid] = pdata
+                    except Exception:
+                        pass
+            # Also check old key format if any
+            old_cached = r.get(f"quiz_progress_{telegram_id}")
+            if old_cached:
+                try:
+                    pdata = json.loads(old_cached)
+                    old_tid = pdata.get("topic", {}).get("id") if isinstance(pdata, dict) else None
+                    if old_tid and old_tid not in result:
+                        result[old_tid] = pdata
+                except Exception:
+                    pass
+            return result if result else None
     except Exception as e:
         logger.warning(f"Failed to get quiz progress for user {telegram_id}: {e}")
     return None
 
 
-def clear_quiz_progress(telegram_id: str | int) -> bool:
-    """Delete quiz progress for a user in Redis."""
+def clear_quiz_progress(telegram_id: str | int, topic_id: str | None = None) -> bool:
+    """Delete quiz progress for a user and topic in Redis.
+    If topic_id is None, deletes all progress for this user.
+    """
     r = get_redis()
     if not r:
         return False
     try:
-        cache_key = f"quiz_progress_{telegram_id}"
-        r.delete(cache_key)
-        return True
+        if topic_id:
+            r.delete(f"quiz_progress_{telegram_id}:{topic_id}")
+            # Also clean old key if matched
+            old_cached = r.get(f"quiz_progress_{telegram_id}")
+            if old_cached:
+                try:
+                    pdata = json.loads(old_cached)
+                    if isinstance(pdata, dict) and pdata.get("topic", {}).get("id") == topic_id:
+                        r.delete(f"quiz_progress_{telegram_id}")
+                except Exception:
+                    pass
+            return True
+        else:
+            pattern = f"quiz_progress_{telegram_id}:*"
+            keys = r.keys(pattern)
+            if keys:
+                r.delete(*keys)
+            r.delete(f"quiz_progress_{telegram_id}")
+            return True
     except Exception as e:
         logger.warning(f"Failed to clear quiz progress for user {telegram_id}: {e}")
         return False

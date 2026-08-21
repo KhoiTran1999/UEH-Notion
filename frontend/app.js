@@ -80,20 +80,21 @@ let currentQuestionIndex = 0;
 let searchDebounceTimer = null;
 let currentTimeline = [];
 
-let savedProgressCache = null;
+let savedProgressMap = {};
 
 // Helper: Quiz Progress Persistence via Redis Backend
 async function saveQuizProgress() {
     if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
     if (!currentTopic || !currentQuiz || currentQuiz.length === 0) return;
 
+    const topicId = currentTopic.id;
     const data = {
         topic: currentTopic,
         quiz: currentQuiz,
         currentIndex: currentQuestionIndex,
         savedAt: Date.now()
     };
-    savedProgressCache = data;
+    savedProgressMap[topicId] = data;
     checkAndRenderResumeBanner();
 
     try {
@@ -102,6 +103,7 @@ async function saveQuizProgress() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 telegram_id: telegramData.id,
+                topic_id: topicId,
                 progress: data
             })
         });
@@ -110,12 +112,20 @@ async function saveQuizProgress() {
     }
 }
 
-async function clearQuizProgress() {
-    savedProgressCache = null;
+async function clearQuizProgress(topicId = null) {
+    const tid = topicId || (currentTopic ? currentTopic.id : null);
+    if (tid) {
+        delete savedProgressMap[tid];
+    } else {
+        savedProgressMap = {};
+    }
     checkAndRenderResumeBanner();
+    filterAndRenderTopics();
+
     if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
     try {
-        await fetch(`${API_BASE_URL}/api/study/progress/${telegramData.id}`, {
+        const query = tid ? `?topic_id=${encodeURIComponent(tid)}` : '';
+        await fetch(`${API_BASE_URL}/api/study/progress/${telegramData.id}${query}`, {
             method: 'DELETE'
         });
     } catch (e) {
@@ -129,20 +139,40 @@ async function fetchSavedQuizProgress() {
         const res = await fetch(`${API_BASE_URL}/api/study/progress?telegram_id=${telegramData.id}`);
         if (!res.ok) return null;
         const data = await res.json();
-        if (data && data.progress && data.progress.topic && Array.isArray(data.progress.quiz) && data.progress.quiz.length > 0) {
-            savedProgressCache = data.progress;
-            return data.progress;
+        if (data && data.progress) {
+            if (data.progress.topic && Array.isArray(data.progress.quiz)) {
+                // Backwards compatibility for single progress object
+                savedProgressMap = { [data.progress.topic.id]: data.progress };
+            } else if (typeof data.progress === 'object') {
+                savedProgressMap = data.progress;
+            }
+            return savedProgressMap;
         }
     } catch (e) {
         console.warn('Cannot fetch quiz progress from Redis:', e);
     }
-    savedProgressCache = null;
+    savedProgressMap = {};
     return null;
+}
+
+function getLatestSavedProgress() {
+    const keys = Object.keys(savedProgressMap);
+    if (keys.length === 0) return null;
+    let latest = null;
+    for (const key of keys) {
+        const item = savedProgressMap[key];
+        if (item && item.topic && Array.isArray(item.quiz) && item.quiz.length > 0) {
+            if (!latest || (item.savedAt || 0) > (latest.savedAt || 0)) {
+                latest = item;
+            }
+        }
+    }
+    return latest;
 }
 
 function checkAndRenderResumeBanner() {
     if (!ui.resumeBanner) return;
-    const saved = savedProgressCache;
+    const saved = getLatestSavedProgress();
     if (!saved) {
         ui.resumeBanner.classList.add('hidden');
         return;
@@ -154,8 +184,13 @@ function checkAndRenderResumeBanner() {
     ui.resumeBanner.classList.remove('hidden');
 }
 
-function resumeSavedQuiz() {
-    const saved = savedProgressCache;
+function resumeSavedQuiz(savedData = null) {
+    let saved = null;
+    if (savedData && typeof savedData === 'object' && savedData.topic && Array.isArray(savedData.quiz)) {
+        saved = savedData;
+    } else {
+        saved = getLatestSavedProgress();
+    }
     if (!saved) return;
     currentTopic = saved.topic;
     currentQuiz = saved.quiz;
@@ -260,6 +295,12 @@ async function fetchTopics(forceRefresh = false) {
 }
 
 async function startQuickReview() {
+    const saved = savedProgressMap['quick_review'];
+    if (saved && Array.isArray(saved.quiz) && saved.quiz.length > 0) {
+        resumeSavedQuiz(saved);
+        return;
+    }
+
     const selectedCourse = ui.courseFilter.value;
     const courseParam = selectedCourse ? `?course=${encodeURIComponent(selectedCourse)}` : '';
     const loadingMsg = selectedCourse
@@ -302,6 +343,14 @@ async function startQuickReview() {
 }
 
 async function startQuiz(topic, forceRefresh = false, numQuestions) {
+    if (!forceRefresh && savedProgressMap[topic.id]) {
+        const saved = savedProgressMap[topic.id];
+        if (saved && Array.isArray(saved.quiz) && saved.quiz.length > 0) {
+            resumeSavedQuiz(saved);
+            return;
+        }
+    }
+
     currentTopic = topic;
     const nq = numQuestions || 10;
     showLoading(`Đang tạo ${nq} câu hỏi cho "${topic.title}"...`);
@@ -1187,8 +1236,13 @@ ui.nextBtn.addEventListener('click', () => {
     renderQuestion();
 });
 
-if (ui.resumeBtn) ui.resumeBtn.addEventListener('click', resumeSavedQuiz);
-if (ui.discardResumeBtn) ui.discardResumeBtn.addEventListener('click', () => {
+if (ui.resumeBtn) ui.resumeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    resumeSavedQuiz();
+});
+if (ui.resumeBanner) ui.resumeBanner.addEventListener('click', () => resumeSavedQuiz());
+if (ui.discardResumeBtn) ui.discardResumeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
     clearQuizProgress();
 });
 

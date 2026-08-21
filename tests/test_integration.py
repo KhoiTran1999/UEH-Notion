@@ -147,25 +147,32 @@ class TestUEHNotion(unittest.TestCase):
         }
 
         # 1. Save progress
-        save_res = client.post("/api/study/progress", json={"telegram_id": telegram_id, "progress": progress_payload})
+        save_res = client.post("/api/study/progress", json={"telegram_id": telegram_id, "topic_id": "test-topic-1", "progress": progress_payload})
         self.assertEqual(save_res.status_code, 200)
         self.assertTrue(save_res.json().get("success"))
 
-        # 2. Get progress
-        get_res = client.get(f"/api/study/progress?telegram_id={telegram_id}")
+        # 2. Get progress by topic
+        get_res = client.get(f"/api/study/progress?telegram_id={telegram_id}&topic_id=test-topic-1")
         self.assertEqual(get_res.status_code, 200)
         retrieved = get_res.json().get("progress")
         self.assertIsNotNone(retrieved)
         self.assertEqual(retrieved["topic"]["id"], "test-topic-1")
         self.assertEqual(len(retrieved["quiz"]), 1)
 
-        # 3. Clear progress
-        del_res = client.delete(f"/api/study/progress/{telegram_id}")
+        # 3. Get all progress
+        get_all_res = client.get(f"/api/study/progress?telegram_id={telegram_id}")
+        self.assertEqual(get_all_res.status_code, 200)
+        all_progress = get_all_res.json().get("progress")
+        self.assertIsNotNone(all_progress)
+        self.assertIn("test-topic-1", all_progress)
+
+        # 4. Clear progress for topic
+        del_res = client.delete(f"/api/study/progress/{telegram_id}?topic_id=test-topic-1")
         self.assertEqual(del_res.status_code, 200)
         self.assertTrue(del_res.json().get("success"))
 
-        # 4. Verify cleared
-        get_res_after = client.get(f"/api/study/progress?telegram_id={telegram_id}")
+        # 5. Verify cleared
+        get_res_after = client.get(f"/api/study/progress?telegram_id={telegram_id}&topic_id=test-topic-1")
         self.assertEqual(get_res_after.status_code, 200)
         self.assertIsNone(get_res_after.json().get("progress"))
 
