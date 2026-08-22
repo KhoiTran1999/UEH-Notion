@@ -238,25 +238,34 @@ def clean_json_string(json_str):
         return '"' + "".join(fixed) + '"'
     return pattern.sub(replace_string, json_str)
 
-def clear_quiz_cache(topic_id: str) -> bool:
-    """Delete cached quiz for a specific topic from Redis."""
+def clear_quiz_cache(topic_id: str, num_questions: int | None = None, difficulty: str | None = None, question_type: str | None = None) -> bool:
+    """Delete cached quiz for a specific topic (or specific config) from Redis."""
     try:
         r = get_redis()
         if r:
-            r.delete(f"quiz_{topic_id}")
+            if num_questions is not None and difficulty is not None and question_type is not None:
+                r.delete(f"quiz_{topic_id}_{num_questions}_{difficulty}_{question_type}")
+            else:
+                # Delete all variations of quiz cache for this topic
+                r.delete(f"quiz_{topic_id}")
+                for k in r.scan_iter(f"quiz_{topic_id}_*"):
+                    r.delete(k)
             logger.info(f"Cleared quiz cache for topic {topic_id}")
             return True
     except Exception as e:
         logger.warning(f"Redis cache delete failed for topic {topic_id}: {e}")
     return False
 
-def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
-    """Fetch content from Notion, call AI to generate quiz, parse into JSON/Dict format."""
+def generate_quiz(topic_id, force_refresh=False, num_questions=15, difficulty='medium', question_type='balanced', progress_callback=None):
+    """Fetch content from Notion, call AI to generate quiz with custom configuration, parse into JSON/Dict format."""
     notion = NotionService()
     ai = AIService()
 
     import re
     import json
+
+    # Cache key reflects configuration parameters
+    cache_key = f"quiz_{topic_id}_{num_questions}_{difficulty}_{question_type}"
 
     # Try checking cache first
     if progress_callback:
@@ -267,20 +276,23 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
         try:
             r = get_redis()
             if r:
-                cache_key = f"quiz_{topic_id}"
                 cached = r.get(cache_key)
+                if not cached:
+                    # Fallback to legacy unconfigured cache key if num_questions is 15 and default config
+                    if num_questions == 15 and difficulty == 'medium' and question_type == 'balanced':
+                        cached = r.get(f"quiz_{topic_id}")
                 if cached:
-                    logger.info(f"Using cached quiz for topic {topic_id}")
+                    logger.info(f"Using cached quiz for topic {topic_id} ({num_questions}q, {difficulty}, {question_type})")
                     if progress_callback:
                         progress_callback("parsing_quiz", 100, "✨ Đã tải trắc nghiệm thành công!")
                     return json.loads(cached)
         except Exception as e:
             logger.warning(f"Redis cache check failed: {e}")
     else:
-        clear_quiz_cache(topic_id)
+        clear_quiz_cache(topic_id, num_questions, difficulty, question_type)
 
-    # Acquire Redis lock to prevent concurrent generation for same topic
-    lock_key = f"quiz_lock_{topic_id}"
+    # Acquire Redis lock to prevent concurrent generation for same topic and config
+    lock_key = f"quiz_lock_{topic_id}_{num_questions}_{difficulty}_{question_type}"
     lock_token = str(uuid.uuid4())
     lock_acquired = False
     try:
@@ -288,7 +300,7 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
         if r:
             lock_acquired = r.set(lock_key, lock_token, nx=True, ex=LOCK_QUIZ_TTL)
             if not lock_acquired:
-                logger.info(f"⏳ Quiz generation already in progress for {topic_id}, waiting...")
+                logger.info(f"⏳ Quiz generation already in progress for {topic_id} ({num_questions}q), waiting...")
                 if progress_callback:
                     progress_callback("checking_cache", 10, "⏳ Đợi lượt tạo câu hỏi trước đó...")
                 # Poll until lock released or timeout
@@ -297,7 +309,7 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
                 while waited < 30:
                     time_mod.sleep(2)
                     waited += 2
-                    cached = r.get(f"quiz_{topic_id}")
+                    cached = r.get(cache_key)
                     if cached:
                         logger.info(f"✅ Found cached quiz after waiting for {topic_id}")
                         if progress_callback:
@@ -337,14 +349,16 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
 
         # 2. Call AI in 3 parallel chunks
         if progress_callback:
-            progress_callback("calling_ai", 45, "🧠 Đang chia 3 phần bài học và gửi AI xử lý song song...")
+            diff_vn = {'easy': 'Cơ bản', 'medium': 'Chuẩn thi UEH', 'hard': 'Nâng cao'}.get(difficulty, 'Chuẩn thi')
+            type_vn = {'theory': 'Lý thuyết', 'calculation': 'Tính toán', 'balanced': 'Cân bằng'}.get(question_type, 'Cân bằng')
+            progress_callback("calling_ai", 45, f"🧠 Đang chia 3 phần bài học và soạn {num_questions} câu [{diff_vn} - {type_vn}]...")
 
         chunks = split_into_3_chunks(full_content)
         from concurrent.futures import ThreadPoolExecutor
 
         def generate_single_chunk(chunk_text):
             try:
-                return ai.generate_quiz(chunk_text)
+                return ai.generate_quiz(chunk_text, num_questions=num_questions, difficulty=difficulty, question_type=question_type)
             except Exception as e:
                 logger.error(f"❌ Worker failed to generate quiz for chunk: {e}")
                 return ""
@@ -354,14 +368,14 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
 
         raw_content = "\n\n".join([r for r in raw_results if r.strip()])
         if not raw_content.strip():
-            raw_content = ai.generate_quiz(full_content)
+            raw_content = ai.generate_quiz(full_content, num_questions=num_questions, difficulty=difficulty, question_type=question_type)
 
         # 3. Enhance quiz with MODEL_BRAIN for university-level exam quality
         if progress_callback:
-            progress_callback("enhancing_quiz", 65, "🎯 MODEL_BRAIN đang tư duy và nâng cao chất lượng câu hỏi...")
+            progress_callback("enhancing_quiz", 70, f"🎯 MODEL_BRAIN đang tối ưu hóa phương án nhiễu & bẫy tư duy ({num_questions} câu)...")
 
         try:
-            enhanced_content = ai.enhance_quiz(raw_content, full_content)
+            enhanced_content = ai.enhance_quiz(raw_content, full_content, num_questions=num_questions, difficulty=difficulty, question_type=question_type)
             if enhanced_content and enhanced_content.strip():
                 raw_content = enhanced_content
         except Exception as e:
@@ -369,7 +383,7 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
 
         # 4. Standardize KaTeX / LaTeX math formatting using MODEL_WORKER
         if progress_callback:
-            progress_callback("reviewing_latex", 85, "📐 MODEL_WORKER đang kiểm định và chuẩn hóa KaTeX toán học...")
+            progress_callback("reviewing_latex", 88, "📐 MODEL_WORKER đang rà soát KaTeX & định dạng công thức toán...")
 
         try:
             final_latex_content = ai.review_latex_quiz(raw_content)
@@ -379,7 +393,7 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
 
         # 5. Parse into structured Dict format
         if progress_callback:
-            progress_callback("parsing_quiz", 95, "✨ Đang kiểm tra cấu trúc câu hỏi...")
+            progress_callback("parsing_quiz", 96, "✨ Đang đối chiếu cấu trúc câu hỏi hoàn tất...")
 
         questions = []
         is_valid_quiz = False
@@ -398,7 +412,8 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
                             q["id"] = idx
                             valid_items.append(q)
                     if valid_items:
-                        questions = valid_items
+                        # Limit to requested num_questions if AI returned slightly more
+                        questions = valid_items[:num_questions]
                         is_valid_quiz = True
             except Exception as e:
                 logger.error(f"Failed to parse JSON quiz: {e}")
@@ -416,6 +431,9 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
             "id": topic_id,
             "title": note_title,
             "url": note_url,
+            "num_questions": len(questions),
+            "difficulty": difficulty,
+            "question_type": question_type,
             "questions": questions
         }
 
@@ -424,9 +442,8 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
             try:
                 r = r or get_redis()
                 if r:
-                    cache_key = f"quiz_{topic_id}"
                     r.set(cache_key, json.dumps(result), ex=CACHE_QUIZ_TTL)
-                    logger.info(f"Saved quiz to cache for topic {topic_id}")
+                    logger.info(f"Saved quiz to cache for topic {topic_id} ({cache_key})")
             except Exception as e:
                 logger.warning(f"Redis cache save failed: {e}")
 
@@ -445,7 +462,7 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
             except Exception as e:
                 logger.warning(f"Failed to release quiz lock: {e}")
 
-def generate_quiz_stream(topic_id, force_refresh=False):
+def generate_quiz_stream(topic_id, force_refresh=False, num_questions=15, difficulty='medium', question_type='balanced'):
     """Generate quiz with progress callbacks and yield progress updates as JSON lines."""
     import queue
     import threading
@@ -463,7 +480,14 @@ def generate_quiz_stream(topic_id, force_refresh=False):
 
     def worker():
         try:
-            res = generate_quiz(topic_id, force_refresh=force_refresh, progress_callback=callback)
+            res = generate_quiz(
+                topic_id,
+                force_refresh=force_refresh,
+                num_questions=num_questions,
+                difficulty=difficulty,
+                question_type=question_type,
+                progress_callback=callback
+            )
             if res:
                 q.put({"type": "result", "data": res})
             else:

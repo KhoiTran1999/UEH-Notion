@@ -402,23 +402,37 @@ class AIService:
         # Voice script generation is a simple text rewriting job - run it directly on MODEL_WORKER
         return self.generate_content(final_prompt, model=Config.MODEL_WORKER)
 
-    def generate_quiz(self, content):
-        """Generates quiz questions from review notes using Notion prompt."""
+    def generate_quiz(self, content, num_questions=15, difficulty='medium', question_type='balanced'):
+        """Generates quiz questions from review notes using Notion prompt with custom config."""
         if not content: return "Nội dung trống."
 
         prompt_data = self.prompt_service.get_prompt("UEH-Notion", "study_assistant")
 
+        difficulty_text = {
+            'easy': 'Mức độ cơ bản / nhận biết / thông hiểu (nắm chắc khái niệm nền tảng)',
+            'medium': 'Mức độ vận dụng / chuẩn đề thi đại học UEH (kết hợp lý thuyết và suy luận)',
+            'hard': 'Mức độ vận dụng cao / chuyên sâu (tình huống phức tạp, câu hỏi bẫy tư duy, đòi hỏi phân tích đa chiều)'
+        }.get(difficulty, 'Mức độ vận dụng / chuẩn đề thi đại học UEH')
+
+        type_text = {
+            'theory': 'Tập trung chủ yếu vào Lý thuyết, khái niệm, bản chất định nghĩa và so sánh (≥ 80% lý thuyết)',
+            'calculation': 'Tập trung chủ yếu vào Bài tập tính toán, phân tích số liệu, giải quyết tình huống thực tế (≥ 80% tính toán/tình huống)',
+            'balanced': 'Cân bằng hợp lý giữa câu hỏi Lý thuyết bản chất (50%) và Bài tập tính toán/tình huống (50%)'
+        }.get(question_type, 'Cân bằng giữa lý thuyết và bài tập tình huống')
+
         if not prompt_data:
-            system_prompt = "Bạn là một Chuyên gia Giáo dục và Trợ lý Học tập Thông minh. Hãy tạo chính xác 15 câu hỏi trắc nghiệm từ nội dung bên dưới."
+            system_prompt = f"Bạn là một Chuyên gia Giáo dục và Trợ lý Học tập Thông minh. Hãy tạo chính xác {num_questions} câu hỏi trắc nghiệm từ nội dung bên dưới."
             user_template = "--- NỘI DUNG GHI CHÉP ---\n{content}\n-------------------------"
             logger.warning("⚠️ Using fallback prompt for generate_quiz")
         else:
             system_prompt = prompt_data["system_prompt"]
             user_template = prompt_data["user_template"]
 
-        additional_instructions = """
-        QUAN TRỌNG VỀ SỐ LƯỢNG:
-        - Phải tạo chính xác 15 câu hỏi trắc nghiệm.
+        additional_instructions = f"""
+        YÊU CẦU CẤU TRÚC ĐỀ THI TÙY BIẾN:
+        - SỐ LƯỢNG CÂU HỎI: Phải tạo chính xác {num_questions} câu hỏi trắc nghiệm.
+        - ĐỘ KHÓ: {difficulty_text}.
+        - TỶ LỆ DẠNG CÂU HỎI: {type_text}.
         """
 
         user_prompt = user_template.replace("{content}", content)
@@ -426,25 +440,39 @@ class AIService:
 
         return self.generate_content(final_prompt, model=Config.MODEL_BRAIN)
 
-    def enhance_quiz(self, raw_quiz, content):
+    def enhance_quiz(self, raw_quiz, content, num_questions=15, difficulty='medium', question_type='balanced'):
         """Enhances raw quiz questions to be higher quality, more engaging, and rigorous for college-level exams using MODEL_BRAIN."""
         if not raw_quiz or not content:
             return raw_quiz
+
+        difficulty_text = {
+            'easy': 'Mức độ cơ bản / nhận biết / thông hiểu (nắm chắc khái niệm nền tảng)',
+            'medium': 'Mức độ vận dụng / chuẩn đề thi đại học UEH (kết hợp lý thuyết và suy luận)',
+            'hard': 'Mức độ vận dụng cao / chuyên sâu (tình huống phức tạp, câu hỏi bẫy tư duy, đòi hỏi phân tích đa chiều)'
+        }.get(difficulty, 'Mức độ vận dụng / chuẩn đề thi đại học UEH')
+
+        type_text = {
+            'theory': 'Tập trung chủ yếu vào Lý thuyết, khái niệm, bản chất định nghĩa và so sánh (≥ 80% lý thuyết)',
+            'calculation': 'Tập trung chủ yếu vào Bài tập tính toán, phân tích số liệu, giải quyết tình huống thực tế (≥ 80% tính toán/tình huống)',
+            'balanced': 'Cân bằng hợp lý giữa câu hỏi Lý thuyết bản chất (50%) và Bài tập tính toán/tình huống (50%)'
+        }.get(question_type, 'Cân bằng giữa lý thuyết và bài tập tình huống')
 
         system_prompt = (
             "Bạn là Chuyên gia Khảo thí và Thiết kế Đề thi Đại học.\n"
             "Nhiệm vụ của bạn là nhận danh sách câu hỏi trắc nghiệm thô và NÂNG CẤP thành bộ câu hỏi trắc nghiệm CHẤT LƯỢNG CAO, phù hợp cho đề thi sinh viên đại học ở mọi môn học.\n\n"
             "TIÊU CHUẨN NÂNG CẤP ĐỀ THI ĐẠI HỌC:\n"
-            "1. Tính ứng dụng & Tình huống (Application & Case-based): Chuyển hóa các câu hỏi lý thuyết đơn thuần thành câu hỏi phân tích, tình huống thực tế hoặc bài toán đa bước.\n"
-            "2. Đòi hỏi tư duy sâu: Đặt câu hỏi kích thích suy luận logic, so sánh, phân biệt khái niệm dễ nhầm lẫn thay vì chỉ ghi nhớ máy móc.\n"
-            "3. Bẫy đề thi & Phương án nhiễu thông minh: Các phương án sai (distractors) phải hợp lý, đánh trúng vào những hiểu lầm hoặc lỗi sai phổ biến của sinh viên.\n"
-            "4. Giải thích rõ ràng, chặt chẽ: Nêu rõ lập luận, công thức hoặc dẫn chứng từ bài học để sinh viên hiểu bản chất vì sao đáp án đó đúng.\n"
-            "5. Đảm bảo chuẩn format JSON mảng các câu hỏi (q, options, correct, explanation)."
+            f"1. Số lượng: Đảm bảo tinh chỉnh và xuất ra đủ {num_questions} câu hỏi.\n"
+            f"2. Độ khó yêu cầu: {difficulty_text}.\n"
+            f"3. Dạng câu hỏi: {type_text}.\n"
+            "4. Tính ứng dụng & Tình huống (Application & Case-based): Đặt câu hỏi kích thích suy luận logic, so sánh, phân biệt khái niệm dễ nhầm lẫn hoặc bài toán đa bước thay vì chỉ ghi nhớ máy móc.\n"
+            "5. Bẫy đề thi & Phương án nhiễu thông minh: Các phương án sai (distractors) phải hợp lý, đánh trúng vào những hiểu lầm hoặc lỗi sai phổ biến của sinh viên.\n"
+            "6. Giải thích rõ ràng, chặt chẽ: Nêu rõ lập luận, công thức hoặc dẫn chứng từ bài học để sinh viên hiểu bản chất vì sao đáp án đó đúng.\n"
+            "7. Đảm bảo chuẩn format JSON mảng các câu hỏi (q, options, correct, explanation)."
         )
         user_prompt = (
             f"--- TÀI LIỆU GHI CHÉP GỐC ---\n{content}\n-----------------------------\n\n"
             f"--- CÂU HỎI THÔ CẦN NÂNG CẤP ---\n{raw_quiz}\n--------------------------------\n\n"
-            "Hãy nâng cấp toàn bộ câu hỏi trên theo chuẩn đề thi đại học chất lượng cao và trả về danh sách câu hỏi dưới dạng JSON:"
+            f"Hãy nâng cấp toàn bộ câu hỏi trên theo yêu cầu cấu trúc ({num_questions} câu, độ khó: {difficulty}, dạng: {question_type}) và trả về danh sách câu hỏi dưới dạng JSON:"
         )
 
         final_prompt = f"{system_prompt}\n\n{user_prompt}"

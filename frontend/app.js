@@ -79,6 +79,15 @@ const ui = {
     resumeBadge: document.getElementById('resume-quiz-badge'),
     resumeBtn: document.getElementById('resume-quiz-btn'),
     discardResumeBtn: document.getElementById('discard-resume-btn'),
+    quizConfigModal: document.getElementById('quiz-config-modal'),
+    closeConfigModalBtn: document.getElementById('close-config-modal-btn'),
+    modalTopicTitle: document.getElementById('modal-topic-title'),
+    modalCancelBtn: document.getElementById('modal-cancel-btn'),
+    modalStartQuizBtn: document.getElementById('modal-start-quiz-btn'),
+    configNumQuestionsVal: document.getElementById('config-num-questions-val'),
+    configNumQuestionsGroup: document.getElementById('config-num-questions-group'),
+    configDifficultyGroup: document.getElementById('config-difficulty-group'),
+    configTypeGroup: document.getElementById('config-type-group'),
 };
 
 
@@ -93,6 +102,82 @@ let currentTimeline = [];
 
 let savedProgressMap = {};
 let isExamMode = localStorage.getItem('isExamMode') === 'true';
+
+// Quiz Generation Configuration (Stored in localStorage)
+let selectedTopicForConfig = null;
+let quizConfig = {
+    numQuestions: parseInt(localStorage.getItem('quizConfig_numQuestions'), 10) || 15,
+    difficulty: localStorage.getItem('quizConfig_difficulty') || 'medium',
+    questionType: localStorage.getItem('quizConfig_questionType') || 'balanced'
+};
+
+function saveQuizConfig() {
+    try {
+        localStorage.setItem('quizConfig_numQuestions', quizConfig.numQuestions);
+        localStorage.setItem('quizConfig_difficulty', quizConfig.difficulty);
+        localStorage.setItem('quizConfig_questionType', quizConfig.questionType);
+    } catch (e) {}
+}
+
+function updateModalConfigUI() {
+    if (ui.configNumQuestionsVal) {
+        ui.configNumQuestionsVal.textContent = `${quizConfig.numQuestions} câu`;
+    }
+
+    // Number of questions
+    if (ui.configNumQuestionsGroup) {
+        ui.configNumQuestionsGroup.querySelectorAll('.config-btn').forEach(btn => {
+            const val = parseInt(btn.getAttribute('data-val'), 10);
+            if (val === quizConfig.numQuestions) {
+                btn.className = 'config-btn active py-2 px-1 rounded-xl text-xs font-bold border border-blue-500 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 shadow-xs transition';
+            } else {
+                btn.className = 'config-btn py-2 px-1 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-950 transition';
+            }
+        });
+    }
+
+    // Difficulty
+    if (ui.configDifficultyGroup) {
+        ui.configDifficultyGroup.querySelectorAll('.config-btn').forEach(btn => {
+            const val = btn.getAttribute('data-val');
+            if (val === quizConfig.difficulty) {
+                btn.className = 'config-btn active py-2 px-1.5 rounded-xl text-xs font-bold border border-blue-500 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 shadow-xs transition flex flex-col items-center gap-0.5';
+            } else {
+                btn.className = 'config-btn py-2 px-1.5 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex flex-col items-center gap-0.5';
+            }
+        });
+    }
+
+    // Type
+    if (ui.configTypeGroup) {
+        ui.configTypeGroup.querySelectorAll('.config-btn').forEach(btn => {
+            const val = btn.getAttribute('data-val');
+            if (val === quizConfig.questionType) {
+                btn.className = 'config-btn active py-2 px-1.5 rounded-xl text-xs font-bold border border-blue-500 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 shadow-xs transition flex flex-col items-center gap-0.5';
+            } else {
+                btn.className = 'config-btn py-2 px-1.5 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex flex-col items-center gap-0.5';
+            }
+        });
+    }
+}
+
+function openQuizConfigModal(topic) {
+    selectedTopicForConfig = topic;
+    if (ui.modalTopicTitle) {
+        ui.modalTopicTitle.textContent = topic.title || 'Chủ đề ôn tập';
+    }
+    updateModalConfigUI();
+    if (ui.quizConfigModal) {
+        ui.quizConfigModal.classList.remove('hidden');
+    }
+}
+
+function closeQuizConfigModal() {
+    if (ui.quizConfigModal) {
+        ui.quizConfigModal.classList.add('hidden');
+    }
+    selectedTopicForConfig = null;
+}
 
 function updateQuizModeUI() {
     if (ui.quizModeIcon) ui.quizModeIcon.textContent = isExamMode ? '📝' : '📖';
@@ -415,7 +500,7 @@ async function startQuickReview() {
     }
 }
 
-async function startQuiz(topic, forceRefresh = false, numQuestions) {
+async function startQuiz(topic, forceRefresh = false, customConfig = null) {
     if (!forceRefresh && savedProgressMap[topic.id]) {
         const saved = savedProgressMap[topic.id];
         if (saved && Array.isArray(saved.quiz) && saved.quiz.length > 0) {
@@ -425,8 +510,13 @@ async function startQuiz(topic, forceRefresh = false, numQuestions) {
     }
 
     currentTopic = topic;
-    const nq = numQuestions || 10;
-    showLoading(`Đang tạo ${nq} câu hỏi cho "${topic.title}"...`);
+    const cfg = customConfig || quizConfig;
+    const nq = cfg.numQuestions || 15;
+    const diff = cfg.difficulty || 'medium';
+    const qType = cfg.questionType || 'balanced';
+
+    const diffLabel = { 'easy': 'Cơ bản', 'medium': 'Chuẩn thi', 'hard': 'Nâng cao' }[diff] || 'Chuẩn thi';
+    showLoading(`Đang tạo ${nq} câu hỏi [${diffLabel}] cho "${topic.title}"...`);
 
     let aiTimer = null;
     let currentPercent = 0;
@@ -445,7 +535,9 @@ async function startQuiz(topic, forceRefresh = false, numQuestions) {
             body: JSON.stringify({
                 topic_id: topic.id,
                 force_refresh: forceRefresh,
-                num_questions: nq
+                num_questions: nq,
+                difficulty: diff,
+                question_type: qType
             })
         });
 
@@ -474,34 +566,11 @@ async function startQuiz(topic, forceRefresh = false, numQuestions) {
                     continue;
                 }
                 if (event.type === 'progress') {
-                    if (event.status === 'calling_ai') {
-                        if (aiTimer) clearInterval(aiTimer);
-                        let aiSeconds = 0;
-                        updateProgress(event.percentage || 45, event.details || '🧠 Trợ lý AI đang kết nối...');
-                        const aiProgressMessages = [
-                            [0, '🧠 Trợ lý AI đang tiếp nhận nội dung...'],
-                            [4, '🧠 Trợ lý AI đang đọc hiểu bài học...'],
-                            [8, '🧠 Trợ lý AI đang biên soạn câu hỏi...'],
-                            [13, '🧠 Trợ lý AI đang tối ưu hóa các đáp án nhiễu...'],
-                            [18, '📐 Trợ lý AI đang kiểm định và chuẩn hóa KaTeX toán học...'],
-                            [23, '✨ Trợ lý AI đang hoàn tất việc tạo đề...']
-                        ];
-                        aiTimer = setInterval(() => {
-                            aiSeconds += 1;
-                            if (currentPercent < 90) {
-                                currentPercent += 2;
-                                ui.loadingProgressBar && (ui.loadingProgressBar.style.width = `${currentPercent}%`);
-                                ui.loadingPercentage && (ui.loadingPercentage.textContent = `${currentPercent}%`);
-                            }
-                            const msg = aiProgressMessages.filter(([t]) => aiSeconds >= t).pop();
-                            if (msg && ui.loadingText) {
-                                ui.loadingText.textContent = msg[1] + (aiSeconds >= 19 ? ` (giây thứ ${aiSeconds})` : '');
-                            }
-                        }, 1000);
-                    } else {
-                        if (aiTimer) { clearInterval(aiTimer); aiTimer = null; }
-                        updateProgress(event.percentage || 0, event.details || '');
+                    if (aiTimer) {
+                        clearInterval(aiTimer);
+                        aiTimer = null;
                     }
+                    updateProgress(event.percentage || 0, event.details || '');
                 } else if (event.type === 'result') {
                     quizData = event.data;
                 } else if (event.type === 'error') {
@@ -741,7 +810,12 @@ function renderTopics(topics) {
                 ${metaHtml}
             </div>
             <div class="flex justify-between items-center pt-2 border-t border-gray-100 dark:border-gray-800 mt-1">
-                <span class="text-[11px] text-blue-500 dark:text-blue-400 font-semibold cursor-pointer topic-link">Ôn tập &rarr;</span>
+                <div class="flex items-center gap-2">
+                    <span class="text-[11px] text-blue-500 hover:text-blue-600 dark:text-blue-400 font-semibold cursor-pointer topic-link">Ôn tập &rarr;</span>
+                    <button class="config-quiz-btn text-[10px] text-indigo-600 dark:text-indigo-400 font-bold px-2 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800/60 transition flex items-center gap-1" title="Tùy chỉnh số câu, độ khó, dạng câu">
+                        <span>⚙️</span><span>Tùy chỉnh</span>
+                    </button>
+                </div>
                 <div class="flex items-center gap-1.5">
                     <button class="clear-cache-topic-btn bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 text-red-500 text-xs font-semibold px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 transition duration-150 flex items-center" title="Xóa cache quiz của chủ đề này">
                         🗑️
@@ -756,6 +830,11 @@ function renderTopics(topics) {
         const openQuiz = () => startQuiz(topic);
         card.querySelector('.topic-content').onclick = openQuiz;
         card.querySelector('.topic-link').onclick = openQuiz;
+
+        card.querySelector('.config-quiz-btn').onclick = (e) => {
+            e.stopPropagation();
+            openQuizConfigModal(topic);
+        };
 
         card.querySelector('.mastered-btn').onclick = (e) => {
             e.stopPropagation();
@@ -1589,6 +1668,61 @@ ui.refreshTimelineBtn.addEventListener('click', () => fetchTimeline(true));
 ui.timelineCourseFilter.addEventListener('change', filterAndRenderTimeline);
 ui.timelineMonthFilter.addEventListener('change', filterAndRenderTimeline);
 ui.timelineDateFilter.addEventListener('change', filterAndRenderTimeline);
+
+// Quiz Config Modal Events
+if (ui.closeConfigModalBtn) {
+    ui.closeConfigModalBtn.addEventListener('click', closeQuizConfigModal);
+}
+if (ui.modalCancelBtn) {
+    ui.modalCancelBtn.addEventListener('click', closeQuizConfigModal);
+}
+if (ui.modalStartQuizBtn) {
+    ui.modalStartQuizBtn.addEventListener('click', () => {
+        if (selectedTopicForConfig) {
+            const topicToStart = selectedTopicForConfig;
+            closeQuizConfigModal();
+            startQuiz(topicToStart, true, quizConfig);
+        }
+    });
+}
+
+// Config Button Groups
+if (ui.configNumQuestionsGroup) {
+    ui.configNumQuestionsGroup.addEventListener('click', (e) => {
+        const btn = e.target.closest('.config-btn');
+        if (!btn) return;
+        const val = parseInt(btn.getAttribute('data-val'), 10);
+        if (val) {
+            quizConfig.numQuestions = val;
+            saveQuizConfig();
+            updateModalConfigUI();
+        }
+    });
+}
+if (ui.configDifficultyGroup) {
+    ui.configDifficultyGroup.addEventListener('click', (e) => {
+        const btn = e.target.closest('.config-btn');
+        if (!btn) return;
+        const val = btn.getAttribute('data-val');
+        if (val) {
+            quizConfig.difficulty = val;
+            saveQuizConfig();
+            updateModalConfigUI();
+        }
+    });
+}
+if (ui.configTypeGroup) {
+    ui.configTypeGroup.addEventListener('click', (e) => {
+        const btn = e.target.closest('.config-btn');
+        if (!btn) return;
+        const val = btn.getAttribute('data-val');
+        if (val) {
+            quizConfig.questionType = val;
+            saveQuizConfig();
+            updateModalConfigUI();
+        }
+    });
+}
 
 // Bind Telegram native BackButton for timeline too
 function initTelegram() {

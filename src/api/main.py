@@ -38,12 +38,36 @@ app.add_middleware(
 class QuizRequest(BaseModel):
     topic_id: str
     force_refresh: bool = False
+    num_questions: int = 15
+    difficulty: str = 'medium'  # 'easy' | 'medium' | 'hard'
+    question_type: str = 'balanced'  # 'theory' | 'calculation' | 'balanced'
 
     @field_validator('topic_id')
     @classmethod
     def validate_topic_id(cls, v):
         if not UUID_PATTERN.match(v):
             raise ValueError(f'Invalid topic_id format: must be a valid UUID')
+        return v
+
+    @field_validator('num_questions')
+    @classmethod
+    def validate_num_questions(cls, v):
+        if v < 1 or v > 30:
+            raise ValueError('num_questions must be between 1 and 30')
+        return v
+
+    @field_validator('difficulty')
+    @classmethod
+    def validate_difficulty(cls, v):
+        if v not in ('easy', 'medium', 'hard'):
+            return 'medium'
+        return v
+
+    @field_validator('question_type')
+    @classmethod
+    def validate_question_type(cls, v):
+        if v not in ('theory', 'calculation', 'balanced'):
+            return 'balanced'
         return v
 
 class StatusRequest(BaseModel):
@@ -79,7 +103,13 @@ def api_get_candidates(limit: int = None, force_refresh: bool = False):
 def api_generate_quiz(request: QuizRequest):
     try:
         return StreamingResponse(
-            generate_quiz_stream(request.topic_id, force_refresh=request.force_refresh),
+            generate_quiz_stream(
+                request.topic_id,
+                force_refresh=request.force_refresh,
+                num_questions=request.num_questions,
+                difficulty=request.difficulty,
+                question_type=request.question_type
+            ),
             media_type="application/x-ndjson"
         )
     except Exception as e:

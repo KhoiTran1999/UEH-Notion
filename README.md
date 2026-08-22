@@ -8,6 +8,10 @@
 
 ### 1. 📚 Trợ Lý Ôn Tập Thông Minh (Study Assistant - Telegram Web App)
 - **Spaced Repetition (Lặp lại ngắt quãng):** Tự động lọc các bài học/ghi chép cần xem lại dựa trên trạng thái và mốc thời gian `Last Review At` từ Notion.
+- **Tùy Biến Cấu Trúc Đề Thi Thông Minh (Quiz Customization):**
+  - Tùy chỉnh **Số lượng câu hỏi** linh hoạt (5, 10, 15, 20 câu).
+  - Tùy chọn **Độ khó:** *Cơ bản / Nền tảng*, *Chuẩn đề thi UEH*, hoặc *Nâng cao / Bẫy tư duy chuyên sâu*.
+  - Tùy chọn **Định hướng dạng câu:** *Thiên về Lý thuyết (≥80%)*, *Cân bằng (50/50)*, hoặc *Thiên về Tính toán / Tình huống (≥80%)*.
 - **Tự Động Tạo Đề Trắc Nghiệm Bằng AI (Multi-Stage Pipeline):**
   - **Sinh câu hỏi song song:** Phân tích nội dung ghi chép và chia thành 3 phần xử lý đồng thời (`ThreadPoolExecutor`).
   - **Nâng cấp chuẩn đề thi Đại học (`MODEL_BRAIN`):** Tự động chuyển đổi các câu hỏi lý thuyết bề nổi thành câu hỏi tình huống thực tế, đòi hỏi tư duy phân tích sâu, phương án nhiễu (distractors) gài bẫy thông minh và phần giải thích chi tiết.

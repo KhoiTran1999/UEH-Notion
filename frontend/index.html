@@ -269,6 +269,88 @@
             </div>
         </div>
 
+        <!-- Quiz Config Customization Modal -->
+        <div id="quiz-config-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs fade-in">
+            <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 w-full max-w-sm rounded-2xl shadow-2xl p-5 space-y-4">
+                <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xl">⚙️</span>
+                        <div>
+                            <h3 class="font-bold text-gray-900 dark:text-gray-100 text-base leading-tight">Cấu trúc đề ôn tập</h3>
+                            <p id="modal-topic-title" class="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px] mt-0.5">Tên chủ đề</p>
+                        </div>
+                    </div>
+                    <button id="close-config-modal-btn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition" title="Đóng">
+                        ✕
+                    </button>
+                </div>
+
+                <!-- 1. Số lượng câu hỏi -->
+                <div class="space-y-2">
+                    <label class="block text-xs font-bold text-gray-700 dark:text-gray-300">
+                        📊 Số lượng câu hỏi: <span id="config-num-questions-val" class="text-blue-600 dark:text-blue-400 font-extrabold">15 câu</span>
+                    </label>
+                    <div class="grid grid-cols-4 gap-1.5" id="config-num-questions-group">
+                        <button type="button" data-val="5" class="config-btn py-2 px-1 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-950 transition">5 câu</button>
+                        <button type="button" data-val="10" class="config-btn py-2 px-1 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-950 transition">10 câu</button>
+                        <button type="button" data-val="15" class="config-btn active py-2 px-1 rounded-xl text-xs font-bold border border-blue-500 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 shadow-xs transition">15 câu</button>
+                        <button type="button" data-val="20" class="config-btn py-2 px-1 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-950 transition">20 câu</button>
+                    </div>
+                </div>
+
+                <!-- 2. Độ khó -->
+                <div class="space-y-2">
+                    <label class="block text-xs font-bold text-gray-700 dark:text-gray-300">
+                        🎯 Độ khó câu hỏi:
+                    </label>
+                    <div class="grid grid-cols-3 gap-1.5" id="config-difficulty-group">
+                        <button type="button" data-val="easy" class="config-btn py-2 px-1.5 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-emerald-50 dark:hover:bg-emerald-950 transition flex flex-col items-center gap-0.5">
+                            <span>🌱 Cơ bản</span>
+                            <span class="text-[9px] font-normal opacity-75">Nền tảng</span>
+                        </button>
+                        <button type="button" data-val="medium" class="config-btn active py-2 px-1.5 rounded-xl text-xs font-bold border border-blue-500 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 shadow-xs transition flex flex-col items-center gap-0.5">
+                            <span>⚡ Chuẩn thi</span>
+                            <span class="text-[9px] font-normal opacity-75">Đề thi UEH</span>
+                        </button>
+                        <button type="button" data-val="hard" class="config-btn py-2 px-1.5 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-purple-50 dark:hover:bg-purple-950 transition flex flex-col items-center gap-0.5">
+                            <span>🔥 Nâng cao</span>
+                            <span class="text-[9px] font-normal opacity-75">Bẫy & Sâu</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 3. Tỷ lệ dạng câu hỏi -->
+                <div class="space-y-2">
+                    <label class="block text-xs font-bold text-gray-700 dark:text-gray-300">
+                        ⚖️ Định hướng câu hỏi:
+                    </label>
+                    <div class="grid grid-cols-3 gap-1.5" id="config-type-group">
+                        <button type="button" data-val="theory" class="config-btn py-2 px-1.5 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-amber-50 dark:hover:bg-amber-950 transition flex flex-col items-center gap-0.5">
+                            <span>📖 Lý thuyết</span>
+                            <span class="text-[9px] font-normal opacity-75">Khái niệm</span>
+                        </button>
+                        <button type="button" data-val="balanced" class="config-btn active py-2 px-1.5 rounded-xl text-xs font-bold border border-blue-500 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 shadow-xs transition flex flex-col items-center gap-0.5">
+                            <span>⚖️ Cân bằng</span>
+                            <span class="text-[9px] font-normal opacity-75">50 / 50</span>
+                        </button>
+                        <button type="button" data-val="calculation" class="config-btn py-2 px-1.5 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-950 transition flex flex-col items-center gap-0.5">
+                            <span>🧮 Tính toán</span>
+                            <span class="text-[9px] font-normal opacity-75">Tình huống</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="pt-2 border-t border-gray-100 dark:border-gray-800 flex gap-2">
+                    <button id="modal-cancel-btn" type="button" class="flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold py-2.5 px-3 rounded-xl text-xs transition">
+                        Đóng
+                    </button>
+                    <button id="modal-start-quiz-btn" type="button" class="flex-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs shadow-md transition flex items-center justify-center gap-1.5">
+                        <span>🚀 Bắt đầu làm bài</span>
+                    </button>
+                </div>
+            </div>
+        </div>
 
     </div>
 
