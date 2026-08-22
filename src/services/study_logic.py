@@ -358,7 +358,7 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
 
         # 3. Enhance quiz with MODEL_BRAIN for university-level exam quality
         if progress_callback:
-            progress_callback("enhancing_quiz", 60, "🎯 AI đang tư duy và nâng cao chất lượng câu hỏi...")
+            progress_callback("enhancing_quiz", 65, "🎯 MODEL_BRAIN đang tư duy và nâng cao chất lượng câu hỏi...")
 
         try:
             enhanced_content = ai.enhance_quiz(raw_content, full_content)
@@ -367,27 +367,17 @@ def generate_quiz(topic_id, force_refresh=False, progress_callback=None):
         except Exception as e:
             logger.error(f"❌ Failed to enhance quiz with MODEL_BRAIN: {e}")
 
-        # 4. Review and self-correct quiz
+        # 4. Standardize KaTeX / LaTeX math formatting using MODEL_WORKER
         if progress_callback:
-            progress_callback("reviewing_quiz", 75, "🔍 AI đang tự động đánh giá và chuẩn hóa câu hỏi...")
+            progress_callback("reviewing_latex", 85, "📐 MODEL_WORKER đang kiểm định và chuẩn hóa KaTeX toán học...")
 
         try:
-            reviewed_content = ai.review_quiz(raw_content, full_content)
+            final_latex_content = ai.review_latex_quiz(raw_content)
         except Exception as e:
-            logger.error(f"❌ Failed to review/self-correct quiz: {e}")
-            reviewed_content = raw_content
+            logger.error(f"❌ Failed in MODEL_WORKER LaTeX review step: {e}")
+            final_latex_content = raw_content
 
-        # 5. Final dedicated AI step to verify & correct KaTeX / LaTeX math formatting
-        if progress_callback:
-            progress_callback("reviewing_latex", 90, "📐 AI đang kiểm định và chuẩn hóa KaTeX toán học...")
-
-        try:
-            final_latex_content = ai.review_latex_quiz(reviewed_content)
-        except Exception as e:
-            logger.error(f"❌ Failed in final AI LaTeX review step: {e}")
-            final_latex_content = reviewed_content
-
-        # 6. Parse into structured Dict format
+        # 5. Parse into structured Dict format
         if progress_callback:
             progress_callback("parsing_quiz", 95, "✨ Đang kiểm tra cấu trúc câu hỏi...")
 

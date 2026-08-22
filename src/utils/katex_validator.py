@@ -62,17 +62,3 @@ def validate_katex_formatting(text: str) -> tuple[bool, list[str]]:
 
     return len(errors) == 0, errors
 
-def validate_quiz_item_katex(item) -> list[str]:
-    """Recursively validates all text fields in a quiz question dict for KaTeX errors."""
-    all_errors = []
-    if isinstance(item, dict):
-        for k, v in item.items():
-            all_errors.extend(validate_quiz_item_katex(v))
-    elif isinstance(item, list):
-        for elem in item:
-            all_errors.extend(validate_quiz_item_katex(elem))
-    elif isinstance(item, str):
-        valid, errs = validate_katex_formatting(item)
-        if not valid:
-            all_errors.extend(errs)
-    return all_errors

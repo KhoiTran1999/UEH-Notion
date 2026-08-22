@@ -51,6 +51,9 @@ const ui = {
     shareResultsBtn: document.getElementById('share-results-btn'),
     quizTimerText: document.getElementById('quiz-timer-text'),
     flagQuestionBtn: document.getElementById('flag-question-btn'),
+    quizModeBtn: document.getElementById('quiz-mode-btn'),
+    quizModeIcon: document.getElementById('quiz-mode-icon'),
+    quizModeText: document.getElementById('quiz-mode-text'),
     searchInput: document.getElementById('search-input'),
     courseFilter: document.getElementById('course-filter'),
     quickReviewBtn: document.getElementById('quick-review-btn'),
@@ -89,6 +92,35 @@ let searchDebounceTimer = null;
 let currentTimeline = [];
 
 let savedProgressMap = {};
+let isExamMode = localStorage.getItem('isExamMode') === 'true';
+
+function updateQuizModeUI() {
+    if (ui.quizModeIcon) ui.quizModeIcon.textContent = isExamMode ? '📝' : '📖';
+    if (ui.quizModeText) ui.quizModeText.textContent = isExamMode ? 'Thi thử' : 'Luyện tập';
+    if (ui.quizModeBtn) {
+        if (isExamMode) {
+            ui.quizModeBtn.classList.remove('bg-blue-50', 'text-blue-600', 'border-blue-200', 'dark:bg-blue-950/40', 'dark:text-blue-400', 'dark:border-blue-800');
+            ui.quizModeBtn.classList.add('bg-purple-50', 'text-purple-600', 'border-purple-200', 'dark:bg-purple-950/40', 'dark:text-purple-400', 'dark:border-purple-800');
+        } else {
+            ui.quizModeBtn.classList.remove('bg-purple-50', 'text-purple-600', 'border-purple-200', 'dark:bg-purple-950/40', 'dark:text-purple-400', 'dark:border-purple-800');
+            ui.quizModeBtn.classList.add('bg-blue-50', 'text-blue-600', 'border-blue-200', 'dark:bg-blue-950/40', 'dark:text-blue-400', 'dark:border-blue-800');
+        }
+    }
+}
+
+function shuffleQuestionOptions(q) {
+    if (!q || !Array.isArray(q.options) || q.options.length <= 1 || q._shuffled) return q;
+    const correctVal = q.options[q.correct];
+    const opts = [...q.options];
+    for (let i = opts.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [opts[i], opts[j]] = [opts[j], opts[i]];
+    }
+    q.options = opts;
+    q.correct = opts.indexOf(correctVal);
+    q._shuffled = true;
+    return q;
+}
 
 // Quiz Timer State
 let quizTimerInterval = null;
@@ -357,7 +389,7 @@ async function startQuickReview() {
             id: 'quick_review',
             title: data.title || (selectedCourse ? `Ôn tập nhanh - ${selectedCourse}` : 'Ôn tập tổng hợp')
         };
-        currentQuiz = data.questions || [];
+        currentQuiz = (data.questions || []).map(shuffleQuestionOptions);
         currentQuestionIndex = 0;
         startQuizTimer(0);
         saveQuizProgress();
@@ -505,7 +537,7 @@ async function startQuiz(topic, forceRefresh = false, numQuestions) {
             return;
         }
 
-        currentQuiz = questions;
+        currentQuiz = questions.map(shuffleQuestionOptions);
         currentQuestionIndex = 0;
         startQuizTimer(0);
         saveQuizProgress();
@@ -799,10 +831,14 @@ function renderQuestion() {
 
             if (isActive) {
                 dotClasses += 'bg-blue-500 text-white ring-2 ring-blue-300 dark:ring-blue-800 shadow-sm ';
-            } else if (isAnswered && isCorrect) {
-                dotClasses += 'bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400 border border-green-300 dark:border-green-800 ';
-            } else if (isAnswered && !isCorrect) {
-                dotClasses += 'bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400 border border-red-300 dark:border-red-800 ';
+            } else if (isAnswered) {
+                if (isExamMode) {
+                    dotClasses += 'bg-purple-100 dark:bg-purple-950/50 text-purple-700 dark:text-purple-400 border border-purple-300 dark:border-purple-800 ';
+                } else if (isCorrect) {
+                    dotClasses += 'bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400 border border-green-300 dark:border-green-800 ';
+                } else {
+                    dotClasses += 'bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400 border border-red-300 dark:border-red-800 ';
+                }
             } else {
                 dotClasses += 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 ';
             }
@@ -847,15 +883,25 @@ function renderQuestion() {
             let badgeClasses = 'w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 transition-colors ';
 
             if (isAnswered) {
-                if (idx === q.correct) {
-                    containerClasses += 'border-green-500 dark:border-green-600 bg-green-50/80 dark:bg-green-950/30 text-green-900 dark:text-green-200 font-bold';
-                    badgeClasses += 'bg-green-500 text-white';
-                } else if (idx === q.selected) {
-                    containerClasses += 'border-red-500 dark:border-red-600 bg-red-50/80 dark:bg-red-950/30 text-red-900 dark:text-red-200 font-bold line-through';
-                    badgeClasses += 'bg-red-500 text-white';
+                if (isExamMode) {
+                    if (idx === q.selected) {
+                        containerClasses += 'border-purple-500 dark:border-purple-600 bg-purple-50/80 dark:bg-purple-950/30 text-purple-900 dark:text-purple-200 font-bold';
+                        badgeClasses += 'bg-purple-500 text-white';
+                    } else {
+                        containerClasses += 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400 opacity-50';
+                        badgeClasses += 'bg-gray-100 dark:bg-gray-800 text-gray-500';
+                    }
                 } else {
-                    containerClasses += 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400 opacity-50';
-                    badgeClasses += 'bg-gray-100 dark:bg-gray-800 text-gray-500';
+                    if (idx === q.correct) {
+                        containerClasses += 'border-green-500 dark:border-green-600 bg-green-50/80 dark:bg-green-950/30 text-green-900 dark:text-green-200 font-bold';
+                        badgeClasses += 'bg-green-500 text-white';
+                    } else if (idx === q.selected) {
+                        containerClasses += 'border-red-500 dark:border-red-600 bg-red-50/80 dark:bg-red-950/30 text-red-900 dark:text-red-200 font-bold line-through';
+                        badgeClasses += 'bg-red-500 text-white';
+                    } else {
+                        containerClasses += 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400 opacity-50';
+                        badgeClasses += 'bg-gray-100 dark:bg-gray-800 text-gray-500';
+                    }
                 }
             } else {
                 containerClasses += 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md text-gray-700 dark:text-gray-300';
@@ -876,7 +922,9 @@ function renderQuestion() {
                 const tg = window.Telegram?.WebApp;
                 if (tg?.HapticFeedback) {
                     try {
-                        if (idx === q.correct) {
+                        if (isExamMode) {
+                            tg.HapticFeedback.impactOccurred('medium');
+                        } else if (idx === q.correct) {
                             tg.HapticFeedback.notificationOccurred('success');
                         } else {
                             tg.HapticFeedback.notificationOccurred('error');
@@ -900,7 +948,7 @@ function renderQuestion() {
         });
     }
 
-    if (q.selected !== undefined && q.explanation) {
+    if (q.selected !== undefined && q.explanation && !isExamMode) {
         ui.explanationBox.innerHTML = `<div class="flex items-start gap-2.5">
             <span class="text-xl select-none">💡</span>
             <div>
@@ -1057,10 +1105,10 @@ function reviewFirstMistake() {
 function retakeMistakes() {
     const mistakesOnly = currentQuiz
         .filter(q => q.selected !== q.correct)
-        .map(q => ({
-            ...q,
-            selected: undefined
-        }));
+        .map(q => {
+            const copy = { ...q, selected: undefined, _shuffled: false };
+            return shuffleQuestionOptions(copy);
+        });
 
     if (mistakesOnly.length === 0) {
         alert('Bạn không có câu sai nào!');
@@ -1460,6 +1508,14 @@ if (ui.reviewMistakesBtn) ui.reviewMistakesBtn.addEventListener('click', reviewF
 if (ui.retakeMistakesBtn) ui.retakeMistakesBtn.addEventListener('click', retakeMistakes);
 if (ui.shareResultsBtn) ui.shareResultsBtn.addEventListener('click', shareQuizResults);
 if (ui.flagQuestionBtn) ui.flagQuestionBtn.addEventListener('click', toggleFlagCurrentQuestion);
+if (ui.quizModeBtn) ui.quizModeBtn.addEventListener('click', () => {
+    isExamMode = !isExamMode;
+    try {
+        localStorage.setItem('isExamMode', isExamMode);
+    } catch (e) {}
+    updateQuizModeUI();
+    renderQuestion();
+});
 ui.copyQuestionBtn.addEventListener('click', copyCurrentQuestion);
 
 // Keyboard Shortcuts Support for Desktop / Web
@@ -1593,6 +1649,7 @@ function renderMath() {
 // App Start
 document.addEventListener('DOMContentLoaded', () => {
     initTelegram();
+    updateQuizModeUI();
     const urlParams = new URLSearchParams(window.location.search);
     const isTimelineOnly = urlParams.get('view') === 'timeline';
 

@@ -4,7 +4,7 @@ import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.utils.katex_validator import validate_katex_formatting, validate_quiz_item_katex
+from src.utils.katex_validator import validate_katex_formatting
 
 class TestKaTeXValidatorEngine(unittest.TestCase):
 

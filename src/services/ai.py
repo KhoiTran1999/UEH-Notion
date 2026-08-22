@@ -409,28 +409,22 @@ class AIService:
         prompt_data = self.prompt_service.get_prompt("UEH-Notion", "study_assistant")
 
         if not prompt_data:
-            system_prompt = f"Bạn là một Chuyên gia Giáo dục và Trợ lý Học tập Thông minh. Hãy tạo chính xác 15 câu hỏi trắc nghiệm từ nội dung bên dưới."
+            system_prompt = "Bạn là một Chuyên gia Giáo dục và Trợ lý Học tập Thông minh. Hãy tạo chính xác 15 câu hỏi trắc nghiệm từ nội dung bên dưới."
             user_template = "--- NỘI DUNG GHI CHÉP ---\n{content}\n-------------------------"
             logger.warning("⚠️ Using fallback prompt for generate_quiz")
         else:
             system_prompt = prompt_data["system_prompt"]
             user_template = prompt_data["user_template"]
 
-        additional_instructions = f"""
+        additional_instructions = """
         QUAN TRỌNG VỀ SỐ LƯỢNG:
         - Phải tạo chính xác 15 câu hỏi trắc nghiệm.
         """
 
         user_prompt = user_template.replace("{content}", content)
-        agent_system_prompt = (
-            f"{system_prompt}\n\n{additional_instructions}\n\n"
-            "QUY TẮC PHÂN CHIA VAI TRÒ:\n"
-            "- Bạn là MODEL_BRAIN: Tập trung hoàn toàn vào việc tư duy, phân tích kiến thức sâu, tính toán bài tập, sáng tạo các câu hỏi trắc nghiệm chất lượng.\n"
-            "- Bạn có công cụ `delegate_to_worker` để sai khiến MODEL_WORKER làm việc cơ học như: trích xuất từ khóa thô từ bài học hay tóm tắt sơ bộ.\n"
-            "Hãy giữ vai trò thiết kế và tư duy logic cho câu hỏi."
-        )
+        final_prompt = f"{system_prompt}\n\n{additional_instructions}\n\n{user_prompt}"
 
-        return self.run_agent(system_prompt=agent_system_prompt, user_prompt=user_prompt, model=Config.MODEL_BRAIN)
+        return self.generate_content(final_prompt, model=Config.MODEL_BRAIN)
 
     def enhance_quiz(self, raw_quiz, content):
         """Enhances raw quiz questions to be higher quality, more engaging, and rigorous for college-level exams using MODEL_BRAIN."""
@@ -453,14 +447,8 @@ class AIService:
             "Hãy nâng cấp toàn bộ câu hỏi trên theo chuẩn đề thi đại học chất lượng cao và trả về danh sách câu hỏi dưới dạng JSON:"
         )
 
-        agent_system_prompt = (
-            f"{system_prompt}\n\n"
-            "QUY TẮC PHÂN CHIA VAI TRÒ:\n"
-            "- Bạn là MODEL_BRAIN: Vận dụng tư duy phản biện, logic và sư phạm cao nhất để thẩm định và nâng cấp từng câu hỏi.\n"
-            "- Giữ vai trò chuyên gia biên soạn đề thi, loại bỏ câu hỏi quá đơn giản hoặc mang tính bề nổi."
-        )
-
-        return self.run_agent(system_prompt=agent_system_prompt, user_prompt=user_prompt, model=Config.MODEL_BRAIN)
+        final_prompt = f"{system_prompt}\n\n{user_prompt}"
+        return self.generate_content(final_prompt, model=Config.MODEL_BRAIN)
 
     def review_quiz(self, raw_quiz, content):
         """Reviews and self-corrects the generated quiz using Notion prompt or a robust fallback."""
@@ -535,16 +523,20 @@ CÁC QUY TẮC CHUẨN HÓA LATEX / KATEX BẮT BUỘC:
    - Nếu một biểu thức chứa các lệnh LaTeX như `\frac`, `\times`, `\implies`, `\cdot`, `\sqrt`, `\left`, `\right` hoặc phép toán `=`, `+`, `-`, `\times` mà đứng ngoài dấu $, BẮT BUỘC phải bọc cặp dấu $ ... $ xung quanh biểu thức toán đó.
    - Ví dụ SAI: "Giải phương trình: 150.000 USD \times EBIT = 200.000 \times EBIT - 32.000.000.000 \implies EBIT = 640.000 USD"
    - Phải SỬA THÀNH: "Giải phương trình: $150.000\text{ USD} \times EBIT = 200.000 \times EBIT - 32.000.000.000 \implies EBIT = 640.000\text{ USD}$"
-3. Tiền tệ và số liệu:
+3. Xử lý xuống dòng (\n) và ngắt dòng trong JSON:
+   - TUYỆT ĐỐI KHÔNG để ngắt dòng vật lý (raw newline thực sự) bên trong cặp dấu `$ ... $` vì KaTeX sẽ bị lỗi render không hiển thị được. Mọi biểu thức `$ ... $` phải liền mạch trên một dòng.
+   - Trong chuỗi JSON, nếu muốn xuống dòng giữa các đoạn giải thích, PHẢI dùng ký tự thoát `\n` rõ ràng, TUYỆT ĐỐI KHÔNG bấm Enter xuống dòng trực tiếp làm gãy chuỗi JSON ("unterminated string").
+   - Cẩn thận tránh nhầm lẫn giữa ký tự thoát xuống dòng `\n` với các lệnh LaTeX bắt đầu bằng chữ n như `\nu`, `\neq`, `\nabla`, `\normalsize`.
+4. Tiền tệ và số liệu:
    - Tiền tệ thông thường (như 100 USD, 5.000 USD) ghi bằng chữ thuần không cần bọc $, trừ khi nó nằm trong một công thức toán KaTeX (thì dùng `\text{ USD}`).
    - Loại bỏ các ký tự thoát lỗi như `\$100`, `\USD`, `\text{ USD}$`.
-4. Giữ nguyên 100% nội dung, ý nghĩa câu hỏi, các đáp án và cấu trúc JSON. Không thay đổi đáp án đúng (`correct`).
-5. Đầu ra PHẢI là một mảng JSON hợp lệ duy nhất, KHÔNG chứa bất kỳ văn bản giải thích nào bên ngoài."""
+5. Giữ nguyên 100% nội dung, ý nghĩa câu hỏi, các đáp án và cấu trúc JSON. Không thay đổi đáp án đúng (`correct`).
+6. Đầu ra PHẢI là một mảng JSON hợp lệ duy nhất, KHÔNG chứa bất kỳ văn bản giải thích nào bên ngoài."""
 
         user_prompt = f"""--- RAW QUIZ JSON CẦN CHUẨN HÓA LATEX ---
 {quiz_json_str}
 ----------------------------------------
 
-Hãy kiểm tra toàn bộ định dạng KaTeX/LaTeX và xuất ra mảng JSON duy nhất đã được chuẩn hóa hoàn toàn."""
+Hãy kiểm tra toàn bộ định dạng KaTeX/LaTeX, kiểm soát chặt chẽ ký tự xuống dòng (\n) và xuất ra mảng JSON duy nhất đã được chuẩn hóa hoàn toàn."""
 
         return self.generate_content(f"{user_prompt}\n\n{system_prompt}", model=Config.MODEL_WORKER)
