@@ -853,14 +853,18 @@ function renderTopics(topics) {
     showView('topics');
 }
 
-function renderQuestion() {
+function renderQuestion(animate = true) {
     ui.statusBtns.classList.add('hidden');
 
     const quizContent = document.getElementById('quiz-content');
     if (quizContent) {
-        quizContent.classList.remove('fade-in');
-        void quizContent.offsetWidth; // trigger reflow
-        quizContent.classList.add('fade-in');
+        if (animate) {
+            quizContent.classList.remove('fade-in');
+            void quizContent.offsetWidth; // trigger reflow
+            quizContent.classList.add('fade-in');
+        } else {
+            quizContent.classList.remove('fade-in');
+        }
     }
 
     const q = currentQuiz[currentQuestionIndex];
@@ -997,7 +1001,7 @@ function renderQuestion() {
                 if (q.selected !== undefined) return;
                 q.selected = idx;
 
-                // Trigger Telegram Web App Haptic Feedback
+                // Trigger Telegram Web App Haptic Feedback / Web Vibration
                 const tg = window.Telegram?.WebApp;
                 if (tg?.HapticFeedback) {
                     try {
@@ -1011,10 +1015,14 @@ function renderQuestion() {
                     } catch (e) {
                         console.warn("Haptic feedback error:", e);
                     }
+                } else if (typeof navigator !== 'undefined' && navigator.vibrate) {
+                    try {
+                        navigator.vibrate(idx === q.correct ? 50 : [50, 50, 50]);
+                    } catch (e) {}
                 }
 
                 saveQuizProgress();
-                renderQuestion();
+                renderQuestion(false);
 
                 if (currentQuestionIndex < currentQuiz.length - 1) {
                     ui.nextBtn.classList.remove('hidden');
