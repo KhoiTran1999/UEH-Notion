@@ -62,5 +62,26 @@ class TestQuizCustomConfig(unittest.TestCase):
         with self.assertRaises(ValidationError):
             BatchQuizRequest(course="Test", topics=[])
 
+    def test_cancellation_signal_stops_generation(self):
+        import threading
+        from src.services.study_logic import generate_quiz_stream, generate_batch_quiz_stream
+
+        cancel_event = threading.Event()
+        cancel_event.set()
+
+        stream = generate_quiz_stream(
+            "2eba5eb5-b9bd-81ef-830c-e6f5378ee35b",
+            cancel_event=cancel_event
+        )
+        items = list(stream)
+        self.assertEqual(len(items), 0)
+
+        batch_stream = generate_batch_quiz_stream(
+            [{"topic_id": "2eba5eb5-b9bd-81ef-830c-e6f5378ee35b", "title": "Test"}],
+            cancel_event=cancel_event
+        )
+        batch_items = list(batch_stream)
+        self.assertEqual(len(batch_items), 0)
+
 if __name__ == "__main__":
     unittest.main()

@@ -270,8 +270,12 @@ def clear_quiz_cache(topic_id: str, num_questions: int | None = None, difficulty
         logger.warning(f"Redis cache delete failed for topic {topic_id}: {e}")
     return False
 
-def generate_quiz(topic_id, force_refresh=False, num_questions=15, difficulty='medium', question_type='balanced', progress_callback=None):
+def generate_quiz(topic_id, force_refresh=False, num_questions=15, difficulty='medium', question_type='balanced', progress_callback=None, cancel_event=None):
     """Fetch content from Notion, call AI to generate quiz with custom configuration, parse into JSON/Dict format."""
+    if cancel_event and cancel_event.is_set():
+        logger.info(f"Quiz generation cancelled early for topic {topic_id}")
+        return None
+
     notion = NotionService()
     ai = AIService()
 
@@ -305,6 +309,9 @@ def generate_quiz(topic_id, force_refresh=False, num_questions=15, difficulty='m
     else:
         clear_quiz_cache(topic_id, num_questions, difficulty, question_type)
 
+    if cancel_event and cancel_event.is_set():
+        return None
+
     # Acquire Redis lock to prevent concurrent generation for same topic and config
     lock_key = f"quiz_lock_{topic_id}_{num_questions}_{difficulty}_{question_type}"
     lock_token = str(uuid.uuid4())
@@ -321,6 +328,8 @@ def generate_quiz(topic_id, force_refresh=False, num_questions=15, difficulty='m
                 import time as time_mod
                 waited = 0
                 while waited < 30:
+                    if cancel_event and cancel_event.is_set():
+                        return None
                     time_mod.sleep(2)
                     waited += 2
                     cached = r.get(cache_key)
@@ -331,13 +340,21 @@ def generate_quiz(topic_id, force_refresh=False, num_questions=15, difficulty='m
                         return json.loads(cached)
                     if not r.get(lock_key):
                         break
+                if cancel_event and cancel_event.is_set():
+                    return None
                 lock_acquired = r.set(lock_key, lock_token, nx=True, ex=LOCK_QUIZ_TTL)
     except Exception as e:
         logger.warning(f"Redis lock acquire failed (non-fatal): {e}")
 
     try:
+        if cancel_event and cancel_event.is_set():
+            return None
+
         # 1. Fetch content
         content_lines = notion.fetch_page_content(topic_id, progress_callback=progress_callback)
+        if cancel_event and cancel_event.is_set():
+            return None
+
         # Pre-clean markdown input before sending to AI to strip math-breaking formatting like $*V*$ or raw currency $
         cleaned_lines = []
         import re
@@ -347,7 +364,7 @@ def generate_quiz(topic_id, force_refresh=False, num_questions=15, difficulty='m
             cleaned_lines.append(l)
         full_content = "\n".join(cleaned_lines)
 
-        if not full_content.strip():
+        if not full_content.strip() or (cancel_event and cancel_event.is_set()):
             return None
 
         # Default info
@@ -361,6 +378,9 @@ def generate_quiz(topic_id, force_refresh=False, num_questions=15, difficulty='m
         if cached_title:
             note_title = cached_title
 
+        if cancel_event and cancel_event.is_set():
+            return None
+
         # 2. Call AI in 3 parallel chunks
         if progress_callback:
             diff_vn = {'easy': 'Cơ bản', 'medium': 'Chuẩn thi UEH', 'hard': 'Nâng cao'}.get(difficulty, 'Chuẩn thi')
@@ -371,6 +391,8 @@ def generate_quiz(topic_id, force_refresh=False, num_questions=15, difficulty='m
         from concurrent.futures import ThreadPoolExecutor
 
         def generate_single_chunk(chunk_text):
+            if cancel_event and cancel_event.is_set():
+                return ""
             try:
                 return ai.generate_quiz(chunk_text, num_questions=num_questions, difficulty=difficulty, question_type=question_type)
             except Exception as e:
@@ -380,9 +402,17 @@ def generate_quiz(topic_id, force_refresh=False, num_questions=15, difficulty='m
         with ThreadPoolExecutor(max_workers=min(len(chunks), 3)) as executor:
             raw_results = list(executor.map(generate_single_chunk, chunks))
 
+        if cancel_event and cancel_event.is_set():
+            return None
+
         raw_content = "\n\n".join([r for r in raw_results if r.strip()])
         if not raw_content.strip():
+            if cancel_event and cancel_event.is_set():
+                return None
             raw_content = ai.generate_quiz(full_content, num_questions=num_questions, difficulty=difficulty, question_type=question_type)
+
+        if cancel_event and cancel_event.is_set():
+            return None
 
         # 3. Enhance quiz with MODEL_BRAIN for university-level exam quality
         if progress_callback:
@@ -395,6 +425,9 @@ def generate_quiz(topic_id, force_refresh=False, num_questions=15, difficulty='m
         except Exception as e:
             logger.error(f"❌ Failed to enhance quiz with MODEL_BRAIN: {e}")
 
+        if cancel_event and cancel_event.is_set():
+            return None
+
         # 4. Standardize KaTeX / LaTeX math formatting using MODEL_WORKER
         if progress_callback:
             progress_callback("reviewing_latex", 88, "📐 MODEL_WORKER đang rà soát KaTeX & định dạng công thức toán...")
@@ -404,6 +437,9 @@ def generate_quiz(topic_id, force_refresh=False, num_questions=15, difficulty='m
         except Exception as e:
             logger.error(f"❌ Failed in MODEL_WORKER LaTeX review step: {e}")
             final_latex_content = raw_content
+
+        if cancel_event and cancel_event.is_set():
+            return None
 
         # 5. Parse into structured Dict format
         if progress_callback:
@@ -476,7 +512,7 @@ def generate_quiz(topic_id, force_refresh=False, num_questions=15, difficulty='m
             except Exception as e:
                 logger.warning(f"Failed to release quiz lock: {e}")
 
-def generate_quiz_stream(topic_id, force_refresh=False, num_questions=15, difficulty='medium', question_type='balanced'):
+def generate_quiz_stream(topic_id, force_refresh=False, num_questions=15, difficulty='medium', question_type='balanced', cancel_event=None):
     """Generate quiz with progress callbacks and yield progress updates as JSON lines."""
     import queue
     import threading
@@ -485,6 +521,8 @@ def generate_quiz_stream(topic_id, force_refresh=False, num_questions=15, diffic
     q = queue.Queue()
 
     def callback(status, percentage, details):
+        if cancel_event and cancel_event.is_set():
+            return
         q.put({
             "type": "progress",
             "status": status,
@@ -500,25 +538,35 @@ def generate_quiz_stream(topic_id, force_refresh=False, num_questions=15, diffic
                 num_questions=num_questions,
                 difficulty=difficulty,
                 question_type=question_type,
-                progress_callback=callback
+                progress_callback=callback,
+                cancel_event=cancel_event
             )
+            if cancel_event and cancel_event.is_set():
+                return
             if res:
                 q.put({"type": "result", "data": res})
             else:
                 q.put({"type": "error", "message": "Nội dung bài học trống hoặc không tìm thấy trang Notion."})
         except Exception as e:
+            if cancel_event and cancel_event.is_set():
+                return
             q.put({"type": "error", "message": str(e)})
 
-    t = threading.Thread(target=worker)
+    t = threading.Thread(target=worker, daemon=True)
     t.start()
 
     while True:
-        item = q.get()
-        yield json.dumps(item, ensure_ascii=False) + "\n"
-        if item["type"] in ["result", "error"]:
+        if cancel_event and cancel_event.is_set():
             break
+        try:
+            item = q.get(timeout=0.1)
+            yield json.dumps(item, ensure_ascii=False) + "\n"
+            if item["type"] in ["result", "error"]:
+                break
+        except queue.Empty:
+            continue
 
-def generate_batch_quiz_stream(topics_config: list[dict], max_workers: int = 3):
+def generate_batch_quiz_stream(topics_config: list[dict], max_workers: int = 3, cancel_event=None):
     """Generate quizzes for multiple topics in batch with progress callbacks and yield stream events as JSON lines.
     Each item in topics_config: {
         'topic_id': str,
@@ -541,6 +589,8 @@ def generate_batch_quiz_stream(topics_config: list[dict], max_workers: int = 3):
     lock = threading.Lock()
 
     def topic_callback(topic_id, status, percentage, details):
+        if cancel_event and cancel_event.is_set():
+            return
         q.put({
             "type": "topic_progress",
             "topic_id": topic_id,
@@ -551,6 +601,9 @@ def generate_batch_quiz_stream(topics_config: list[dict], max_workers: int = 3):
 
     def process_single_topic(cfg):
         nonlocal completed_topics
+        if cancel_event and cancel_event.is_set():
+            return
+
         t_id = cfg["topic_id"]
         force_ref = cfg.get("force_refresh", False)
         num_q = cfg.get("num_questions", 15)
@@ -568,8 +621,12 @@ def generate_batch_quiz_stream(topics_config: list[dict], max_workers: int = 3):
                 num_questions=num_q,
                 difficulty=diff,
                 question_type=q_type,
-                progress_callback=cb
+                progress_callback=cb,
+                cancel_event=cancel_event
             )
+            if cancel_event and cancel_event.is_set():
+                return
+
             with lock:
                 completed_topics += 1
                 current_completed = completed_topics
@@ -590,6 +647,8 @@ def generate_batch_quiz_stream(topics_config: list[dict], max_workers: int = 3):
                 "success": bool(quiz and quiz.get("questions"))
             })
         except Exception as e:
+            if cancel_event and cancel_event.is_set():
+                return
             logger.error(f"❌ Batch generation failed for topic {t_id}: {e}")
             with lock:
                 completed_topics += 1
@@ -621,6 +680,9 @@ def generate_batch_quiz_stream(topics_config: list[dict], max_workers: int = 3):
             with ThreadPoolExecutor(max_workers=min(max_workers, total_topics or 1)) as executor:
                 list(executor.map(process_single_topic, topics_config))
 
+            if cancel_event and cancel_event.is_set():
+                return
+
             q.put({
                 "type": "batch_finished",
                 "total_topics": total_topics,
@@ -628,17 +690,24 @@ def generate_batch_quiz_stream(topics_config: list[dict], max_workers: int = 3):
                 "results": results_map
             })
         except Exception as e:
+            if cancel_event and cancel_event.is_set():
+                return
             logger.error(f"❌ Batch generation worker exception: {e}")
             q.put({"type": "error", "message": str(e)})
 
-    t = threading.Thread(target=worker)
+    t = threading.Thread(target=worker, daemon=True)
     t.start()
 
     while True:
-        item = q.get()
-        yield json.dumps(item, ensure_ascii=False) + "\n"
-        if item["type"] in ["batch_finished", "error"]:
+        if cancel_event and cancel_event.is_set():
             break
+        try:
+            item = q.get(timeout=0.1)
+            yield json.dumps(item, ensure_ascii=False) + "\n"
+            if item["type"] in ["batch_finished", "error"]:
+                break
+        except queue.Empty:
+            continue
 
 def update_status(topic_id, status=None):
     """Update 'Last Review At' and possibly status in Notion."""

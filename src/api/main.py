@@ -148,27 +148,65 @@ def api_get_candidates(limit: int = None, force_refresh: bool = False):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/study/quiz")
-def api_generate_quiz(request: QuizRequest):
+async def api_generate_quiz(http_request: Request, request: QuizRequest):
     try:
+        import threading
+        import asyncio
+
+        cancel_event = threading.Event()
+
+        async def stream_generator():
+            try:
+                for line in generate_quiz_stream(
+                    request.topic_id,
+                    force_refresh=request.force_refresh,
+                    num_questions=request.num_questions,
+                    difficulty=request.difficulty,
+                    question_type=request.question_type,
+                    cancel_event=cancel_event
+                ):
+                    if await http_request.is_disconnected() or cancel_event.is_set():
+                        cancel_event.set()
+                        break
+                    yield line
+            except (GeneratorExit, asyncio.CancelledError):
+                cancel_event.set()
+            finally:
+                cancel_event.set()
+
         return StreamingResponse(
-            generate_quiz_stream(
-                request.topic_id,
-                force_refresh=request.force_refresh,
-                num_questions=request.num_questions,
-                difficulty=request.difficulty,
-                question_type=request.question_type
-            ),
+            stream_generator(),
             media_type="application/x-ndjson"
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/study/batch-quiz")
-def api_generate_batch_quiz(request: BatchQuizRequest):
+async def api_generate_batch_quiz(http_request: Request, request: BatchQuizRequest):
     try:
+        import threading
+        import asyncio
+
         topics_dict_list = [t.model_dump() for t in request.topics]
+        cancel_event = threading.Event()
+
+        async def stream_generator():
+            try:
+                for line in generate_batch_quiz_stream(
+                    topics_dict_list,
+                    cancel_event=cancel_event
+                ):
+                    if await http_request.is_disconnected() or cancel_event.is_set():
+                        cancel_event.set()
+                        break
+                    yield line
+            except (GeneratorExit, asyncio.CancelledError):
+                cancel_event.set()
+            finally:
+                cancel_event.set()
+
         return StreamingResponse(
-            generate_batch_quiz_stream(topics_dict_list),
+            stream_generator(),
             media_type="application/x-ndjson"
         )
     except Exception as e:
