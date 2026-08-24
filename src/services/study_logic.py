@@ -779,13 +779,15 @@ def update_status(topic_id, status=None):
                  logger.info(f"🏷 Updating Độ hiểu bài to: {status_map[status]}")
                  notion.update_page_property(topic_id, "Độ hiểu bài", status_map[status], type_key="select")
 
-        # Clear candidates list cache in Redis since database changed
+        # Clear candidates list cache and quick review progress in Redis since database changed
         try:
             r = get_redis()
             if r:
                 for k in r.scan_iter("study_candidates*"):
                     r.delete(k)
-                logger.info("Cleared study_candidates* cache due to status update")
+                for k in r.scan_iter("quiz_progress_*:quick_review*"):
+                    r.delete(k)
+                logger.info("Cleared study_candidates* and quick_review progress cache due to status update")
         except Exception as e:
             logger.warning(f"Failed to clear study_candidates cache: {e}")
 

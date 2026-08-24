@@ -386,8 +386,8 @@ function resumeSavedQuiz(savedData = null) {
     ui.quizProgress.classList.remove('hidden');
     if (ui.progressContainer) ui.progressContainer.classList.remove('hidden');
 
-    if (currentTopic.id === 'quick_review') {
-        ui.forceRefreshBtn.classList.add('hidden');
+    if (currentTopic.id && currentTopic.id.startsWith('quick_review')) {
+        ui.forceRefreshBtn.classList.remove('hidden');
         if (ui.clearCacheBtn) ui.clearCacheBtn.classList.add('hidden');
     } else {
         ui.forceRefreshBtn.classList.remove('hidden');
@@ -514,14 +514,19 @@ async function fetchTopics(forceRefresh = false) {
     }
 }
 
-async function startQuickReview() {
+async function startQuickReview(forceRefresh = false) {
     const selectedCourse = ui.courseFilter.value;
     const quickReviewId = selectedCourse ? `quick_review_${selectedCourse}` : 'quick_review';
 
-    const saved = savedProgressMap[quickReviewId];
-    if (saved && Array.isArray(saved.quiz) && saved.quiz.length > 0) {
-        resumeSavedQuiz(saved);
-        return;
+    if (forceRefresh) {
+        delete savedProgressMap[quickReviewId];
+        clearQuizProgress(quickReviewId, false);
+    } else {
+        const saved = savedProgressMap[quickReviewId];
+        if (saved && Array.isArray(saved.quiz) && saved.quiz.length > 0) {
+            resumeSavedQuiz(saved);
+            return;
+        }
     }
 
     const courseParam = selectedCourse ? `?course=${encodeURIComponent(selectedCourse)}` : '';
@@ -550,7 +555,8 @@ async function startQuickReview() {
         if (ui.progressContainer) {
             ui.progressContainer.classList.remove('hidden');
         }
-        ui.forceRefreshBtn.classList.add('hidden');
+        ui.forceRefreshBtn.classList.remove('hidden');
+        ui.forceRefreshBtn.title = 'Tải lại bộ câu hỏi ôn tập nhanh';
         if (ui.clearCacheBtn) ui.clearCacheBtn.classList.add('hidden');
         ui.showResultsBtn.classList.add('hidden');
         ui.quizDoneBtn.classList.add('hidden');
@@ -831,6 +837,12 @@ async function markTopicAsMastered(topicId, cardElement) {
         }
 
         allTopics = allTopics.filter(t => t.id !== topicId);
+        // Clear cached quick review progress so newly mastered topics do not linger in quick review
+        Object.keys(savedProgressMap).forEach(key => {
+            if (key.startsWith('quick_review')) {
+                delete savedProgressMap[key];
+            }
+        });
 
         cardElement.style.transition = 'all 0.3s ease-out';
         cardElement.style.opacity = '0';
@@ -1766,7 +1778,11 @@ ui.btnNam.addEventListener('click', () => {
 });
 ui.forceRefreshBtn.addEventListener('click', () => {
     if (currentTopic) {
-        startQuiz(currentTopic, true);
+        if (currentTopic.id && currentTopic.id.startsWith('quick_review')) {
+            startQuickReview(true);
+        } else {
+            startQuiz(currentTopic, true);
+        }
     }
 });
 ui.closeQuizBtn.addEventListener('click', () => {
