@@ -922,9 +922,18 @@ function renderTopics(topics) {
                     <button class="topic-menu-btn w-8 h-8 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition flex items-center justify-center text-base" title="Tùy chọn khác">
                         ⋮
                     </button>
-                    <div class="topic-menu-dropdown hidden absolute left-0 bottom-full mb-1 w-44 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-20 text-xs">
+                    <div class="topic-menu-dropdown hidden absolute left-0 bottom-full mb-1 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-20 text-xs">
+                        <button class="open-notion-btn w-full text-left px-3 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-750 flex items-center gap-2 transition">
+                            <span>📖</span><span>Xem trên Notion</span>
+                        </button>
                         <button class="config-quiz-btn w-full text-left px-3 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-750 flex items-center gap-2 transition">
                             <span>⚙️</span><span>Tùy chỉnh câu hỏi</span>
+                        </button>
+                        <button class="regenerate-quiz-btn w-full text-left px-3 py-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 flex items-center gap-2 transition">
+                            <span>🔄</span><span>Tạo mới câu hỏi</span>
+                        </button>
+                        <button class="restart-quiz-btn w-full text-left px-3 py-2 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 flex items-center gap-2 transition ${savedProgressMap[topic.id] ? '' : 'hidden'}">
+                            <span>⏱️</span><span>Làm lại từ đầu</span>
                         </button>
                         <button class="clear-cache-topic-btn w-full text-left px-3 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex items-center gap-2 transition border-t border-gray-100 dark:border-gray-700/60">
                             <span>🗑️</span><span>Xóa cache quiz</span>
@@ -963,11 +972,44 @@ function renderTopics(topics) {
             menuDropdown.classList.toggle('hidden');
         };
 
+        const openNotionBtn = card.querySelector('.open-notion-btn');
+        if (openNotionBtn) {
+            openNotionBtn.onclick = (e) => {
+                e.stopPropagation();
+                menuDropdown.classList.add('hidden');
+                const notionUrl = topic.url || `https://notion.so/${(topic.id || '').replace(/-/g, '')}`;
+                openExternalLink(notionUrl);
+            };
+        }
+
         card.querySelector('.config-quiz-btn').onclick = (e) => {
             e.stopPropagation();
             menuDropdown.classList.add('hidden');
             openQuizConfigModal(topic);
         };
+
+        const regenerateBtn = card.querySelector('.regenerate-quiz-btn');
+        if (regenerateBtn) {
+            regenerateBtn.onclick = (e) => {
+                e.stopPropagation();
+                menuDropdown.classList.add('hidden');
+                if (confirm(`Bạn có chắc muốn tạo lại bộ câu hỏi mới cho "${topic.title}"?`)) {
+                    startQuiz(topic, true);
+                }
+            };
+        }
+
+        const restartBtn = card.querySelector('.restart-quiz-btn');
+        if (restartBtn) {
+            restartBtn.onclick = async (e) => {
+                e.stopPropagation();
+                menuDropdown.classList.add('hidden');
+                if (confirm(`Bạn có chắc muốn hủy phiên làm dở và làm lại từ câu 1 cho "${topic.title}"?`)) {
+                    await clearQuizProgress(topic.id, false);
+                    startQuiz(topic, false);
+                }
+            };
+        }
 
         card.querySelector('.mastered-btn').onclick = (e) => {
             e.stopPropagation();
