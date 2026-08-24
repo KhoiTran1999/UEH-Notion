@@ -337,11 +337,19 @@ def generate_quiz(topic_id, force_refresh=False, num_questions=15, difficulty='m
             if r:
                 cached = r.get(cache_key)
                 if not cached:
-                    # Fallback to legacy unconfigured cache key if num_questions is 15 and default config
-                    if num_questions == 15 and difficulty == 'medium' and question_type == 'balanced':
-                        cached = r.get(f"quiz_{topic_id}")
+                    # Fallback 1: Legacy unconfigured cache key
+                    cached = r.get(f"quiz_{topic_id}")
+                if not cached:
+                    # Fallback 2: Any cached quiz variant for this topic
+                    for k in r.scan_iter(f"quiz_{topic_id}_*"):
+                        if not k.startswith(f"quiz_lock_{topic_id}") and not k.startswith(f"quiz_progress_"):
+                            candidate = r.get(k)
+                            if candidate:
+                                cached = candidate
+                                logger.info(f"Using alternative cached quiz ({k}) for topic {topic_id}")
+                                break
                 if cached:
-                    logger.info(f"Using cached quiz for topic {topic_id} ({num_questions}q, {difficulty}, {question_type})")
+                    logger.info(f"Using cached quiz for topic {topic_id}")
                     if progress_callback:
                         progress_callback("parsing_quiz", 100, "✨ Đã tải trắc nghiệm thành công!")
                     return json.loads(cached)
