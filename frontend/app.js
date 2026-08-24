@@ -874,15 +874,16 @@ function renderTopics(topics) {
     ui.noTopics.classList.add('hidden');
 
     topics.forEach(topic => {
+        const isCached = !!topic.has_cached_quiz;
         const card = document.createElement('div');
-        const cardClasses = topic.has_cached_quiz
-            ? 'w-full bg-indigo-50/35 dark:bg-indigo-950/20 p-4 rounded-xl shadow-sm border border-indigo-200 dark:border-indigo-800/60 hover:shadow-md transition duration-200 flex flex-col space-y-3'
-            : 'w-full bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 hover:shadow-md transition duration-200 flex flex-col space-y-3';
+        const cardClasses = isCached
+            ? 'w-full bg-indigo-50/50 dark:bg-indigo-950/30 p-4 rounded-xl shadow-sm border border-indigo-200 dark:border-indigo-800/80 hover:shadow-md transition duration-200 flex flex-col space-y-3'
+            : 'w-full bg-gray-50/80 dark:bg-gray-900/60 p-4 rounded-xl shadow-xs border border-dashed border-gray-300 dark:border-gray-800 hover:shadow-sm opacity-85 transition duration-200 flex flex-col space-y-3';
         card.className = cardClasses;
 
         let chapterHtml = '';
         if (topic.chapter) {
-            chapterHtml = `<div class="flex items-center"><span class="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-[10px] font-medium px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700/80">📍 ${escapeHtml(topic.chapter)}</span></div>`;
+            chapterHtml = `<div class="flex items-center"><span class="${isCached ? 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700/80' : 'bg-gray-200/60 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 border-gray-300/60 dark:border-gray-700/40'} text-[10px] font-medium px-2 py-0.5 rounded border">📍 ${escapeHtml(topic.chapter)}</span></div>`;
         }
 
         let dateHtml = '';
@@ -900,8 +901,12 @@ function renderTopics(topics) {
         }
 
         const courseHtml = topic.course
-            ? `<span class="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 truncate max-w-[200px]">${escapeHtml(topic.course)}</span>`
+            ? `<span class="text-[10px] font-bold uppercase tracking-wider ${isCached ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'} truncate max-w-[200px]">${escapeHtml(topic.course)}</span>`
             : '<span></span>';
+
+        const titleClasses = isCached
+            ? 'font-semibold text-gray-900 dark:text-gray-100 text-sm md:text-base leading-tight'
+            : 'font-medium text-gray-500 dark:text-gray-400 text-sm md:text-base leading-tight';
 
         card.innerHTML = `
             <div class="topic-content cursor-pointer flex-1 flex flex-col space-y-1.5">
@@ -909,7 +914,7 @@ function renderTopics(topics) {
                     ${courseHtml}
                     ${dateHtml}
                 </div>
-                <span class="font-semibold text-gray-800 dark:text-gray-100 text-sm md:text-base leading-tight">${escapeHtml(topic.title)}</span>
+                <span class="${titleClasses}">${escapeHtml(topic.title)}</span>
                 ${chapterHtml}
             </div>
             <div class="flex justify-between items-center pt-2.5 border-t border-gray-100 dark:border-gray-800/80 mt-0.5 relative">
@@ -967,7 +972,9 @@ function renderTopics(topics) {
         card.querySelector('.mastered-btn').onclick = (e) => {
             e.stopPropagation();
             menuDropdown.classList.add('hidden');
-            markTopicAsMastered(topic.id, card);
+            if (confirm(`Đánh dấu "${topic.title}" là đã nắm vững?`)) {
+                markTopicAsMastered(topic.id, card);
+            }
         };
 
         card.querySelector('.clear-cache-topic-btn').onclick = (e) => {
@@ -1714,7 +1721,12 @@ if (ui.discardResumeBtn) ui.discardResumeBtn.addEventListener('click', (e) => {
 });
 
 ui.btnChua.addEventListener('click', () => updateStatus('chua_nam_vung'));
-ui.btnNam.addEventListener('click', () => updateStatus('da_nam_vung'));
+ui.btnNam.addEventListener('click', () => {
+    const title = currentTopic?.title ? `cho chủ đề "${currentTopic.title}"` : '';
+    if (confirm(`Bạn có chắc chắn muốn đánh dấu đã nắm vững ${title}? Chủ đề sẽ được chuyển trạng thái trên Notion.`)) {
+        updateStatus('da_nam_vung');
+    }
+});
 ui.forceRefreshBtn.addEventListener('click', () => {
     if (currentTopic) {
         startQuiz(currentTopic, true);
