@@ -1,6 +1,7 @@
 import datetime
 import json
 import pytz
+import re
 import uuid
 from src.services.notion import NotionService
 from src.services.ai import AIService
@@ -13,6 +14,12 @@ from src.utils.cache import (
     CACHE_QUIZ_PROGRESS_TTL,
     LOCK_QUIZ_TTL,
 )
+
+def natural_sort_key(s):
+    """Natural sort key for strings containing numbers (e.g. Buổi 1, Buổi 2, Buổi 10)."""
+    if not s:
+        return []
+    return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', str(s))]
 
 def get_page_title(page_id):
     """Retrieve title of a page by ID, using Redis cache if available."""
@@ -136,6 +143,13 @@ def get_candidates(limit=None, force_refresh=False):
             for res_idx, prop_name, t_title in task_results:
                 if t_title:
                     results[res_idx][prop_name] = t_title
+
+    # Sort results by Course -> Chapter -> Title using natural sort (Buổi 1, 2, ... 10)
+    results.sort(key=lambda x: (
+        natural_sort_key(x.get("course") or ""),
+        natural_sort_key(x.get("chapter") or ""),
+        natural_sort_key(x.get("title") or "")
+    ))
 
     # Save to Redis cache
     if results:
