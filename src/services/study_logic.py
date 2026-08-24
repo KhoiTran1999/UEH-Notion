@@ -21,6 +21,36 @@ def natural_sort_key(s):
         return []
     return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', str(s))]
 
+def get_cached_quiz_topic_ids() -> set[str]:
+    """Retrieve set of topic IDs (normalized with and without hyphens) that currently have at least one cached quiz in Redis."""
+    r = get_redis()
+    if not r:
+        return set()
+    try:
+        keys = r.keys("quiz_*")
+        cached_ids = set()
+        for k in keys:
+            if k.startswith("quiz_lock_"):
+                continue
+            if k.startswith("quiz_progress_"):
+                # quiz_progress_{telegram_id}:{topic_id}
+                parts = k.split(":", 1)
+                if len(parts) == 2 and parts[1]:
+                    tid = parts[1]
+                    cached_ids.add(tid)
+                    cached_ids.add(tid.replace("-", "").lower())
+                continue
+
+            raw = k[5:]  # strip 'quiz_' prefix
+            m = re.match(r"^(.*?)_(\d+)_(easy|medium|hard)_(theory|calculation|balanced)$", raw)
+            tid = m.group(1) if m else raw
+            cached_ids.add(tid)
+            cached_ids.add(tid.replace("-", "").lower())
+        return cached_ids
+    except Exception as e:
+        logger.warning(f"Redis get cached quiz ids error: {e}")
+        return set()
+
 def get_page_title(page_id):
     """Retrieve title of a page by ID, using Redis cache if available."""
     cache_key = f"page_title_{page_id}"
@@ -253,18 +283,29 @@ def clean_json_string(json_str):
     return pattern.sub(replace_string, json_str)
 
 def clear_quiz_cache(topic_id: str, num_questions: int | None = None, difficulty: str | None = None, question_type: str | None = None) -> bool:
-    """Delete cached quiz for a specific topic (or specific config) from Redis."""
+    """Delete cached quiz and user progress for a specific topic (or specific config) from Redis."""
     try:
         r = get_redis()
         if r:
-            if num_questions is not None and difficulty is not None and question_type is not None:
-                r.delete(f"quiz_{topic_id}_{num_questions}_{difficulty}_{question_type}")
-            else:
-                # Delete all variations of quiz cache for this topic
-                r.delete(f"quiz_{topic_id}")
-                for k in r.scan_iter(f"quiz_{topic_id}_*"):
+            ids_to_clean = {topic_id, topic_id.replace("-", "").lower()}
+            if "-" not in topic_id and len(topic_id) == 32:
+                # Add formatted UUID if 32 chars
+                ids_to_clean.add(f"{topic_id[:8]}-{topic_id[8:12]}-{topic_id[12:16]}-{topic_id[16:20]}-{topic_id[20:]}")
+
+            for tid in ids_to_clean:
+                if num_questions is not None and difficulty is not None and question_type is not None:
+                    r.delete(f"quiz_{tid}_{num_questions}_{difficulty}_{question_type}")
+                else:
+                    # Delete all variations of quiz cache for this topic
+                    r.delete(f"quiz_{tid}")
+                    for k in list(r.scan_iter(f"quiz_{tid}_*")):
+                        r.delete(k)
+
+                # Also remove in-progress quiz sessions for this topic
+                for k in list(r.scan_iter(f"quiz_progress_*:{tid}")):
                     r.delete(k)
-            logger.info(f"Cleared quiz cache for topic {topic_id}")
+
+            logger.info(f"Cleared quiz cache and progress for topic {topic_id}")
             return True
     except Exception as e:
         logger.warning(f"Redis cache delete failed for topic {topic_id}: {e}")
@@ -762,15 +803,24 @@ def generate_quick_review(course=None):
 
     def fetch_topic_quiz(topic):
         try:
-            quiz = generate_quiz(topic["id"])
-            if quiz and quiz.get("questions"):
-                # Tag each question with its source topic title and ID for context
-                for q in quiz["questions"]:
-                    q["topic_title"] = topic["title"]
-                    q["topic_id"] = topic["id"]
-                return quiz["questions"]
+            t_id = topic["id"]
+            # Only use already-cached quiz in Redis, skip if not generated yet
+            r = get_redis()
+            if r:
+                # Check all cached keys for this topic (custom config or default)
+                for k in r.scan_iter(f"quiz_{t_id}*"):
+                    if "lock" in k:
+                        continue
+                    cached = r.get(k)
+                    if cached:
+                        data = json.loads(cached)
+                        if data and data.get("questions"):
+                            for q in data["questions"]:
+                                q["topic_title"] = topic["title"]
+                                q["topic_id"] = t_id
+                            return data["questions"]
         except Exception as e:
-            logger.error(f"Error fetching quiz for topic {topic['id']}: {e}")
+            logger.error(f"Error fetching cached quiz for topic {topic['id']}: {e}")
         return []
 
     all_questions = []
@@ -785,10 +835,11 @@ def generate_quick_review(course=None):
     # Shuffle all combined questions
     random.shuffle(all_questions)
 
+    topic_id = f"quick_review_{course.strip()}" if course and course.strip() else "quick_review"
     title = f"Ôn tập nhanh - {course.strip()}" if course and course.strip() else "Ôn tập tổng hợp"
 
     return {
-        "id": "quick_review",
+        "id": topic_id,
         "title": title,
         "questions": all_questions
     }

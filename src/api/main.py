@@ -7,6 +7,7 @@ from pydantic import BaseModel, field_validator
 
 from src.services.study_logic import (
     get_candidates,
+    get_cached_quiz_topic_ids,
     generate_quiz,
     generate_quiz_stream,
     generate_batch_quiz_stream,
@@ -143,7 +144,13 @@ def read_root():
 def api_get_candidates(limit: int = None, force_refresh: bool = False):
     try:
         candidates = get_candidates(limit=limit, force_refresh=force_refresh)
-        return {"candidates": candidates}
+        cached_ids = get_cached_quiz_topic_ids()
+        decorated_candidates = []
+        for c in candidates:
+            cid = str(c.get("id") or "")
+            is_cached = cid in cached_ids or cid.replace("-", "").lower() in cached_ids
+            decorated_candidates.append({**c, "has_cached_quiz": is_cached})
+        return {"candidates": decorated_candidates}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

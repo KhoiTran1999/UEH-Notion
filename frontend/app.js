@@ -481,13 +481,15 @@ async function fetchTopics(forceRefresh = false) {
 }
 
 async function startQuickReview() {
-    const saved = savedProgressMap['quick_review'];
+    const selectedCourse = ui.courseFilter.value;
+    const quickReviewId = selectedCourse ? `quick_review_${selectedCourse}` : 'quick_review';
+
+    const saved = savedProgressMap[quickReviewId];
     if (saved && Array.isArray(saved.quiz) && saved.quiz.length > 0) {
         resumeSavedQuiz(saved);
         return;
     }
 
-    const selectedCourse = ui.courseFilter.value;
     const courseParam = selectedCourse ? `?course=${encodeURIComponent(selectedCourse)}` : '';
     const loadingMsg = selectedCourse
         ? `Đang chuẩn bị toàn bộ câu hỏi cho "${selectedCourse}"...`
@@ -500,7 +502,7 @@ async function startQuickReview() {
         const data = await res.json();
 
         currentTopic = {
-            id: 'quick_review',
+            id: data.id || quickReviewId,
             title: data.title || (selectedCourse ? `Ôn tập nhanh - ${selectedCourse}` : 'Ôn tập tổng hợp')
         };
         currentQuiz = (data.questions || []).map(shuffleQuestionOptions);
@@ -646,6 +648,11 @@ async function startQuiz(topic, forceRefresh = false, customConfig = null) {
         startQuizTimer(0);
         saveQuizProgress();
 
+        if (currentTopic && currentTopic.id && !currentTopic.id.startsWith('quick_review')) {
+            const t = allTopics.find(x => x.id === currentTopic.id);
+            if (t) t.has_cached_quiz = true;
+        }
+
         // Reset results UI to initial quiz state
         document.getElementById('quiz-content').classList.remove('hidden');
         ui.quizResults.classList.add('hidden');
@@ -690,6 +697,10 @@ async function clearQuizCache() {
             method: 'DELETE'
         });
         if (!res.ok) throw new Error('Lỗi xóa cache');
+        delete savedProgressMap[currentTopic.id];
+        checkAndRenderResumeBanner();
+        const t = allTopics.find(x => x.id === currentTopic.id);
+        if (t) t.has_cached_quiz = false;
         alert('Đã xóa cache thành công! Đang tải lại câu hỏi mới...');
         startQuiz(currentTopic, true);
     } catch (error) {
@@ -700,7 +711,7 @@ async function clearQuizCache() {
 }
 
 async function clearQuizCacheForTopic(topic) {
-    if (!topic || !topic.id || topic.id === 'quick_review') return;
+    if (!topic || !topic.id || topic.id.startsWith('quick_review')) return;
     if (!confirm(`Bạn có chắc muốn xóa cache cho chủ đề "${topic.title}"?`)) return;
 
     showLoading('Đang xóa cache Redis...');
@@ -709,7 +720,12 @@ async function clearQuizCacheForTopic(topic) {
             method: 'DELETE'
         });
         if (!res.ok) throw new Error('Lỗi xóa cache');
+        delete savedProgressMap[topic.id];
+        checkAndRenderResumeBanner();
+        const t = allTopics.find(x => x.id === topic.id);
+        if (t) t.has_cached_quiz = false;
         alert('Đã xóa cache thành công!');
+        filterAndRenderTopics();
         showView('topics');
     } catch (error) {
         console.error(error);
@@ -823,13 +839,18 @@ function renderTopics(topics) {
         card.className = 'w-full bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 hover:shadow-md transition duration-200 flex flex-col space-y-3';
 
         let metaHtml = '';
-        if (topic.course || topic.chapter || topic.updated_at) {
+        if (topic.course || topic.chapter || topic.updated_at || topic.has_cached_quiz !== undefined) {
             metaHtml += `<div class="flex flex-wrap gap-1.5 w-full items-center">`;
             if (topic.course) {
                 metaHtml += `<span class="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-[10px] font-semibold px-2 py-0.5 rounded border border-blue-100 dark:border-blue-900/50 truncate max-w-[150px]">🔹 ${escapeHtml(topic.course)}</span>`;
             }
             if (topic.chapter) {
                 metaHtml += `<span class="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-[10px] font-semibold px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700 truncate max-w-[200px]">📍 ${escapeHtml(topic.chapter)}</span>`;
+            }
+            if (topic.has_cached_quiz) {
+                metaHtml += `<span class="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 text-[10px] font-semibold px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-900/50 flex items-center gap-1" title="Đã có bộ câu hỏi lưu trong Redis cache">⚡ Đã có cache</span>`;
+            } else {
+                metaHtml += `<span class="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-[10px] font-semibold px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700 flex items-center gap-1" title="Chưa có cache trong Redis (sẽ tạo bằng AI khi bấm vào)">⏳ Chưa có cache</span>`;
             }
             if (topic.updated_at) {
                 let dateStr = topic.updated_at;
@@ -869,7 +890,13 @@ function renderTopics(topics) {
             </div>
         `;
 
-        const openQuiz = () => startQuiz(topic);
+        const openQuiz = () => {
+            if (!topic.has_cached_quiz && !savedProgressMap[topic.id]) {
+                openQuizConfigModal(topic);
+            } else {
+                startQuiz(topic);
+            }
+        };
         card.querySelector('.topic-content').onclick = openQuiz;
         card.querySelector('.topic-link').onclick = openQuiz;
 
@@ -924,7 +951,7 @@ function renderQuestion(animate = true) {
 
     // Fallback cho câu hỏi bị lỗi dữ liệu
     const questionText = q.question || q.q || '⚠️ Nội dung câu hỏi bị thiếu';
-    if (currentTopic.id === 'quick_review' && q.topic_title) {
+    if (currentTopic && currentTopic.id && currentTopic.id.startsWith('quick_review') && q.topic_title) {
         ui.questionText.innerHTML = `
             <div class="text-[10px] text-blue-500 font-bold uppercase tracking-wider mb-2">📌 Chủ đề: ${escapeHtml(q.topic_title)}</div>
             <div>${escapeHtml(questionText)}</div>
@@ -1871,6 +1898,7 @@ function openBatchQuizModal() {
         title: t.title,
         course: t.course,
         chapter: t.chapter,
+        has_cached_quiz: t.has_cached_quiz,
         num_questions: quizConfig.numQuestions || 15,
         difficulty: quizConfig.difficulty || 'medium',
         question_type: quizConfig.questionType || 'balanced',
@@ -1957,6 +1985,11 @@ function renderBatchTopicsList() {
         row.className = `p-2.5 rounded-xl border transition ${isSel ? 'border-gray-200 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-800/40' : 'border-dashed border-gray-200 dark:border-gray-800/60 bg-gray-100/40 dark:bg-gray-900/30 opacity-60'} space-y-2 text-xs`;
         row.id = `batch-topic-row-${item.topic_id}`;
 
+        const isCached = item.has_cached_quiz;
+        const cacheBadge = isCached
+            ? `<span class="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/50 shrink-0" title="Đã có cache trong Redis">⚡ Có cache</span>`
+            : `<span class="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 shrink-0" title="Chưa có cache trong Redis">Chưa cache</span>`;
+
         const statusBadge = `<span id="batch-status-badge-${item.topic_id}" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 shrink-0">Chờ tạo</span>`;
 
         row.innerHTML = `
@@ -1966,6 +1999,7 @@ function renderBatchTopicsList() {
                     <span class="font-bold text-gray-800 dark:text-gray-100 truncate ${isSel ? '' : 'text-gray-400 dark:text-gray-500'}" title="${escapeHtml(item.title)}">
                         ${idx + 1}. ${escapeHtml(item.title)}
                     </span>
+                    ${cacheBadge}
                 </label>
                 ${statusBadge}
             </div>
@@ -2114,6 +2148,10 @@ async function startBatchQuizGeneration() {
                         ui.batchCurrentTopicStatus.textContent = `⚡ [${event.percentage}%] ${event.details || ''}`;
                     }
                 } else if (event.type === 'topic_completed') {
+                    if (event.success) {
+                        const t = allTopics.find(x => x.id === event.topic_id);
+                        if (t) t.has_cached_quiz = true;
+                    }
                     const badge = document.getElementById(`batch-status-badge-${event.topic_id}`);
                     if (badge) {
                         if (event.success) {

@@ -93,31 +93,35 @@ class TestUEHNotion(unittest.TestCase):
         run_background_safe(crashing_func)
 
     def test_generate_quick_review_filter_and_all_questions(self):
-        """Test generate_quick_review logic with course filtering and taking all questions."""
-        from unittest.mock import patch
+        """Test generate_quick_review logic with course filtering, taking questions only from cached topics."""
+        import json
+        from unittest.mock import patch, MagicMock
         from src.services.study_logic import generate_quick_review
 
         mock_candidates = [
             {"id": "uuid-1", "title": "Bài 1", "course": "Tài chính doanh nghiệp"},
             {"id": "uuid-2", "title": "Bài 2", "course": "Tài chính doanh nghiệp"},
-            {"id": "uuid-3", "title": "Bài 3", "course": "Kinh tế vi mô"}
+            {"id": "uuid-3", "title": "Bài 3", "course": "Kinh tế vi mô"},
+            {"id": "uuid-4", "title": "Bài 4", "course": "Tài chính doanh nghiệp"}  # not cached yet
         ]
 
-        def mock_generate_quiz(topic_id, **kwargs):
-            if topic_id == "uuid-1":
-                return {"id": topic_id, "title": "Bài 1", "questions": [{"q": f"Q1-{i}", "options": ["A"], "correct": 0} for i in range(6)]}
-            elif topic_id == "uuid-2":
-                return {"id": topic_id, "title": "Bài 2", "questions": [{"q": f"Q2-{i}", "options": ["A"], "correct": 0} for i in range(6)]}
-            elif topic_id == "uuid-3":
-                return {"id": topic_id, "title": "Bài 3", "questions": [{"q": f"Q3-{i}", "options": ["A"], "correct": 0} for i in range(4)]}
-            return None
+        cached_quizzes = {
+            "quiz_uuid-1": json.dumps({"id": "uuid-1", "title": "Bài 1", "questions": [{"q": f"Q1-{i}", "options": ["A"], "correct": 0} for i in range(6)]}),
+            "quiz_uuid-2_15_medium_balanced": json.dumps({"id": "uuid-2", "title": "Bài 2", "questions": [{"q": f"Q2-{i}", "options": ["A"], "correct": 0} for i in range(6)]}),
+            "quiz_uuid-3": json.dumps({"id": "uuid-3", "title": "Bài 3", "questions": [{"q": f"Q3-{i}", "options": ["A"], "correct": 0} for i in range(4)]}),
+        }
+
+        mock_redis = MagicMock()
+        mock_redis.scan_iter.side_effect = lambda pat: [k for k in cached_quizzes if k.startswith(pat.rstrip("*"))]
+        mock_redis.get.side_effect = lambda k: cached_quizzes.get(k)
 
         with patch("src.services.study_logic.get_candidates", return_value=mock_candidates), \
-             patch("src.services.study_logic.generate_quiz", side_effect=mock_generate_quiz):
-            # 1. Test filtered by course -> should get 6 + 6 = 12 questions (more than 10)
+             patch("src.services.study_logic.get_redis", return_value=mock_redis):
+            # 1. Test filtered by course -> should get 6 + 6 = 12 questions (skips uuid-4 without cache)
             res_course = generate_quick_review(course="Tài chính doanh nghiệp")
             self.assertIsNotNone(res_course)
             self.assertEqual(len(res_course["questions"]), 12)
+            self.assertEqual(res_course["id"], "quick_review_Tài chính doanh nghiệp")
             self.assertEqual(res_course["title"], "Ôn tập nhanh - Tài chính doanh nghiệp")
             for q in res_course["questions"]:
                 self.assertIn(q["topic_title"], ["Bài 1", "Bài 2"])
@@ -126,6 +130,7 @@ class TestUEHNotion(unittest.TestCase):
             res_all = generate_quick_review()
             self.assertIsNotNone(res_all)
             self.assertEqual(len(res_all["questions"]), 16)
+            self.assertEqual(res_all["id"], "quick_review")
             self.assertEqual(res_all["title"], "Ôn tập tổng hợp")
 
             # 3. Test non-existent course -> returns None
