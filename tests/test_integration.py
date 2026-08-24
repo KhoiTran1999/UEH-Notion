@@ -229,6 +229,45 @@ class TestUEHNotion(unittest.TestCase):
                 cached = r.get(f"quiz_{test_topic_id}")
                 self.assertIsNone(cached, "Corrupted/error quiz should never be cached in Redis")
 
+    def test_batch_quiz_stream_generation(self):
+        """Test batch quiz generation streaming logic and endpoint."""
+        from fastapi.testclient import TestClient
+        from unittest.mock import patch
+        from src.api.main import app
+
+        client = TestClient(app)
+        valid_uuid_1 = "2eba5eb5-b9bd-81ef-830c-e6f5378ee35b"
+        valid_uuid_2 = "39ca5eb5-b9bd-8066-a924-e857ee94c557"
+
+        def mock_generate_quiz(topic_id, **kwargs):
+            return {
+                "id": topic_id,
+                "title": f"Title for {topic_id}",
+                "num_questions": kwargs.get("num_questions", 15),
+                "questions": [{"q": f"Question 1 for {topic_id}", "options": ["A", "B"], "correct": 0}]
+            }
+
+        with patch("src.services.study_logic.generate_quiz", side_effect=mock_generate_quiz):
+            payload = {
+                "course": "Tài chính doanh nghiệp",
+                "topics": [
+                    {"topic_id": valid_uuid_1, "title": "Topic 1", "num_questions": 5, "difficulty": "easy", "question_type": "theory"},
+                    {"topic_id": valid_uuid_2, "title": "Topic 2", "num_questions": 10, "difficulty": "hard", "question_type": "calculation"}
+                ]
+            }
+            res = client.post("/api/study/batch-quiz", json=payload)
+            self.assertEqual(res.status_code, 200)
+            lines = [json.loads(line) for line in res.text.strip().split("\n") if line.strip()]
+
+            event_types = [item.get("type") for item in lines]
+            self.assertIn("batch_started", event_types)
+            self.assertIn("topic_completed", event_types)
+            self.assertIn("batch_finished", event_types)
+
+            finished_event = next(item for item in lines if item.get("type") == "batch_finished")
+            self.assertEqual(finished_event["total_topics"], 2)
+            self.assertEqual(finished_event["successful_topics"], 2)
+
 
 if __name__ == "__main__":
     unittest.main()

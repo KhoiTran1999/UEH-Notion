@@ -518,6 +518,128 @@ def generate_quiz_stream(topic_id, force_refresh=False, num_questions=15, diffic
         if item["type"] in ["result", "error"]:
             break
 
+def generate_batch_quiz_stream(topics_config: list[dict], max_workers: int = 3):
+    """Generate quizzes for multiple topics in batch with progress callbacks and yield stream events as JSON lines.
+    Each item in topics_config: {
+        'topic_id': str,
+        'title': str (optional),
+        'force_refresh': bool (default False),
+        'num_questions': int (default 15),
+        'difficulty': str (default 'medium'),
+        'question_type': str (default 'balanced')
+    }
+    """
+    import queue
+    import threading
+    import json
+    from concurrent.futures import ThreadPoolExecutor
+
+    q = queue.Queue()
+    total_topics = len(topics_config)
+    completed_topics = 0
+    results_map = {}
+    lock = threading.Lock()
+
+    def topic_callback(topic_id, status, percentage, details):
+        q.put({
+            "type": "topic_progress",
+            "topic_id": topic_id,
+            "status": status,
+            "percentage": percentage,
+            "details": details
+        })
+
+    def process_single_topic(cfg):
+        nonlocal completed_topics
+        t_id = cfg["topic_id"]
+        force_ref = cfg.get("force_refresh", False)
+        num_q = cfg.get("num_questions", 15)
+        diff = cfg.get("difficulty", "medium")
+        q_type = cfg.get("question_type", "balanced")
+        title = cfg.get("title", "")
+
+        def cb(status, percentage, details):
+            topic_callback(t_id, status, percentage, details)
+
+        try:
+            quiz = generate_quiz(
+                t_id,
+                force_refresh=force_ref,
+                num_questions=num_q,
+                difficulty=diff,
+                question_type=q_type,
+                progress_callback=cb
+            )
+            with lock:
+                completed_topics += 1
+                current_completed = completed_topics
+                results_map[t_id] = {
+                    "success": bool(quiz and quiz.get("questions")),
+                    "quiz": quiz,
+                    "error": None if (quiz and quiz.get("questions")) else "Không thể tạo câu hỏi hoặc nội dung rỗng"
+                }
+
+            q.put({
+                "type": "topic_completed",
+                "topic_id": t_id,
+                "title": title or (quiz.get("title") if quiz else ""),
+                "num_questions": len(quiz.get("questions", [])) if quiz else 0,
+                "completed_count": current_completed,
+                "total_count": total_topics,
+                "percentage": int((current_completed / total_topics) * 100),
+                "success": bool(quiz and quiz.get("questions"))
+            })
+        except Exception as e:
+            logger.error(f"❌ Batch generation failed for topic {t_id}: {e}")
+            with lock:
+                completed_topics += 1
+                current_completed = completed_topics
+                results_map[t_id] = {
+                    "success": False,
+                    "quiz": None,
+                    "error": str(e)
+                }
+            q.put({
+                "type": "topic_completed",
+                "topic_id": t_id,
+                "title": title,
+                "num_questions": 0,
+                "completed_count": current_completed,
+                "total_count": total_topics,
+                "percentage": int((current_completed / total_topics) * 100),
+                "success": False,
+                "error": str(e)
+            })
+
+    def worker():
+        try:
+            q.put({
+                "type": "batch_started",
+                "total_topics": total_topics,
+                "message": f"🚀 Bắt đầu tạo trắc nghiệm hàng loạt cho {total_topics} chủ đề..."
+            })
+            with ThreadPoolExecutor(max_workers=min(max_workers, total_topics or 1)) as executor:
+                list(executor.map(process_single_topic, topics_config))
+
+            q.put({
+                "type": "batch_finished",
+                "total_topics": total_topics,
+                "successful_topics": sum(1 for v in results_map.values() if v["success"]),
+                "results": results_map
+            })
+        except Exception as e:
+            logger.error(f"❌ Batch generation worker exception: {e}")
+            q.put({"type": "error", "message": str(e)})
+
+    t = threading.Thread(target=worker)
+    t.start()
+
+    while True:
+        item = q.get()
+        yield json.dumps(item, ensure_ascii=False) + "\n"
+        if item["type"] in ["batch_finished", "error"]:
+            break
+
 def update_status(topic_id, status=None):
     """Update 'Last Review At' and possibly status in Notion."""
     notion = NotionService()

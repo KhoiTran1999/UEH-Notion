@@ -9,6 +9,7 @@ from src.services.study_logic import (
     get_candidates,
     generate_quiz,
     generate_quiz_stream,
+    generate_batch_quiz_stream,
     update_status,
     generate_quick_review,
     clear_quiz_cache,
@@ -70,6 +71,53 @@ class QuizRequest(BaseModel):
             return 'balanced'
         return v
 
+class TopicConfigItem(BaseModel):
+    topic_id: str
+    title: str | None = None
+    force_refresh: bool = False
+    num_questions: int = 15
+    difficulty: str = 'medium'
+    question_type: str = 'balanced'
+
+    @field_validator('topic_id')
+    @classmethod
+    def validate_topic_id(cls, v):
+        if not UUID_PATTERN.match(v):
+            raise ValueError(f'Invalid topic_id format: must be a valid UUID')
+        return v
+
+    @field_validator('num_questions')
+    @classmethod
+    def validate_num_questions(cls, v):
+        if v < 1 or v > 30:
+            raise ValueError('num_questions must be between 1 and 30')
+        return v
+
+    @field_validator('difficulty')
+    @classmethod
+    def validate_difficulty(cls, v):
+        if v not in ('easy', 'medium', 'hard'):
+            return 'medium'
+        return v
+
+    @field_validator('question_type')
+    @classmethod
+    def validate_question_type(cls, v):
+        if v not in ('theory', 'calculation', 'balanced'):
+            return 'balanced'
+        return v
+
+class BatchQuizRequest(BaseModel):
+    course: str | None = None
+    topics: list[TopicConfigItem]
+
+    @field_validator('topics')
+    @classmethod
+    def validate_topics(cls, v):
+        if not v:
+            raise ValueError('topics list cannot be empty')
+        return v
+
 class StatusRequest(BaseModel):
     topic_id: str
     status: str | None = None
@@ -110,6 +158,17 @@ def api_generate_quiz(request: QuizRequest):
                 difficulty=request.difficulty,
                 question_type=request.question_type
             ),
+            media_type="application/x-ndjson"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/study/batch-quiz")
+def api_generate_batch_quiz(request: BatchQuizRequest):
+    try:
+        topics_dict_list = [t.model_dump() for t in request.topics]
+        return StreamingResponse(
+            generate_batch_quiz_stream(topics_dict_list),
             media_type="application/x-ndjson"
         )
     except Exception as e:

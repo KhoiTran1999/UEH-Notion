@@ -63,6 +63,7 @@ const ui = {
     progressContainer: document.getElementById('quiz-progress-container'),
     loadingProgressBar: document.getElementById('loading-progress-bar'),
     loadingPercentage: document.getElementById('loading-percentage'),
+    cancelLoadingBtn: document.getElementById('cancel-loading-btn'),
     reviewAnswersBtn: document.getElementById('review-answers-btn'),
     dotContainer: document.getElementById('quiz-dot-container'),
     copyQuestionBtn: document.getElementById('copy-question-btn'),
@@ -88,6 +89,25 @@ const ui = {
     configNumQuestionsGroup: document.getElementById('config-num-questions-group'),
     configDifficultyGroup: document.getElementById('config-difficulty-group'),
     configTypeGroup: document.getElementById('config-type-group'),
+    batchQuizBtn: document.getElementById('batch-quiz-btn'),
+    batchQuizModal: document.getElementById('batch-quiz-modal'),
+    closeBatchModalBtn: document.getElementById('close-batch-modal-btn'),
+    batchModalCourseTitle: document.getElementById('batch-modal-course-title'),
+    batchApplyAllBtn: document.getElementById('batch-apply-all-btn'),
+    batchGlobalNum: document.getElementById('batch-global-num'),
+    batchGlobalDiff: document.getElementById('batch-global-diff'),
+    batchGlobalType: document.getElementById('batch-global-type'),
+    batchTopicsList: document.getElementById('batch-topics-list'),
+    batchProgressContainer: document.getElementById('batch-progress-container'),
+    batchProgressText: document.getElementById('batch-progress-text'),
+    batchProgressPercent: document.getElementById('batch-progress-percent'),
+    batchProgressBar: document.getElementById('batch-progress-bar'),
+    batchCurrentTopicStatus: document.getElementById('batch-current-topic-status'),
+    batchCancelBtn: document.getElementById('batch-cancel-btn'),
+    batchStartBtn: document.getElementById('batch-start-btn'),
+    batchSelectAllCb: document.getElementById('batch-select-all-cb'),
+    batchSelectedCount: document.getElementById('batch-selected-count'),
+    batchTotalCount: document.getElementById('batch-total-count'),
 };
 
 
@@ -102,6 +122,8 @@ let currentTimeline = [];
 
 let savedProgressMap = {};
 let isExamMode = localStorage.getItem('isExamMode') === 'true';
+let singleQuizAbortController = null;
+let batchQuizAbortController = null;
 
 // Quiz Generation Configuration (Stored in localStorage)
 let selectedTopicForConfig = null;
@@ -426,10 +448,17 @@ function filterAndRenderTopics() {
     renderTopics(filtered);
 }
 
-function showLoading(text) {
+function showLoading(text, allowCancel = false) {
     ui.loadingText.textContent = text;
     if (ui.loadingProgressBar) ui.loadingProgressBar.style.width = '0%';
     if (ui.loadingPercentage) ui.loadingPercentage.textContent = '0%';
+    if (ui.cancelLoadingBtn) {
+        if (allowCancel) {
+            ui.cancelLoadingBtn.classList.remove('hidden');
+        } else {
+            ui.cancelLoadingBtn.classList.add('hidden');
+        }
+    }
     showView('loading');
 }
 
@@ -516,7 +545,12 @@ async function startQuiz(topic, forceRefresh = false, customConfig = null) {
     const qType = cfg.questionType || 'balanced';
 
     const diffLabel = { 'easy': 'Cơ bản', 'medium': 'Chuẩn thi', 'hard': 'Nâng cao' }[diff] || 'Chuẩn thi';
-    showLoading(`Đang tạo ${nq} câu hỏi [${diffLabel}] cho "${topic.title}"...`);
+    showLoading(`Đang tạo ${nq} câu hỏi [${diffLabel}] cho "${topic.title}"...`, true);
+
+    if (singleQuizAbortController) {
+        singleQuizAbortController.abort();
+    }
+    singleQuizAbortController = new AbortController();
 
     let aiTimer = null;
     let currentPercent = 0;
@@ -532,6 +566,7 @@ async function startQuiz(topic, forceRefresh = false, customConfig = null) {
         const res = await fetch(`${API_BASE_URL}/api/study/quiz`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            signal: singleQuizAbortController.signal,
             body: JSON.stringify({
                 topic_id: topic.id,
                 force_refresh: forceRefresh,
@@ -632,9 +667,16 @@ async function startQuiz(topic, forceRefresh = false, customConfig = null) {
             clearInterval(aiTimer);
             aiTimer = null;
         }
+        if (error.name === 'AbortError') {
+            console.log('Quiz generation cancelled by user.');
+            showView('topics');
+            return;
+        }
         console.error(error);
         alert(error.message || 'Lỗi khi tạo bộ câu hỏi.');
         showView('topics');
+    } finally {
+        singleQuizAbortController = null;
     }
 }
 
@@ -1664,8 +1706,32 @@ ui.searchInput.addEventListener('input', () => {
 });
 ui.courseFilter.addEventListener('change', filterAndRenderTopics);
 ui.quickReviewBtn.addEventListener('click', () => startQuickReview());
+if (ui.batchQuizBtn) {
+    ui.batchQuizBtn.addEventListener('click', () => openBatchQuizModal());
+}
+if (ui.closeBatchModalBtn) {
+    ui.closeBatchModalBtn.addEventListener('click', closeBatchQuizModal);
+}
+if (ui.batchCancelBtn) {
+    ui.batchCancelBtn.addEventListener('click', closeBatchQuizModal);
+}
+if (ui.batchApplyAllBtn) {
+    ui.batchApplyAllBtn.addEventListener('click', applyGlobalPresetToAllBatchTopics);
+}
+if (ui.batchStartBtn) {
+    ui.batchStartBtn.addEventListener('click', startBatchQuizGeneration);
+}
 
 ui.quizDoneBtn.addEventListener('click', () => showView('topics'));
+if (ui.cancelLoadingBtn) {
+    ui.cancelLoadingBtn.addEventListener('click', () => {
+        if (singleQuizAbortController) {
+            singleQuizAbortController.abort();
+            singleQuizAbortController = null;
+        }
+        showView('topics');
+    });
+}
 ui.refreshCandidatesBtn.addEventListener('click', () => {
     fetchTopics(true);
 });
@@ -1683,6 +1749,9 @@ if (ui.closeConfigModalBtn) {
 }
 if (ui.modalCancelBtn) {
     ui.modalCancelBtn.addEventListener('click', closeQuizConfigModal);
+}
+if (ui.batchSelectAllCb) {
+    ui.batchSelectAllCb.addEventListener('change', toggleSelectAllBatchTopics);
 }
 if (ui.modalStartQuizBtn) {
     ui.modalStartQuizBtn.addEventListener('click', () => {
@@ -1769,7 +1838,339 @@ function initTelegram() {
     }
 }
 
-// Helper: Render LaTeX math in element using KaTeX
+// Batch Quiz Generation for Course
+let batchTopicsData = [];
+let isBatchGenerating = false;
+
+function openBatchQuizModal() {
+    if (!allTopics || allTopics.length === 0) {
+        alert('Danh sách chủ đề đang được tải hoặc chưa có. Vui lòng thử lại sau giây lát.');
+        return;
+    }
+
+    const selectedCourse = ui.courseFilter ? ui.courseFilter.value : '';
+    let topicsInCourse = [];
+    if (selectedCourse) {
+        topicsInCourse = allTopics.filter(t => t.course === selectedCourse);
+    } else {
+        topicsInCourse = [...allTopics];
+    }
+
+    if (topicsInCourse.length === 0) {
+        alert('Không có chủ đề nào trong môn học đã chọn để tạo quiz.');
+        return;
+    }
+
+    if (ui.batchModalCourseTitle) {
+        ui.batchModalCourseTitle.textContent = selectedCourse ? `Môn: ${selectedCourse} (${topicsInCourse.length} chủ đề)` : `Tất cả môn học (${topicsInCourse.length} chủ đề)`;
+    }
+
+    // Prepare default config for each topic
+    batchTopicsData = topicsInCourse.map(t => ({
+        topic_id: t.id,
+        title: t.title,
+        course: t.course,
+        chapter: t.chapter,
+        num_questions: quizConfig.numQuestions || 15,
+        difficulty: quizConfig.difficulty || 'medium',
+        question_type: quizConfig.questionType || 'balanced',
+        force_refresh: true, // Batch generate generally wants fresh quizzes or regenerate
+        status: 'pending', // pending | generating | done | error
+        selected: true
+    }));
+
+    if (ui.batchSelectAllCb) ui.batchSelectAllCb.checked = true;
+    updateBatchSelectionCount();
+    renderBatchTopicsList();
+
+    if (ui.batchProgressContainer) ui.batchProgressContainer.classList.add('hidden');
+    if (ui.batchStartBtn) {
+        ui.batchStartBtn.disabled = false;
+        ui.batchStartBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        ui.batchStartBtn.innerHTML = `<span>⚡ Bắt đầu tạo (${batchTopicsData.length} chủ đề)</span>`;
+    }
+    if (ui.batchCancelBtn) ui.batchCancelBtn.disabled = false;
+
+    if (ui.batchQuizModal) {
+        ui.batchQuizModal.classList.remove('hidden');
+    }
+}
+
+function closeBatchQuizModal() {
+    if (isBatchGenerating) {
+        if (!confirm('Quá trình tạo quiz đang diễn ra. Bạn có chắc muốn dừng lại?')) {
+            return;
+        }
+        if (batchQuizAbortController) {
+            batchQuizAbortController.abort();
+            batchQuizAbortController = null;
+        }
+    }
+    if (ui.batchQuizModal) {
+        ui.batchQuizModal.classList.add('hidden');
+    }
+    batchTopicsData = [];
+    isBatchGenerating = false;
+}
+
+function updateBatchSelectionCount() {
+    const total = batchTopicsData.length;
+    const selectedCount = batchTopicsData.filter(t => t.selected).length;
+
+    if (ui.batchSelectedCount) ui.batchSelectedCount.textContent = selectedCount;
+    if (ui.batchTotalCount) ui.batchTotalCount.textContent = total;
+
+    if (ui.batchSelectAllCb) {
+        ui.batchSelectAllCb.checked = selectedCount === total && total > 0;
+        ui.batchSelectAllCb.indeterminate = selectedCount > 0 && selectedCount < total;
+    }
+
+    if (ui.batchStartBtn && !isBatchGenerating) {
+        if (selectedCount === 0) {
+            ui.batchStartBtn.disabled = true;
+            ui.batchStartBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            ui.batchStartBtn.innerHTML = '<span>⚡ Chọn ít nhất 1 chủ đề</span>';
+        } else {
+            ui.batchStartBtn.disabled = false;
+            ui.batchStartBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            ui.batchStartBtn.innerHTML = `<span>⚡ Bắt đầu tạo (${selectedCount} chủ đề)</span>`;
+        }
+    }
+}
+
+function toggleSelectAllBatchTopics() {
+    const isChecked = ui.batchSelectAllCb ? ui.batchSelectAllCb.checked : true;
+    batchTopicsData.forEach(item => {
+        item.selected = isChecked;
+    });
+    renderBatchTopicsList();
+    updateBatchSelectionCount();
+}
+
+function renderBatchTopicsList() {
+    if (!ui.batchTopicsList) return;
+    ui.batchTopicsList.innerHTML = '';
+
+    batchTopicsData.forEach((item, idx) => {
+        const row = document.createElement('div');
+        const isSel = item.selected !== false;
+        row.className = `p-2.5 rounded-xl border transition ${isSel ? 'border-gray-200 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-800/40' : 'border-dashed border-gray-200 dark:border-gray-800/60 bg-gray-100/40 dark:bg-gray-900/30 opacity-60'} space-y-2 text-xs`;
+        row.id = `batch-topic-row-${item.topic_id}`;
+
+        const statusBadge = `<span id="batch-status-badge-${item.topic_id}" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 shrink-0">Chờ tạo</span>`;
+
+        row.innerHTML = `
+            <div class="flex items-center justify-between gap-2">
+                <label class="flex items-center gap-2 cursor-pointer flex-1 min-w-0 select-none">
+                    <input type="checkbox" data-idx="${idx}" class="batch-topic-cb w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300 dark:border-gray-700 dark:bg-gray-800 cursor-pointer shrink-0" ${isSel ? 'checked' : ''}>
+                    <span class="font-bold text-gray-800 dark:text-gray-100 truncate ${isSel ? '' : 'text-gray-400 dark:text-gray-500'}" title="${escapeHtml(item.title)}">
+                        ${idx + 1}. ${escapeHtml(item.title)}
+                    </span>
+                </label>
+                ${statusBadge}
+            </div>
+            <div class="grid grid-cols-3 gap-1.5 ${isSel ? '' : 'pointer-events-none opacity-40'}">
+                <select data-idx="${idx}" data-field="num_questions" ${isSel ? '' : 'disabled'} class="batch-field text-[11px] font-bold p-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+                    <option value="5" ${item.num_questions === 5 ? 'selected' : ''}>5 câu</option>
+                    <option value="10" ${item.num_questions === 10 ? 'selected' : ''}>10 câu</option>
+                    <option value="15" ${item.num_questions === 15 ? 'selected' : ''}>15 câu</option>
+                    <option value="20" ${item.num_questions === 20 ? 'selected' : ''}>20 câu</option>
+                </select>
+                <select data-idx="${idx}" data-field="difficulty" ${isSel ? '' : 'disabled'} class="batch-field text-[11px] font-bold p-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+                    <option value="easy" ${item.difficulty === 'easy' ? 'selected' : ''}>🌱 Cơ bản</option>
+                    <option value="medium" ${item.difficulty === 'medium' ? 'selected' : ''}>⚡ Chuẩn thi</option>
+                    <option value="hard" ${item.difficulty === 'hard' ? 'selected' : ''}>🔥 Nâng cao</option>
+                </select>
+                <select data-idx="${idx}" data-field="question_type" ${isSel ? '' : 'disabled'} class="batch-field text-[11px] font-bold p-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+                    <option value="theory" ${item.question_type === 'theory' ? 'selected' : ''}>📖 Lý thuyết</option>
+                    <option value="balanced" ${item.question_type === 'balanced' ? 'selected' : ''}>⚖️ Cân bằng</option>
+                    <option value="calculation" ${item.question_type === 'calculation' ? 'selected' : ''}>🧮 Tính toán</option>
+                </select>
+            </div>
+        `;
+
+        const cb = row.querySelector('.batch-topic-cb');
+        if (cb) {
+            cb.addEventListener('change', (e) => {
+                const targetIdx = parseInt(e.target.getAttribute('data-idx'), 10);
+                batchTopicsData[targetIdx].selected = e.target.checked;
+                renderBatchTopicsList();
+                updateBatchSelectionCount();
+            });
+        }
+
+        row.querySelectorAll('.batch-field').forEach(sel => {
+            sel.addEventListener('change', (e) => {
+                const targetIdx = parseInt(e.target.getAttribute('data-idx'), 10);
+                const field = e.target.getAttribute('data-field');
+                let val = e.target.value;
+                if (field === 'num_questions') val = parseInt(val, 10);
+                batchTopicsData[targetIdx][field] = val;
+            });
+        });
+
+        ui.batchTopicsList.appendChild(row);
+    });
+}
+
+function applyGlobalPresetToAllBatchTopics() {
+    const numQ = parseInt(ui.batchGlobalNum.value, 10);
+    const diff = ui.batchGlobalDiff.value;
+    const qType = ui.batchGlobalType.value;
+
+    batchTopicsData.forEach(item => {
+        item.num_questions = numQ;
+        item.difficulty = diff;
+        item.question_type = qType;
+    });
+
+    renderBatchTopicsList();
+
+    const origText = ui.batchApplyAllBtn.textContent;
+    ui.batchApplyAllBtn.textContent = '✓ Đã áp dụng!';
+    setTimeout(() => { ui.batchApplyAllBtn.textContent = origText; }, 1200);
+}
+
+async function startBatchQuizGeneration() {
+    const selectedTopics = batchTopicsData.filter(t => t.selected !== false);
+    if (selectedTopics.length === 0) {
+        alert('Vui lòng tick chọn ít nhất 1 chủ đề để tạo trắc nghiệm.');
+        return;
+    }
+    if (isBatchGenerating) return;
+
+    if (batchQuizAbortController) {
+        batchQuizAbortController.abort();
+    }
+    batchQuizAbortController = new AbortController();
+
+    isBatchGenerating = true;
+    if (ui.batchStartBtn) {
+        ui.batchStartBtn.disabled = true;
+        ui.batchStartBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    }
+    if (ui.batchCancelBtn) {
+        ui.batchCancelBtn.innerHTML = '<span>✕ Hủy tiến trình</span>';
+        ui.batchCancelBtn.className = 'flex-1 bg-red-100 hover:bg-red-200 dark:bg-red-950/50 dark:hover:bg-red-950/70 text-red-700 dark:text-red-300 font-bold py-2.5 px-3 rounded-xl text-xs transition cursor-pointer';
+    }
+    if (ui.batchProgressContainer) ui.batchProgressContainer.classList.remove('hidden');
+    if (ui.batchProgressBar) ui.batchProgressBar.style.width = '0%';
+    if (ui.batchProgressPercent) ui.batchProgressPercent.textContent = '0%';
+    if (ui.batchProgressText) ui.batchProgressText.textContent = `🚀 Bắt đầu tạo ${selectedTopics.length} chủ đề...`;
+
+    try {
+        const payload = {
+            course: ui.courseFilter.value || null,
+            topics: selectedTopics.map(t => ({
+                topic_id: t.topic_id,
+                title: t.title,
+                force_refresh: true,
+                num_questions: t.num_questions,
+                difficulty: t.difficulty,
+                question_type: t.question_type
+            }))
+        };
+
+        const res = await fetch(`${API_BASE_URL}/api/study/batch-quiz`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal: batchQuizAbortController.signal,
+            body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error(`Lỗi từ máy chủ: ${res.status}`);
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+
+            for (const line of lines) {
+                if (!line.trim()) continue;
+                let event;
+                try {
+                    event = JSON.parse(line);
+                } catch (pe) {
+                    console.warn('Batch stream JSON parse warning:', pe);
+                    continue;
+                }
+
+                if (event.type === 'batch_started') {
+                    if (ui.batchProgressText) ui.batchProgressText.textContent = event.message || 'Đang tạo câu hỏi...';
+                } else if (event.type === 'topic_progress') {
+                    const badge = document.getElementById(`batch-status-badge-${event.topic_id}`);
+                    if (badge) {
+                        badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 animate-pulse';
+                        badge.textContent = `${event.percentage}%`;
+                    }
+                    if (ui.batchCurrentTopicStatus) {
+                        ui.batchCurrentTopicStatus.textContent = `⚡ [${event.percentage}%] ${event.details || ''}`;
+                    }
+                } else if (event.type === 'topic_completed') {
+                    const badge = document.getElementById(`batch-status-badge-${event.topic_id}`);
+                    if (badge) {
+                        if (event.success) {
+                            badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300';
+                            badge.textContent = `✓ ${event.num_questions} câu`;
+                        } else {
+                            badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300';
+                            badge.textContent = '✕ Lỗi';
+                        }
+                    }
+                    if (ui.batchProgressBar) ui.batchProgressBar.style.width = `${event.percentage}%`;
+                    if (ui.batchProgressPercent) ui.batchProgressPercent.textContent = `${event.percentage}%`;
+                    if (ui.batchProgressText) ui.batchProgressText.textContent = `Đã hoàn thành ${event.completed_count}/${event.total_count} chủ đề`;
+                } else if (event.type === 'batch_finished') {
+                    if (ui.batchProgressBar) ui.batchProgressBar.style.width = '100%';
+                    if (ui.batchProgressPercent) ui.batchProgressPercent.textContent = '100%';
+                    if (ui.batchProgressText) {
+                        ui.batchProgressText.textContent = `🎉 Hoàn tất! Tạo thành công ${event.successful_topics}/${event.total_topics} chủ đề`;
+                    }
+                    if (ui.batchCurrentTopicStatus) {
+                        ui.batchCurrentTopicStatus.textContent = 'Toàn bộ câu hỏi đã sẵn sàng trong bộ nhớ đệm.';
+                    }
+
+                    const tg = window.Telegram?.WebApp;
+                    if (tg?.HapticFeedback) {
+                        try {
+                            tg.HapticFeedback.notificationOccurred('success');
+                        } catch (e) {}
+                    }
+                } else if (event.type === 'error') {
+                    throw new Error(event.message);
+                }
+            }
+        }
+    } catch (err) {
+        if (err.name === 'AbortError') {
+            console.log('Batch quiz generation aborted.');
+            if (ui.batchProgressText) ui.batchProgressText.textContent = '⏹️ Đã dừng tạo trắc nghiệm.';
+            return;
+        }
+        console.error('Batch quiz error:', err);
+        alert('Lỗi tạo hàng loạt: ' + (err.message || 'Không xác định'));
+        if (ui.batchProgressText) ui.batchProgressText.textContent = '❌ Quá trình tạo gặp sự cố';
+    } finally {
+        isBatchGenerating = false;
+        batchQuizAbortController = null;
+        if (ui.batchCancelBtn) {
+            ui.batchCancelBtn.innerHTML = '<span>Đóng</span>';
+            ui.batchCancelBtn.className = 'flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold py-2.5 px-3 rounded-xl text-xs transition cursor-pointer';
+        }
+        if (ui.batchStartBtn) {
+            ui.batchStartBtn.disabled = false;
+            ui.batchStartBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            ui.batchStartBtn.innerHTML = '<span>🔄 Tạo lại các chủ đề đã chọn</span>';
+        }
+    }
+}
 function renderMath() {
     if (typeof renderMathInElement === 'function') {
         renderMathInElement(document.getElementById('quiz-view'), {

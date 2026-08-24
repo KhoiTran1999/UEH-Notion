@@ -31,13 +31,16 @@
     <div id="app" class="max-w-md mx-auto p-4 flex flex-col h-screen">
 
         <!-- Loading State -->
-        <div id="loading-view" class="hidden flex-1 flex flex-col items-center justify-center p-6">
-            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
-            <p id="loading-text" class="text-gray-600 dark:text-gray-400 text-center mb-4 font-medium">Đang tải...</p>
+        <div id="loading-view" class="hidden flex-1 flex flex-col items-center justify-center p-6 space-y-4">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+            <p id="loading-text" class="text-gray-600 dark:text-gray-400 text-center font-medium">Đang tải...</p>
             <div class="w-full bg-gray-200 dark:bg-gray-800 h-2 rounded-full overflow-hidden max-w-xs shadow-inner">
                 <div id="loading-progress-bar" class="bg-blue-500 h-2 rounded-full w-0 transition-all duration-300 ease-out"></div>
             </div>
-            <span id="loading-percentage" class="text-xs text-blue-500 font-bold mt-2">0%</span>
+            <span id="loading-percentage" class="text-xs text-blue-500 font-bold">0%</span>
+            <button id="cancel-loading-btn" type="button" class="hidden text-xs font-bold text-red-500 hover:text-red-600 dark:text-red-400 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 px-3.5 py-1.5 rounded-xl border border-red-200 dark:border-red-900/50 transition cursor-pointer active:scale-95">
+                ✕ Hủy tạo câu hỏi
+            </button>
         </div>
 
         <!-- Topics View -->
@@ -52,12 +55,15 @@
             <!-- Filters & Search -->
             <div id="filters-container" class="mb-4 space-y-2">
                 <input type="text" id="search-input" placeholder="🔍 Tìm kiếm chủ đề..." class="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-150">
-                <div class="flex gap-2">
-                    <select id="course-filter" class="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-150">
-                        <option value="">Tất cả môn học</option>
-                    </select>
-                    <button id="quick-review-btn" class="bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm transition duration-150 flex items-center gap-1.5 shrink-0">
+                <select id="course-filter" class="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-150">
+                    <option value="">Tất cả môn học</option>
+                </select>
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="quick-review-btn" onclick="startQuickReview()" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold py-2.5 px-3 rounded-xl shadow-sm transition duration-150 flex items-center justify-center gap-1.5">
                         ⚡ Ôn tập nhanh
+                    </button>
+                    <button id="batch-quiz-btn" onclick="openBatchQuizModal()" class="w-full bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white text-xs font-bold py-2.5 px-3 rounded-xl shadow-sm transition duration-150 flex items-center justify-center gap-1.5 cursor-pointer active:scale-95" title="Tạo quiz toàn bộ các chủ đề của môn học cùng lúc">
+                        ✨ Tạo trọn bộ môn
                     </button>
                 </div>
                 <div class="flex gap-2">
@@ -352,8 +358,93 @@
             </div>
         </div>
 
+        <!-- Batch Quiz Generation Modal for Entire Course -->
+        <div id="batch-quiz-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs fade-in">
+            <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 w-full max-w-lg rounded-2xl shadow-2xl p-5 space-y-4 max-h-[90vh] flex flex-col">
+                <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xl">✨</span>
+                        <div>
+                            <h3 class="font-bold text-gray-900 dark:text-gray-100 text-base leading-tight">Tạo trắc nghiệm toàn bộ môn học</h3>
+                            <p id="batch-modal-course-title" class="text-xs text-indigo-600 dark:text-indigo-400 font-semibold truncate max-w-[280px] mt-0.5">Môn học đã chọn</p>
+                        </div>
+                    </div>
+                    <button id="close-batch-modal-btn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition" title="Đóng">
+                        ✕
+                    </button>
+                </div>
+
+                <!-- Global Preset Controls (Applies to all topics) -->
+                <div class="bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 p-3 rounded-xl space-y-2">
+                    <div class="flex items-center justify-between">
+                        <label class="flex items-center gap-2 cursor-pointer text-xs font-bold text-indigo-900 dark:text-indigo-300 select-none">
+                            <input type="checkbox" id="batch-select-all-cb" checked class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300 cursor-pointer">
+                            <span>Chọn tất cả (<span id="batch-selected-count" class="text-indigo-600 dark:text-indigo-400 font-extrabold">0</span>/<span id="batch-total-count">0</span>)</span>
+                        </label>
+                        <button id="batch-apply-all-btn" class="text-[11px] bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-2.5 py-1 rounded-lg transition shadow-xs cursor-pointer">
+                            Áp dụng toàn bộ
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-600 dark:text-gray-400 mb-1">Số câu/chủ đề</label>
+                            <select id="batch-global-num" class="w-full text-xs font-bold p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+                                <option value="5">5 câu</option>
+                                <option value="10">10 câu</option>
+                                <option value="15" selected>15 câu</option>
+                                <option value="20">20 câu</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-600 dark:text-gray-400 mb-1">Độ khó</label>
+                            <select id="batch-global-diff" class="w-full text-xs font-bold p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+                                <option value="easy">🌱 Cơ bản</option>
+                                <option value="medium" selected>⚡ Chuẩn thi</option>
+                                <option value="hard">🔥 Nâng cao</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-600 dark:text-gray-400 mb-1">Dạng câu</label>
+                            <select id="batch-global-type" class="w-full text-xs font-bold p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+                                <option value="theory">📖 Lý thuyết</option>
+                                <option value="balanced" selected>⚖️ Cân bằng</option>
+                                <option value="calculation">🧮 Tính toán</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Topic List with Per-Topic Settings -->
+                <div class="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[160px] max-h-[300px]" id="batch-topics-list">
+                    <!-- Injected via JavaScript -->
+                </div>
+
+                <!-- Batch Progress View (Hidden by default) -->
+                <div id="batch-progress-container" class="hidden space-y-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                    <div class="flex items-center justify-between text-xs font-bold">
+                        <span id="batch-progress-text" class="text-indigo-600 dark:text-indigo-400">Đang khởi tạo tiến trình...</span>
+                        <span id="batch-progress-percent" class="text-gray-700 dark:text-gray-300">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 dark:bg-gray-800 h-2.5 rounded-full overflow-hidden shadow-inner">
+                        <div id="batch-progress-bar" class="bg-gradient-to-r from-purple-500 to-indigo-600 h-2.5 rounded-full w-0 transition-all duration-300 ease-out"></div>
+                    </div>
+                    <p id="batch-current-topic-status" class="text-[11px] text-gray-500 dark:text-gray-400 truncate"></p>
+                </div>
+
+                <!-- Actions -->
+                <div class="pt-2 border-t border-gray-100 dark:border-gray-800 flex gap-2">
+                    <button id="batch-cancel-btn" type="button" class="flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold py-2.5 px-3 rounded-xl text-xs transition">
+                        Đóng
+                    </button>
+                    <button id="batch-start-btn" type="button" class="flex-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs shadow-md transition flex items-center justify-center gap-1.5">
+                        <span>⚡ Bắt đầu tạo toàn bộ môn</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
     </div>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=2.2"></script>
 </body>
 </html>
