@@ -55,7 +55,11 @@ const ui = {
     quizModeIcon: document.getElementById('quiz-mode-icon'),
     quizModeText: document.getElementById('quiz-mode-text'),
     searchInput: document.getElementById('search-input'),
+    clearSearchBtn: document.getElementById('clear-search-btn'),
     courseFilter: document.getElementById('course-filter'),
+    topicsSummaryText: document.getElementById('topics-summary-text'),
+    resetFilterBtn: document.getElementById('reset-filter-btn'),
+    noTopicsDesc: document.getElementById('no-topics-desc'),
     quickReviewBtn: document.getElementById('quick-review-btn'),
     quizDoneBtn: document.getElementById('quiz-done-btn'),
     refreshCandidatesBtn: document.getElementById('refresh-candidates-btn'),
@@ -433,8 +437,17 @@ function populateCourseFilter() {
 
 // Helper: Filter & Render Topics
 function filterAndRenderTopics() {
-    const searchQuery = ui.searchInput.value.toLowerCase().trim();
+    const rawSearch = ui.searchInput.value;
+    const searchQuery = rawSearch.toLowerCase().trim();
     const selectedCourse = ui.courseFilter.value;
+
+    if (ui.clearSearchBtn) {
+        if (rawSearch.length > 0) {
+            ui.clearSearchBtn.classList.remove('hidden');
+        } else {
+            ui.clearSearchBtn.classList.add('hidden');
+        }
+    }
 
     const filtered = allTopics.filter(topic => {
         const matchesCourse = !selectedCourse || topic.course === selectedCourse;
@@ -444,6 +457,27 @@ function filterAndRenderTopics() {
             (topic.course && topic.course.toLowerCase().includes(searchQuery));
         return matchesCourse && matchesSearch;
     });
+
+    // Update Summary Header
+    if (ui.topicsSummaryText) {
+        const cachedCount = filtered.filter(t => t.has_cached_quiz).length;
+        if (allTopics.length === 0) {
+            ui.topicsSummaryText.textContent = 'Chưa có chủ đề nào';
+        } else if (filtered.length === allTopics.length) {
+            ui.topicsSummaryText.textContent = `${filtered.length} chủ đề • ${cachedCount} đã sẵn sàng`;
+        } else {
+            ui.topicsSummaryText.textContent = `Hiển thị ${filtered.length}/${allTopics.length} chủ đề • ${cachedCount} sẵn sàng`;
+        }
+    }
+
+    // Dynamic Empty State description
+    if (ui.noTopicsDesc) {
+        if (searchQuery || selectedCourse) {
+            ui.noTopicsDesc.textContent = 'Không có chủ đề nào khớp với từ khóa tìm kiếm hoặc môn học đã chọn.';
+        } else {
+            ui.noTopicsDesc.textContent = 'Tuyệt vời! Bạn đã hoàn thành ôn tập tất cả chủ đề.';
+        }
+    }
 
     renderTopics(filtered);
 }
@@ -771,7 +805,7 @@ async function markTopicAsMastered(topicId, cardElement) {
     const masteredBtn = cardElement.querySelector('.mastered-btn');
     if (masteredBtn) {
         masteredBtn.disabled = true;
-        masteredBtn.innerHTML = '⏱ Đang lưu...';
+        masteredBtn.innerHTML = '<span>⏱</span><span>Đang lưu...</span>';
     }
 
     try {
@@ -814,7 +848,12 @@ async function markTopicAsMastered(topicId, cardElement) {
         alert('Lỗi khi cập nhật trạng thái.');
         if (masteredBtn) {
             masteredBtn.disabled = false;
-            masteredBtn.innerHTML = '✅ Đã nắm vững';
+            masteredBtn.innerHTML = `
+                <svg class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Đã nắm vững</span>
+            `;
         }
     }
 }
@@ -836,55 +875,63 @@ function renderTopics(topics) {
 
     topics.forEach(topic => {
         const card = document.createElement('div');
-        card.className = 'w-full bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 hover:shadow-md transition duration-200 flex flex-col space-y-3';
+        const cardClasses = topic.has_cached_quiz
+            ? 'w-full bg-indigo-50/35 dark:bg-indigo-950/20 p-4 rounded-xl shadow-sm border border-indigo-200 dark:border-indigo-800/60 hover:shadow-md transition duration-200 flex flex-col space-y-3'
+            : 'w-full bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 hover:shadow-md transition duration-200 flex flex-col space-y-3';
+        card.className = cardClasses;
 
-        let metaHtml = '';
-        if (topic.course || topic.chapter || topic.updated_at || topic.has_cached_quiz !== undefined) {
-            metaHtml += `<div class="flex flex-wrap gap-1.5 w-full items-center">`;
-            if (topic.course) {
-                metaHtml += `<span class="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-[10px] font-semibold px-2 py-0.5 rounded border border-blue-100 dark:border-blue-900/50 truncate max-w-[150px]">🔹 ${escapeHtml(topic.course)}</span>`;
-            }
-            if (topic.chapter) {
-                metaHtml += `<span class="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-[10px] font-semibold px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700 truncate max-w-[200px]">📍 ${escapeHtml(topic.chapter)}</span>`;
-            }
-            if (topic.has_cached_quiz) {
-                metaHtml += `<span class="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 text-[10px] font-semibold px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-900/50 flex items-center gap-1" title="Đã có bộ câu hỏi lưu trong Redis cache">⚡ Đã có cache</span>`;
-            } else {
-                metaHtml += `<span class="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-[10px] font-semibold px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700 flex items-center gap-1" title="Chưa có cache trong Redis (sẽ tạo bằng AI khi bấm vào)">⏳ Chưa có cache</span>`;
-            }
-            if (topic.updated_at) {
-                let dateStr = topic.updated_at;
-                try {
-                    const d = new Date(topic.updated_at);
-                    if (!isNaN(d.getTime())) {
-                        const h = String(d.getHours()).padStart(2, '0');
-                        const m = String(d.getMinutes()).padStart(2, '0');
-                        dateStr = `${h}:${m} ${d.toLocaleDateString('vi-VN')}`;
-                    }
-                } catch (e) {}
-                metaHtml += `<span class="bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-[10px] font-semibold px-2 py-0.5 rounded border border-amber-100 dark:border-amber-900/50">🕒 ${escapeHtml(dateStr)}</span>`;
-            }
-            metaHtml += `</div>`;
+        let chapterHtml = '';
+        if (topic.chapter) {
+            chapterHtml = `<div class="flex items-center"><span class="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-[10px] font-medium px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700/80">📍 ${escapeHtml(topic.chapter)}</span></div>`;
         }
 
+        let dateHtml = '';
+        if (topic.updated_at) {
+            let dateStr = topic.updated_at;
+            try {
+                const d = new Date(topic.updated_at);
+                if (!isNaN(d.getTime())) {
+                    const h = String(d.getHours()).padStart(2, '0');
+                    const m = String(d.getMinutes()).padStart(2, '0');
+                    dateStr = `${h}:${m} ${d.toLocaleDateString('vi-VN')}`;
+                }
+            } catch (e) {}
+            dateHtml = `<span class="text-[10px] text-gray-400 dark:text-gray-500 font-normal shrink-0 select-none">${escapeHtml(dateStr)}</span>`;
+        }
+
+        const courseHtml = topic.course
+            ? `<span class="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 truncate max-w-[200px]">${escapeHtml(topic.course)}</span>`
+            : '<span></span>';
+
         card.innerHTML = `
-            <div class="topic-content cursor-pointer flex-1 flex flex-col space-y-2">
-                <span class="font-semibold text-gray-800 dark:text-gray-100 text-sm md:text-base leading-tight">${escapeHtml(topic.title)}</span>
-                ${metaHtml}
-            </div>
-            <div class="flex justify-between items-center pt-2 border-t border-gray-100 dark:border-gray-800 mt-1">
-                <div class="flex items-center gap-2">
-                    <span class="text-[11px] text-blue-500 hover:text-blue-600 dark:text-blue-400 font-semibold cursor-pointer topic-link">Ôn tập &rarr;</span>
-                    <button class="config-quiz-btn text-[10px] text-indigo-600 dark:text-indigo-400 font-bold px-2 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800/60 transition flex items-center gap-1" title="Tùy chỉnh số câu, độ khó, dạng câu">
-                        <span>⚙️</span><span>Tùy chỉnh</span>
-                    </button>
+            <div class="topic-content cursor-pointer flex-1 flex flex-col space-y-1.5">
+                <div class="flex justify-between items-center gap-2">
+                    ${courseHtml}
+                    ${dateHtml}
                 </div>
-                <div class="flex items-center gap-1.5">
-                    <button class="clear-cache-topic-btn bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 text-red-500 text-xs font-semibold px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 transition duration-150 flex items-center" title="Xóa cache quiz của chủ đề này">
-                        🗑️
+                <span class="font-semibold text-gray-800 dark:text-gray-100 text-sm md:text-base leading-tight">${escapeHtml(topic.title)}</span>
+                ${chapterHtml}
+            </div>
+            <div class="flex justify-between items-center pt-2.5 border-t border-gray-100 dark:border-gray-800/80 mt-0.5 relative">
+                <div class="relative">
+                    <button class="topic-menu-btn w-8 h-8 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition flex items-center justify-center text-base" title="Tùy chọn khác">
+                        ⋮
                     </button>
-                    <button class="mastered-btn bg-green-50 hover:bg-green-100 dark:bg-green-950/40 dark:hover:bg-green-950/60 text-green-700 dark:text-green-400 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-green-200 dark:border-green-900/50 transition duration-150 flex items-center gap-1">
-                        ✅ Đã nắm vững
+                    <div class="topic-menu-dropdown hidden absolute left-0 bottom-full mb-1 w-44 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-20 text-xs">
+                        <button class="config-quiz-btn w-full text-left px-3 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-750 flex items-center gap-2 transition">
+                            <span>⚙️</span><span>Tùy chỉnh câu hỏi</span>
+                        </button>
+                        <button class="clear-cache-topic-btn w-full text-left px-3 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex items-center gap-2 transition border-t border-gray-100 dark:border-gray-700/60">
+                            <span>🗑️</span><span>Xóa cache quiz</span>
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <button class="mastered-btn bg-emerald-50/70 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400 text-xs font-semibold px-3 py-1 rounded-full border border-emerald-300/80 dark:border-emerald-700/60 hover:border-emerald-400 transition-all duration-150 flex items-center gap-1.5 active:scale-95 shadow-2xs">
+                        <svg class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>Đã nắm vững</span>
                     </button>
                 </div>
             </div>
@@ -898,25 +945,44 @@ function renderTopics(topics) {
             }
         };
         card.querySelector('.topic-content').onclick = openQuiz;
-        card.querySelector('.topic-link').onclick = openQuiz;
+
+        const menuBtn = card.querySelector('.topic-menu-btn');
+        const menuDropdown = card.querySelector('.topic-menu-dropdown');
+
+        menuBtn.onclick = (e) => {
+            e.stopPropagation();
+            // Đóng các menu khác trước khi mở menu này
+            document.querySelectorAll('.topic-menu-dropdown').forEach(el => {
+                if (el !== menuDropdown) el.classList.add('hidden');
+            });
+            menuDropdown.classList.toggle('hidden');
+        };
 
         card.querySelector('.config-quiz-btn').onclick = (e) => {
             e.stopPropagation();
+            menuDropdown.classList.add('hidden');
             openQuizConfigModal(topic);
         };
 
         card.querySelector('.mastered-btn').onclick = (e) => {
             e.stopPropagation();
+            menuDropdown.classList.add('hidden');
             markTopicAsMastered(topic.id, card);
         };
 
         card.querySelector('.clear-cache-topic-btn').onclick = (e) => {
             e.stopPropagation();
+            menuDropdown.classList.add('hidden');
             clearQuizCacheForTopic(topic);
         };
 
         ui.topicsList.appendChild(card);
     });
+
+    // Đóng dropdown khi click ra ngoài
+    document.addEventListener('click', () => {
+        document.querySelectorAll('.topic-menu-dropdown').forEach(el => el.classList.add('hidden'));
+    }, { once: true });
 
     checkAndRenderResumeBanner();
     showView('topics');
@@ -1731,6 +1797,20 @@ ui.searchInput.addEventListener('input', () => {
     if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
     searchDebounceTimer = setTimeout(filterAndRenderTopics, 250);
 });
+if (ui.clearSearchBtn) {
+    ui.clearSearchBtn.addEventListener('click', () => {
+        ui.searchInput.value = '';
+        filterAndRenderTopics();
+        ui.searchInput.focus();
+    });
+}
+if (ui.resetFilterBtn) {
+    ui.resetFilterBtn.addEventListener('click', () => {
+        ui.searchInput.value = '';
+        ui.courseFilter.value = '';
+        fetchTopics(true);
+    });
+}
 ui.courseFilter.addEventListener('change', filterAndRenderTopics);
 ui.quickReviewBtn.addEventListener('click', () => startQuickReview());
 if (ui.batchQuizBtn) {

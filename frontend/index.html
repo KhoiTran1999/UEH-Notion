@@ -45,46 +45,52 @@
 
         <!-- Topics View -->
         <div id="topics-view" class="flex-1 flex flex-col">
-            <div class="flex items-center justify-between mb-6">
-                <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">Chọn chủ đề ôn tập</h1>
-                <button id="refresh-candidates-btn" class="w-10 h-10 flex items-center justify-center rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-gray-500 dark:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm text-xl font-bold" title="Tải lại từ Notion" aria-label="Tải lại danh sách chủ đề từ Notion">
-                    ⟳
-                </button>
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h1 class="text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100">Chủ đề ôn tập</h1>
+                    <p id="topics-summary-text" class="text-[11px] text-gray-400 dark:text-gray-500 font-medium mt-0.5">Đang tải chủ đề...</p>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <button id="toggle-timeline-btn" class="h-9 px-2.5 flex items-center justify-center rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-gray-600 dark:text-gray-300 shadow-xs text-xs font-semibold gap-1" title="Xem Deadline trên Web" aria-label="Xem Deadline">
+                        <span>📅</span><span class="hidden sm:inline">Deadline</span>
+                    </button>
+                    <button id="refresh-candidates-btn" class="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-gray-500 dark:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-xs text-lg font-bold" title="Tải lại từ Notion" aria-label="Tải lại danh sách chủ đề từ Notion">
+                        ⟳
+                    </button>
+                </div>
             </div>
 
             <!-- Filters & Search -->
-            <div id="filters-container" class="mb-4 space-y-2">
-                <input type="text" id="search-input" placeholder="🔍 Tìm kiếm chủ đề..." class="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-150">
-                <select id="course-filter" class="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-150">
+            <div id="filters-container" class="mb-3 space-y-2">
+                <div class="relative flex items-center">
+                    <input type="text" id="search-input" placeholder="🔍 Tìm kiếm chủ đề..." class="w-full pl-3.5 pr-8 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-150">
+                    <button id="clear-search-btn" class="hidden absolute right-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm font-bold p-0.5" title="Xóa tìm kiếm">✕</button>
+                </div>
+                <select id="course-filter" class="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-150">
                     <option value="">Tất cả môn học</option>
                 </select>
                 <div class="grid grid-cols-2 gap-2">
-                    <button id="quick-review-btn" onclick="startQuickReview()" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold py-2.5 px-3 rounded-xl shadow-sm transition duration-150 flex items-center justify-center gap-1.5">
+                    <button id="quick-review-btn" onclick="startQuickReview()" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold py-2 px-3 rounded-xl shadow-xs transition duration-150 flex items-center justify-center gap-1.5 active:scale-98">
                         ⚡ Ôn tập nhanh
                     </button>
-                    <button id="batch-quiz-btn" onclick="openBatchQuizModal()" class="w-full bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white text-xs font-bold py-2.5 px-3 rounded-xl shadow-sm transition duration-150 flex items-center justify-center gap-1.5 cursor-pointer active:scale-95" title="Tạo quiz toàn bộ các chủ đề của môn học cùng lúc">
+                    <button id="batch-quiz-btn" onclick="openBatchQuizModal()" class="w-full bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white text-xs font-bold py-2 px-3 rounded-xl shadow-xs transition duration-150 flex items-center justify-center gap-1.5 cursor-pointer active:scale-98" title="Tạo quiz toàn bộ các chủ đề của môn học cùng lúc">
                         ✨ Tạo trọn bộ môn
-                    </button>
-                </div>
-                <div class="flex gap-2">
-                    <button id="toggle-timeline-btn" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold py-2.5 rounded-xl shadow-sm transition duration-150 flex items-center justify-center gap-1.5">
-                        📅 Xem Deadline trên Web
                     </button>
                 </div>
             </div>
 
             <!-- Resume Quiz Banner -->
-            <div id="resume-quiz-banner" class="hidden mb-4 p-3.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl shadow-md flex items-center justify-between gap-3 fade-in cursor-pointer hover:shadow-lg transition">
+            <div id="resume-quiz-banner" class="hidden mb-3 p-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl shadow-sm flex items-center justify-between gap-3 fade-in cursor-pointer hover:shadow-md transition">
                 <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-1.5 text-xs font-semibold opacity-90">
                         <span>⏱️</span>
                         <span>Đang làm dở</span>
                         <span id="resume-quiz-badge" class="bg-white/20 text-[10px] px-1.5 py-0.5 rounded-full font-bold">Câu 1/5</span>
                     </div>
-                    <p id="resume-quiz-title" class="font-bold text-sm truncate mt-0.5">Tên chủ đề</p>
+                    <p id="resume-quiz-title" class="font-bold text-xs md:text-sm truncate mt-0.5">Tên chủ đề</p>
                 </div>
                 <div class="flex items-center gap-1.5 shrink-0">
-                    <button id="resume-quiz-btn" class="bg-white text-blue-600 hover:bg-blue-50 text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm transition active:scale-95">
+                    <button id="resume-quiz-btn" class="bg-white text-blue-600 hover:bg-blue-50 text-xs font-bold px-3 py-1.5 rounded-lg shadow-xs transition active:scale-95">
                         Làm tiếp
                     </button>
                     <button id="discard-resume-btn" class="text-white/70 hover:text-white text-lg p-1 transition" title="Bỏ qua" aria-label="Bỏ qua bài làm dở">
@@ -97,8 +103,15 @@
             <div id="topics-list" class="space-y-3 overflow-y-auto pb-4">
                 <!-- Topics injected here -->
             </div>
-            <div id="no-topics" class="hidden text-center text-gray-500 dark:text-gray-400 mt-10">
-                Không có chủ đề nào cần ôn tập.
+            <div id="no-topics" class="hidden flex flex-col items-center justify-center py-12 px-4 text-center">
+                <div class="w-14 h-14 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-2xl mb-3">
+                    🎯
+                </div>
+                <h3 class="text-sm md:text-base font-bold text-gray-700 dark:text-gray-200">Không tìm thấy chủ đề nào</h3>
+                <p id="no-topics-desc" class="text-xs text-gray-400 dark:text-gray-500 mt-1 max-w-xs">Bạn đã hoàn thành hết các chủ đề hoặc bộ lọc không khớp kết quả.</p>
+                <button id="reset-filter-btn" class="mt-4 px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 text-xs font-semibold rounded-xl border border-blue-200 dark:border-blue-800 transition flex items-center gap-1.5">
+                    🔄 Xóa bộ lọc & Tải lại
+                </button>
             </div>
         </div>
 
