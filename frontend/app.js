@@ -1028,11 +1028,6 @@ function renderTopics(topics) {
         ui.topicsList.appendChild(card);
     });
 
-    // Đóng dropdown khi click ra ngoài
-    document.addEventListener('click', () => {
-        document.querySelectorAll('.topic-menu-dropdown').forEach(el => el.classList.add('hidden'));
-    }, { once: true });
-
     checkAndRenderResumeBanner();
     showView('topics');
 }
@@ -1911,6 +1906,20 @@ if (ui.closeConfigModalBtn) {
 if (ui.modalCancelBtn) {
     ui.modalCancelBtn.addEventListener('click', closeQuizConfigModal);
 }
+if (ui.quizConfigModal) {
+    ui.quizConfigModal.addEventListener('click', (e) => {
+        if (e.target === ui.quizConfigModal) {
+            closeQuizConfigModal();
+        }
+    });
+}
+if (ui.batchQuizModal) {
+    ui.batchQuizModal.addEventListener('click', (e) => {
+        if (e.target === ui.batchQuizModal && !isBatchGenerating) {
+            closeBatchQuizModal();
+        }
+    });
+}
 if (ui.batchSelectAllCb) {
     ui.batchSelectAllCb.addEventListener('change', toggleSelectAllBatchTopics);
 }
@@ -2379,6 +2388,13 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchSavedQuizProgress().then(() => checkAndRenderResumeBanner());
         fetchTopics();
     }
+
+    // Global click listener: Đóng dropdown menu 3 chấm khi click ra ngoài
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.topic-menu-btn') && !e.target.closest('.topic-menu-dropdown')) {
+            document.querySelectorAll('.topic-menu-dropdown').forEach(el => el.classList.add('hidden'));
+        }
+    });
 
     // Hide the "Xem Deadline trên Web" button inside topics view by default or if not standalone,
     // actually, since they are separate pages, we hide it completely.
