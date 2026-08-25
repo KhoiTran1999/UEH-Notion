@@ -116,7 +116,7 @@ const ui = {
 
 
 // State
-let telegramData = { id: 123456789 }; // Mock for local testing
+let telegramData = { id: 'web_guest' };
 let allTopics = [];
 let currentTopic = null;
 let currentQuiz = [];
@@ -1989,38 +1989,54 @@ if (ui.configTypeGroup) {
 
 // Bind Telegram native BackButton for timeline too
 function initTelegram() {
-    const tg = window.Telegram.WebApp;
-    tg.expand();
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+        try {
+            tg.expand();
+        } catch (e) {}
 
-    // Get user ID from Telegram initData
-    if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-        telegramData = tg.initDataUnsafe.user;
-    }
+        // Get user ID from Telegram initData
+        if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+            telegramData = tg.initDataUnsafe.user;
+        }
 
-    // Apply dark mode theme if set in Telegram
-    if (tg.colorScheme === 'dark') {
-        document.documentElement.classList.add('dark');
-    } else {
-        document.documentElement.classList.remove('dark');
-    }
-
-    // Listen to Telegram theme changes
-    tg.onEvent('themeChanged', () => {
+        // Apply dark mode theme if set in Telegram
         if (tg.colorScheme === 'dark') {
             document.documentElement.classList.add('dark');
-        } else {
+        } else if (tg.colorScheme === 'light') {
             document.documentElement.classList.remove('dark');
         }
-    });
 
-    // Bind Telegram native BackButton
-    const urlParams = new URLSearchParams(window.location.search);
-    const isTimelineOnly = urlParams.get('view') === 'timeline';
-    if (tg.BackButton && tg.isVersionAtLeast && tg.isVersionAtLeast('6.1') && !isTimelineOnly) {
-        tg.BackButton.onClick(() => {
-            stopQuizTimer();
-            showView('topics');
-        });
+        // Listen to Telegram theme changes
+        if (typeof tg.onEvent === 'function') {
+            tg.onEvent('themeChanged', () => {
+                if (tg.colorScheme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            });
+        }
+
+        // Bind Telegram native BackButton
+        const urlParams = new URLSearchParams(window.location.search);
+        const isTimelineOnly = urlParams.get('view') === 'timeline';
+        if (tg.BackButton && tg.isVersionAtLeast && tg.isVersionAtLeast('6.1') && !isTimelineOnly) {
+            tg.BackButton.onClick(() => {
+                stopQuizTimer();
+                showView('topics');
+            });
+        }
+    }
+
+    // Fallback ID when running outside Telegram (standard browser / Vercel web)
+    if (!telegramData || !telegramData.id || telegramData.id === 'web_guest') {
+        let guestId = localStorage.getItem('study_guest_id');
+        if (!guestId) {
+            guestId = 'web_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36).substring(4);
+            localStorage.setItem('study_guest_id', guestId);
+        }
+        telegramData = { id: guestId, first_name: 'Guest User' };
     }
 }
 
