@@ -1,0 +1,11 @@
+# Ignore backend Python files so Vercel does not mistake this for a Python Serverless project
+src/
+tests/
+*.py
+requirements.txt
+Dockerfile
+render.yaml
+.venv/
+.pytest_cache/
+__pycache__/
+*.md
