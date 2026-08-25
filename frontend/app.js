@@ -2034,12 +2034,8 @@ function initTelegram() {
 
     // Fallback ID when running outside Telegram (standard browser / Vercel web)
     if (!telegramData || !telegramData.id || telegramData.id === 'web_guest') {
-        let guestId = localStorage.getItem('study_guest_id');
-        if (!guestId) {
-            guestId = 'web_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36).substring(4);
-            localStorage.setItem('study_guest_id', guestId);
-        }
-        telegramData = { id: guestId, first_name: 'Guest User' };
+        // Use a fixed ID for personal single-user deployment to sync across all browsers/devices
+        telegramData = { id: 'default_user', first_name: 'Me' };
     }
 }
 
