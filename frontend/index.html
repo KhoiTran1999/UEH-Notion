@@ -27,10 +27,25 @@
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        /* Custom scrollbar for better mobile UX */
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.4);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 163, 175, 0.7);
+        }
     </style>
 </head>
-<body class="bg-gray-100 dark:bg-gray-950 min-h-screen text-gray-800 dark:text-gray-200 font-sans">
-    <div id="app" class="max-w-md mx-auto p-4 flex flex-col h-screen">
+<body class="bg-gray-100 dark:bg-gray-950 min-h-[100dvh] text-gray-800 dark:text-gray-200 font-sans">
+    <div id="app" class="max-w-md mx-auto p-4 flex flex-col h-[100dvh] overflow-hidden">
 
         <!-- Loading State -->
         <div id="loading-view" class="hidden flex-1 flex flex-col items-center justify-center p-6 space-y-4">

@@ -405,12 +405,15 @@ function resumeSavedQuiz(savedData = null) {
 // Navigation
 function showView(viewName) {
     Object.values(views).forEach(v => v.classList.add('hidden'));
-    views[viewName].classList.remove('hidden');
+    if (views[viewName]) {
+        views[viewName].classList.remove('hidden');
+        views[viewName].scrollTop = 0;
+    }
 
     const urlParams = new URLSearchParams(window.location.search);
     const isTimelineOnly = urlParams.get('view') === 'timeline';
 
-    const tg = window.Telegram.WebApp;
+    const tg = window.Telegram?.WebApp;
     if (tg && tg.BackButton && tg.isVersionAtLeast && tg.isVersionAtLeast('6.1')) {
         if (isTimelineOnly) {
             tg.BackButton.hide();
