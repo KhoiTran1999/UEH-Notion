@@ -2402,7 +2402,7 @@ function renderMath() {
 
 
 // App Start
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     initTelegram();
     updateQuizModeUI();
     const urlParams = new URLSearchParams(window.location.search);
@@ -2415,9 +2415,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         fetchTimeline();
     } else {
-        // Normal topics view
-        fetchSavedQuizProgress().then(() => checkAndRenderResumeBanner());
-        fetchTopics();
+        // Normal topics view: load saved progress first to ensure cards and banner have correct state
+        await fetchSavedQuizProgress();
+        checkAndRenderResumeBanner();
+        await fetchTopics();
     }
 
     // Global click listener: Đóng dropdown menu 3 chấm khi click ra ngoài
