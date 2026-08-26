@@ -984,6 +984,24 @@ function renderTopics(topics) {
             document.querySelectorAll('.topic-menu-dropdown').forEach(el => {
                 if (el !== menuDropdown) el.classList.add('hidden');
             });
+
+            const isOpening = menuDropdown.classList.contains('hidden');
+            if (isOpening) {
+                // Tự động căn vị trí dropdown hiển thị phía dưới nếu phía trên không đủ chỗ
+                const btnRect = menuBtn.getBoundingClientRect();
+                const listRect = ui.topicsList.getBoundingClientRect();
+                const spaceAbove = btnRect.top - listRect.top;
+
+                // Chiều cao ước tính menu là ~200px
+                if (spaceAbove < 200) {
+                    menuDropdown.classList.remove('bottom-full', 'mb-1');
+                    menuDropdown.classList.add('top-full', 'mt-1');
+                } else {
+                    menuDropdown.classList.remove('top-full', 'mt-1');
+                    menuDropdown.classList.add('bottom-full', 'mb-1');
+                }
+            }
+
             menuDropdown.classList.toggle('hidden');
         };
 
