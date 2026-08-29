@@ -2567,10 +2567,30 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         fetchTimeline();
     } else {
-        // Normal topics view: load saved progress first to ensure cards and banner have correct state
-        await fetchSavedQuizProgress();
-        checkAndRenderResumeBanner();
-        await fetchTopics();
+        // Render immediate skeleton or cached topics before awaiting network requests
+        const cachedTopicsStr = localStorage.getItem('cached_study_topics');
+        if (cachedTopicsStr) {
+            try {
+                const cached = JSON.parse(cachedTopicsStr);
+                if (Array.isArray(cached) && cached.length > 0) {
+                    allTopics = cached;
+                    populateCourseFilter();
+                    filterAndRenderTopics();
+                } else {
+                    renderSkeletonTopics(4);
+                }
+            } catch (e) {
+                renderSkeletonTopics(4);
+            }
+        } else {
+            renderSkeletonTopics(4);
+        }
+
+        // Fetch saved quiz progress and update fresh topics in parallel
+        await Promise.all([
+            fetchSavedQuizProgress().then(() => checkAndRenderResumeBanner()),
+            fetchTopics()
+        ]);
     }
 
     // Global click listener: Đóng dropdown menu 3 chấm khi click ra ngoài
