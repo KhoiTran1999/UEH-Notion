@@ -136,12 +136,12 @@ def get_candidates(limit=None, force_refresh=False):
                 title = "".join([t.get("plain_text", "") for t in val["title"] if isinstance(t, dict)]).strip() or "Unknown Note"
                 break
 
-        chapter_id = None
+        chapter_ids = []
         course_id = None
 
         chapter_prop = props.get("📍DB Chương") or {}
         if isinstance(chapter_prop, dict) and chapter_prop.get("type") == "relation" and chapter_prop.get("relation"):
-            chapter_id = chapter_prop["relation"][0]["id"]
+            chapter_ids = [rel["id"] for rel in chapter_prop["relation"] if isinstance(rel, dict) and "id" in rel]
 
         course_prop = props.get("🔹 DB Học Phần - UEH") or {}
         if isinstance(course_prop, dict) and course_prop.get("type") == "relation" and course_prop.get("relation"):
@@ -151,12 +151,13 @@ def get_candidates(limit=None, force_refresh=False):
             "id": c_id,
             "title": title,
             "chapter": None,
+            "chapters": [],
             "course": None,
             "updated_at": c.get("last_edited_time") or get_last_review_sort_key(c)
         })
 
-        if chapter_id:
-            relation_tasks.append((idx, "chapter", chapter_id))
+        for ch_id in chapter_ids:
+            relation_tasks.append((idx, "chapter", ch_id))
         if course_id:
             relation_tasks.append((idx, "course", course_id))
 
@@ -172,7 +173,15 @@ def get_candidates(limit=None, force_refresh=False):
             task_results = executor.map(fetch_task, relation_tasks)
             for res_idx, prop_name, t_title in task_results:
                 if t_title:
-                    results[res_idx][prop_name] = t_title
+                    if prop_name == "chapter":
+                        results[res_idx]["chapters"].append(t_title)
+                    else:
+                        results[res_idx][prop_name] = t_title
+
+        # Set primary chapter for backwards compatibility and sorting
+        for item in results:
+            if item["chapters"]:
+                item["chapter"] = item["chapters"][0]
 
     # Sort results by Course -> Chapter -> Title using natural sort (Buổi 1, 2, ... 10)
     results.sort(key=lambda x: (

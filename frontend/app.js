@@ -897,8 +897,15 @@ function renderTopics(topics) {
         card.className = cardClasses;
 
         let chapterHtml = '';
-        if (topic.chapter) {
-            chapterHtml = `<div class="flex items-center"><span class="${isCached ? 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700/80' : 'bg-gray-200/60 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 border-gray-300/60 dark:border-gray-700/40'} text-[10px] font-medium px-2 py-0.5 rounded border">📍 ${escapeHtml(topic.chapter)}</span></div>`;
+        const chapterList = (Array.isArray(topic.chapters) && topic.chapters.length > 0)
+            ? topic.chapters
+            : (topic.chapter ? [topic.chapter] : []);
+        if (chapterList.length > 0) {
+            const badgeClass = isCached
+                ? 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700/80'
+                : 'bg-gray-200/60 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 border-gray-300/60 dark:border-gray-700/40';
+            const badges = chapterList.map(ch => `<span class="${badgeClass} text-[10px] font-medium px-2 py-0.5 rounded border">📍 ${escapeHtml(ch)}</span>`).join('');
+            chapterHtml = `<div class="flex flex-wrap items-center gap-1.5">${badges}</div>`;
         }
 
         let dateHtml = '';
