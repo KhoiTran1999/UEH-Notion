@@ -51,11 +51,11 @@ def get_cached_quiz_topic_ids() -> set[str]:
         logger.warning(f"Redis get cached quiz ids error: {e}")
         return set()
 
-def get_page_title(page_id):
+def get_page_title(page_id, force_refresh=False):
     """Retrieve title of a page by ID, using Redis cache if available."""
     cache_key = f"page_title_{page_id}"
     r = get_redis()
-    if r:
+    if r and not force_refresh:
         try:
             cached = r.get(cache_key)
             if cached:
@@ -97,6 +97,15 @@ def get_candidates(limit=None, force_refresh=False):
                     return json.loads(cached)
         except Exception as e:
             logger.warning(f"Redis get candidates cache error: {e}")
+    else:
+        # Clear candidates cache keys in Redis
+        try:
+            r = get_redis()
+            if r:
+                for k in r.scan_iter("study_candidates*"):
+                    r.delete(k)
+        except Exception as e:
+            logger.warning(f"Redis clear candidates cache error: {e}")
 
     # Fallback to check if smaller limit cache exists when force_refresh=False is requested
     # But wait, if force_refresh is True, we bypass cache.
@@ -166,7 +175,7 @@ def get_candidates(limit=None, force_refresh=False):
 
         def fetch_task(task):
             res_idx, prop_name, page_id = task
-            t_title = get_page_title(page_id)
+            t_title = get_page_title(page_id, force_refresh=force_refresh)
             return res_idx, prop_name, t_title
 
         with ThreadPoolExecutor(max_workers=10) as executor:
