@@ -65,6 +65,7 @@ const ui = {
     refreshCandidatesBtn: document.getElementById('refresh-candidates-btn'),
     progressBar: document.getElementById('quiz-progress-bar'),
     progressContainer: document.getElementById('quiz-progress-container'),
+    loadingProgressContainer: document.getElementById('loading-progress-container'),
     loadingProgressBar: document.getElementById('loading-progress-bar'),
     loadingPercentage: document.getElementById('loading-percentage'),
     cancelLoadingBtn: document.getElementById('cancel-loading-btn'),
@@ -485,10 +486,24 @@ function filterAndRenderTopics() {
     renderTopics(filtered);
 }
 
-function showLoading(text, allowCancel = false) {
+function showLoading(text, allowCancel = false, showProgressBar = false) {
     ui.loadingText.textContent = text;
+    if (ui.loadingProgressContainer) {
+        if (showProgressBar) {
+            ui.loadingProgressContainer.classList.remove('hidden');
+        } else {
+            ui.loadingProgressContainer.classList.add('hidden');
+        }
+    }
+    if (ui.loadingPercentage) {
+        if (showProgressBar) {
+            ui.loadingPercentage.classList.remove('hidden');
+        } else {
+            ui.loadingPercentage.classList.add('hidden');
+        }
+        ui.loadingPercentage.textContent = '0%';
+    }
     if (ui.loadingProgressBar) ui.loadingProgressBar.style.width = '0%';
-    if (ui.loadingPercentage) ui.loadingPercentage.textContent = '0%';
     if (ui.cancelLoadingBtn) {
         if (allowCancel) {
             ui.cancelLoadingBtn.classList.remove('hidden');
@@ -590,7 +605,7 @@ async function startQuiz(topic, forceRefresh = false, customConfig = null) {
     const qType = cfg.questionType || 'balanced';
 
     const diffLabel = { 'easy': 'Cơ bản', 'medium': 'Chuẩn thi', 'hard': 'Nâng cao' }[diff] || 'Chuẩn thi';
-    showLoading(`Đang tạo ${nq} câu hỏi [${diffLabel}] cho "${topic.title}"...`, true);
+    showLoading(`Đang tạo ${nq} câu hỏi [${diffLabel}] cho "${topic.title}"...`, true, true);
 
     if (singleQuizAbortController) {
         singleQuizAbortController.abort();
