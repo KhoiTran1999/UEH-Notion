@@ -14,6 +14,24 @@ function escapeHtml(text) {
         .replace(/'/g, '&#039;');
 }
 
+// Haptic Feedback Helper
+function triggerHaptic(type = 'light') {
+    const tg = window.Telegram?.WebApp;
+    if (tg?.HapticFeedback) {
+        try {
+            if (type === 'selection') {
+                tg.HapticFeedback.selectionChanged();
+            } else if (type === 'success' || type === 'error' || type === 'warning') {
+                tg.HapticFeedback.notificationOccurred(type);
+            } else {
+                tg.HapticFeedback.impactOccurred(type); // 'light', 'medium', 'heavy', 'rigid', 'soft'
+            }
+        } catch (e) {
+            console.warn('Haptic feedback error:', e);
+        }
+    }
+}
+
 // DOM Elements
 const views = {
     loading: document.getElementById('loading-view'),
@@ -158,7 +176,7 @@ function updateModalConfigUI() {
             if (val === quizConfig.numQuestions) {
                 btn.className = 'config-btn active py-2 px-1 rounded-xl text-xs font-bold border border-blue-500 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 shadow-xs transition';
             } else {
-                btn.className = 'config-btn py-2 px-1 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-950 transition';
+                btn.className = 'config-btn py-2 px-1 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-750 transition';
             }
         });
     }
@@ -168,9 +186,15 @@ function updateModalConfigUI() {
         ui.configDifficultyGroup.querySelectorAll('.config-btn').forEach(btn => {
             const val = btn.getAttribute('data-val');
             if (val === quizConfig.difficulty) {
-                btn.className = 'config-btn active py-2 px-1.5 rounded-xl text-xs font-bold border border-blue-500 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 shadow-xs transition flex flex-col items-center gap-0.5';
+                if (val === 'easy') {
+                    btn.className = 'config-btn active py-2 px-1.5 rounded-xl text-xs font-bold border border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 shadow-xs transition flex flex-col items-center gap-0.5';
+                } else if (val === 'hard') {
+                    btn.className = 'config-btn active py-2 px-1.5 rounded-xl text-xs font-bold border border-purple-500 bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 shadow-xs transition flex flex-col items-center gap-0.5';
+                } else {
+                    btn.className = 'config-btn active py-2 px-1.5 rounded-xl text-xs font-bold border border-blue-500 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 shadow-xs transition flex flex-col items-center gap-0.5';
+                }
             } else {
-                btn.className = 'config-btn py-2 px-1.5 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex flex-col items-center gap-0.5';
+                btn.className = 'config-btn py-2 px-1.5 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-750 transition flex flex-col items-center gap-0.5';
             }
         });
     }
@@ -180,9 +204,15 @@ function updateModalConfigUI() {
         ui.configTypeGroup.querySelectorAll('.config-btn').forEach(btn => {
             const val = btn.getAttribute('data-val');
             if (val === quizConfig.questionType) {
-                btn.className = 'config-btn active py-2 px-1.5 rounded-xl text-xs font-bold border border-blue-500 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 shadow-xs transition flex flex-col items-center gap-0.5';
+                if (val === 'theory') {
+                    btn.className = 'config-btn active py-2 px-1.5 rounded-xl text-xs font-bold border border-amber-500 bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 shadow-xs transition flex flex-col items-center gap-0.5';
+                } else if (val === 'calculation') {
+                    btn.className = 'config-btn active py-2 px-1.5 rounded-xl text-xs font-bold border border-indigo-500 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 shadow-xs transition flex flex-col items-center gap-0.5';
+                } else {
+                    btn.className = 'config-btn active py-2 px-1.5 rounded-xl text-xs font-bold border border-blue-500 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 shadow-xs transition flex flex-col items-center gap-0.5';
+                }
             } else {
-                btn.className = 'config-btn py-2 px-1.5 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex flex-col items-center gap-0.5';
+                btn.className = 'config-btn py-2 px-1.5 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-750 transition flex flex-col items-center gap-0.5';
             }
         });
     }
@@ -196,6 +226,7 @@ function openQuizConfigModal(topic) {
     updateModalConfigUI();
     if (ui.quizConfigModal) {
         ui.quizConfigModal.classList.remove('hidden');
+        triggerHaptic('light');
     }
 }
 
@@ -514,21 +545,76 @@ function showLoading(text, allowCancel = false, showProgressBar = false) {
     showView('loading');
 }
 
+function renderSkeletonTopics(count = 5) {
+    ui.topicsList.innerHTML = '';
+    ui.topicsList.classList.remove('hidden');
+    ui.noTopics.classList.add('hidden');
+
+    for (let i = 0; i < count; i++) {
+        const skel = document.createElement('div');
+        skel.className = 'w-full bg-white dark:bg-gray-900 p-4 rounded-xl shadow-xs border border-gray-200 dark:border-gray-800 flex flex-col space-y-3 relative overflow-hidden';
+        skel.innerHTML = `
+            <div class="absolute inset-0 shimmer pointer-events-none"></div>
+            <div class="flex justify-between items-center">
+                <div class="h-3 bg-gray-200 dark:bg-gray-800 rounded w-24"></div>
+                <div class="h-2.5 bg-gray-200 dark:bg-gray-800 rounded w-14"></div>
+            </div>
+            <div class="space-y-1.5 py-0.5">
+                <div class="h-4 bg-gray-200 dark:bg-gray-800 rounded w-4/5"></div>
+                <div class="h-3 bg-gray-200 dark:bg-gray-800 rounded w-2/5"></div>
+            </div>
+            <div class="flex justify-between items-center pt-2.5 border-t border-gray-100 dark:border-gray-800/80">
+                <div class="w-6 h-6 rounded-lg bg-gray-200 dark:bg-gray-800"></div>
+                <div class="h-6 w-24 rounded-full bg-gray-200 dark:bg-gray-800"></div>
+            </div>
+        `;
+        ui.topicsList.appendChild(skel);
+    }
+    showView('topics');
+}
+
 // API Calls
 async function fetchTopics(forceRefresh = false) {
-    showLoading('Đang tải danh sách chủ đề...');
+    // Stale-While-Revalidate: load from localStorage if available
+    let hasRenderedFromCache = false;
+    if (!forceRefresh) {
+        try {
+            const cachedTopicsStr = localStorage.getItem('cached_study_topics');
+            if (cachedTopicsStr) {
+                const cached = JSON.parse(cachedTopicsStr);
+                if (Array.isArray(cached) && cached.length > 0) {
+                    allTopics = cached;
+                    populateCourseFilter();
+                    filterAndRenderTopics();
+                    hasRenderedFromCache = true;
+                }
+            }
+        } catch (e) {
+            console.warn('Cannot read cached topics:', e);
+        }
+    }
+
+    if (!hasRenderedFromCache) {
+        renderSkeletonTopics(5);
+    }
+
     try {
         const res = await fetch(`${API_BASE_URL}/api/study/candidates?telegram_id=${telegramData.id}&force_refresh=${forceRefresh ? 'true' : 'false'}`);
         if (!res.ok) throw new Error('Lỗi tải danh sách chủ đề');
         const data = await res.json();
         allTopics = data.candidates || [];
+        try {
+            localStorage.setItem('cached_study_topics', JSON.stringify(allTopics));
+        } catch (e) {}
         populateCourseFilter();
         filterAndRenderTopics();
     } catch (error) {
         console.error(error);
-        alert('Lỗi tải chủ đề. Vui lòng kiểm tra kết nối.');
-        allTopics = [];
-        filterAndRenderTopics();
+        if (!hasRenderedFromCache) {
+            alert('Lỗi tải chủ đề. Vui lòng kiểm tra kết nối.');
+            allTopics = [];
+            filterAndRenderTopics();
+        }
     }
 }
 
@@ -619,8 +705,24 @@ async function startQuiz(topic, forceRefresh = false, customConfig = null) {
         currentPercent = percentage;
         if (ui.loadingProgressBar) ui.loadingProgressBar.style.width = `${percentage}%`;
         if (ui.loadingPercentage) ui.loadingPercentage.textContent = `${percentage}%`;
-        if (ui.loadingText) ui.loadingText.textContent = text;
+        if (ui.loadingText && text) ui.loadingText.textContent = text;
     }
+
+    // Smooth artificial ticker for natural generation UX
+    const tickerSteps = [
+        { p: 15, t: '📖 Đang đọc & phân tích ghi chú Notion...' },
+        { p: 35, t: '⚡ AI đang trích xuất khái niệm & công thức cốt lõi...' },
+        { p: 55, t: '🧠 Đang thiết kế câu hỏi bẫy & phương án nhiễu...' },
+        { p: 75, t: '📐 Chuẩn hóa công thức KaTeX & giải thích chi tiết...' },
+        { p: 90, t: '✨ Đang hoàn thiện bộ câu hỏi...' }
+    ];
+    let tickerIdx = 0;
+    aiTimer = setInterval(() => {
+        if (tickerIdx < tickerSteps.length && currentPercent < tickerSteps[tickerIdx].p) {
+            updateProgress(tickerSteps[tickerIdx].p, tickerSteps[tickerIdx].t);
+            tickerIdx++;
+        }
+    }, 1200);
 
     try {
         const res = await fetch(`${API_BASE_URL}/api/study/quiz`, {
@@ -705,6 +807,7 @@ async function startQuiz(topic, forceRefresh = false, customConfig = null) {
         currentQuestionIndex = 0;
         startQuizTimer(0);
         saveQuizProgress();
+        triggerHaptic('success');
 
         if (currentTopic && currentTopic.id && !currentTopic.id.startsWith('quick_review')) {
             const t = allTopics.find(x => x.id === currentTopic.id);
@@ -989,6 +1092,7 @@ function renderTopics(topics) {
         `;
 
         const openQuiz = () => {
+            triggerHaptic('light');
             if (!topic.has_cached_quiz && !savedProgressMap[topic.id]) {
                 openQuizConfigModal(topic);
             } else {
@@ -1783,6 +1887,7 @@ function renderTimeline(timelineItems) {
 
 // Event Listeners
 ui.prevBtn.addEventListener('click', () => {
+    triggerHaptic('light');
     if (currentQuestionIndex > 0) {
         currentQuestionIndex--;
         saveQuizProgress();
@@ -1792,6 +1897,7 @@ ui.prevBtn.addEventListener('click', () => {
 
 
 ui.nextBtn.addEventListener('click', () => {
+    triggerHaptic('light');
     currentQuestionIndex++;
     saveQuizProgress();
     renderQuestion();
@@ -1846,7 +1952,10 @@ if (ui.quizModeBtn) ui.quizModeBtn.addEventListener('click', () => {
     updateQuizModeUI();
     renderQuestion();
 });
-ui.copyQuestionBtn.addEventListener('click', copyCurrentQuestion);
+ui.copyQuestionBtn.addEventListener('click', () => {
+    triggerHaptic('light');
+    copyCurrentQuestion();
+});
 
 // Keyboard Shortcuts Support for Desktop / Web
 document.addEventListener('keydown', (e) => {
@@ -1999,6 +2108,7 @@ if (ui.configNumQuestionsGroup) {
         if (!btn) return;
         const val = parseInt(btn.getAttribute('data-val'), 10);
         if (val) {
+            triggerHaptic('selection');
             quizConfig.numQuestions = val;
             saveQuizConfig();
             updateModalConfigUI();
@@ -2011,6 +2121,7 @@ if (ui.configDifficultyGroup) {
         if (!btn) return;
         const val = btn.getAttribute('data-val');
         if (val) {
+            triggerHaptic('selection');
             quizConfig.difficulty = val;
             saveQuizConfig();
             updateModalConfigUI();
@@ -2023,6 +2134,7 @@ if (ui.configTypeGroup) {
         if (!btn) return;
         const val = btn.getAttribute('data-val');
         if (val) {
+            triggerHaptic('selection');
             quizConfig.questionType = val;
             saveQuizConfig();
             updateModalConfigUI();
