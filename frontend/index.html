@@ -1,11 +1,31 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UEH Study Assistant</title>
-    <link rel="icon" type="image/png" href="logo.png">
-    <link rel="apple-touch-icon" href="logo.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>UEH Smart Assistant</title>
+    
+    <!-- PWA Web App Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+    <link rel="shortcut icon" href="logo.png">
+    
+    <!-- iOS / Safari Web App Meta -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="UEH Notion">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
+    
+    <!-- Android / Chrome / Windows Theme -->
+    <meta name="theme-color" content="#3b82f6" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#030712" media="(prefers-color-scheme: dark)">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="UEH Notion">
+    <meta name="msapplication-TileColor" content="#3b82f6">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -109,6 +129,9 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-1.5 sm:gap-2">
+                    <button id="install-pwa-btn" class="hidden h-9 px-2.5 sm:px-3 flex items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-2xs text-xs font-bold gap-1.5 cursor-pointer active:scale-95 transition" title="Cài đặt ứng dụng về máy" aria-label="Cài đặt ứng dụng">
+                        <span>📲</span><span class="hidden sm:inline">Cài đặt App</span><span class="sm:hidden inline">Cài đặt</span>
+                    </button>
                     <button id="toggle-timeline-btn" class="h-9 px-3 flex items-center justify-center rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-gray-700 dark:text-gray-200 shadow-2xs text-xs font-semibold gap-1.5 cursor-pointer" title="Xem Deadline trên Web" aria-label="Xem Deadline">
                         <span>📅</span><span class="inline">Deadline</span>
                     </button>
@@ -602,8 +625,50 @@
             </div>
         </div>
 
+        <!-- PWA Install Guide Modal (for iOS Safari and unsupported browsers) -->
+        <div id="pwa-install-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <div class="modal-card modal-enter bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 w-full max-w-sm rounded-2xl shadow-2xl p-5 md:p-6 space-y-4">
+                <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
+                    <div class="flex items-center gap-2.5">
+                        <img src="icon-192.png" alt="App Icon" class="w-9 h-9 rounded-xl object-cover shadow-xs border border-gray-200 dark:border-gray-800">
+                        <div>
+                            <h3 class="font-bold text-gray-900 dark:text-gray-100 text-sm leading-tight">Cài đặt UEH Notion</h3>
+                            <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Thêm vào Màn hình chính</p>
+                        </div>
+                    </div>
+                    <button id="close-pwa-modal-btn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer" title="Đóng">
+                        ✕
+                    </button>
+                </div>
+
+                <div class="space-y-3 text-xs text-gray-700 dark:text-gray-300">
+                    <p class="font-medium text-gray-600 dark:text-gray-400">
+                        Để cài ứng dụng lên iPhone/iPad và sử dụng toàn màn hình mượt mà như app gốc:
+                    </p>
+                    <div class="bg-blue-50/80 dark:bg-blue-950/40 p-3.5 rounded-xl border border-blue-100 dark:border-blue-900/60 space-y-3">
+                        <div class="flex items-start gap-2.5">
+                            <span class="w-5 h-5 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-[10px] shrink-0 mt-0.5 shadow-2xs">1</span>
+                            <span class="leading-relaxed">Bấm nút <strong>Chia sẻ (Share)</strong> <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-blue-600 dark:text-blue-400 font-bold text-[11px] shadow-2xs">⎋</span> ở thanh công cụ dưới cùng của trình duyệt Safari.</span>
+                        </div>
+                        <div class="flex items-start gap-2.5">
+                            <span class="w-5 h-5 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-[10px] shrink-0 mt-0.5 shadow-2xs">2</span>
+                            <span class="leading-relaxed">Cuộn danh sách menu và chọn <strong>"Thêm vào Màn hình chính" (Add to Home Screen)</strong> <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 font-bold text-[11px] shadow-2xs">⊞</span>.</span>
+                        </div>
+                        <div class="flex items-start gap-2.5">
+                            <span class="w-5 h-5 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-[10px] shrink-0 mt-0.5 shadow-2xs">3</span>
+                            <span class="leading-relaxed">Bấm <strong>Thêm (Add)</strong> ở góc trên bên phải. Ứng dụng sẽ xuất hiện ngay trên màn hình chính của bạn!</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="document.getElementById('pwa-install-modal').classList.add('hidden')" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2.5 px-4 rounded-xl text-xs shadow-xs transition cursor-pointer active:scale-98">
+                    Đã hiểu
+                </button>
+            </div>
+        </div>
+
     </div>
 
-    <script src="app.js?v=3.1"></script>
+    <script src="app.js?v=3.2"></script>
 </body>
 </html>

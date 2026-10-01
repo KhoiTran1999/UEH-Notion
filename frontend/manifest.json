@@ -1,0 +1,56 @@
+{
+  "id": "/?source=pwa",
+  "name": "UEH Smart Assistant - Ôn thi Notion",
+  "short_name": "UEH Notion",
+  "description": "Ứng dụng ôn tập trắc nghiệm và theo dõi deadline học tập UEH Notion",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f8fafc",
+  "theme_color": "#3b82f6",
+  "lang": "vi",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "⚡ Ôn tập nhanh",
+      "short_name": "Ôn nhanh",
+      "description": "Bắt đầu bài thi ôn tập tổng hợp ngẫu nhiên",
+      "url": "./index.html?action=quick_review",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "📅 Lịch Deadline",
+      "short_name": "Deadline",
+      "description": "Xem lịch deadline và bài tập sắp tới",
+      "url": "./index.html?view=timeline",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

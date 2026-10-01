@@ -41,6 +41,7 @@ const views = {
 };
 
 const ui = {
+    installPwaBtn: document.getElementById('install-pwa-btn'),
     topicsList: document.getElementById('topics-list'),
     noTopics: document.getElementById('no-topics'),
     loadingText: document.getElementById('loading-text'),
@@ -2554,9 +2555,109 @@ function renderMath() {
 
 
 
+// PWA (Progressive Web App) Installation & Service Worker Manager
+let deferredInstallPrompt = null;
+
+function initPWA() {
+    const installBtn = ui.installPwaBtn || document.getElementById('install-pwa-btn');
+    const pwaModal = document.getElementById('pwa-install-modal');
+    const closePwaModalBtn = document.getElementById('close-pwa-modal-btn');
+
+    // 1. Register Service Worker with scope './'
+    function registerSW() {
+        navigator.serviceWorker.register('./sw.js')
+            .then((reg) => {
+                console.log('✅ [PWA] Service Worker registered:', reg.scope);
+            })
+            .catch((err) => {
+                console.warn('❌ [PWA] Service Worker registration failed:', err);
+            });
+    }
+
+    if ('serviceWorker' in navigator) {
+        if (document.readyState === 'complete') {
+            registerSW();
+        } else {
+            window.addEventListener('load', registerSW);
+        }
+    }
+
+    // 2. Check if already installed / standalone mode
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches 
+        || window.navigator.standalone === true 
+        || document.referrer.includes('android-app://');
+
+    if (isStandalone) {
+        if (installBtn) installBtn.classList.add('hidden');
+        return;
+    }
+
+    // Detect iOS
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+    if (isIOS && isSafari && !isStandalone) {
+        // Show install button for iOS users to open the guide modal
+        if (installBtn) installBtn.classList.remove('hidden');
+    }
+
+    // 3. Listen for Chromium beforeinstallprompt (Android / Desktop Chrome / Edge)
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredInstallPrompt = e;
+        if (installBtn) {
+            installBtn.classList.remove('hidden');
+        }
+    });
+
+    // 4. Handle Install Button Click
+    if (installBtn) {
+        installBtn.addEventListener('click', async () => {
+            if (deferredInstallPrompt) {
+                deferredInstallPrompt.prompt();
+                const choice = await deferredInstallPrompt.userChoice;
+                if (choice.outcome === 'accepted') {
+                    installBtn.classList.add('hidden');
+                }
+                deferredInstallPrompt = null;
+            } else if (isIOS) {
+                if (pwaModal) pwaModal.classList.remove('hidden');
+            } else {
+                if (pwaModal) {
+                    pwaModal.classList.remove('hidden');
+                } else {
+                    alert('Để cài đặt ứng dụng:\n- Trên Chrome/Edge: Nhấn biểu tượng Cài đặt ⊞ trên thanh địa chỉ.\n- Trên điện thoại: Nhấn Menu (⋮) -> Chọn "Thêm vào Màn hình chính".');
+                }
+            }
+        });
+    }
+
+    // 5. Close PWA Guide Modal
+    if (closePwaModalBtn && pwaModal) {
+        closePwaModalBtn.addEventListener('click', () => {
+            pwaModal.classList.add('hidden');
+        });
+    }
+    if (pwaModal) {
+        pwaModal.addEventListener('click', (e) => {
+            if (e.target === pwaModal) pwaModal.classList.add('hidden');
+        });
+    }
+
+    // 6. Listen for appinstalled
+    window.addEventListener('appinstalled', () => {
+        console.log('🎉 [PWA] App installed successfully!');
+        if (installBtn) installBtn.classList.add('hidden');
+        deferredInstallPrompt = null;
+    });
+}
+
+
+
 // App Start
 document.addEventListener('DOMContentLoaded', async () => {
     initTelegram();
+    initPWA();
     updateQuizModeUI();
     const urlParams = new URLSearchParams(window.location.search);
     const isTimelineOnly = urlParams.get('view') === 'timeline';
