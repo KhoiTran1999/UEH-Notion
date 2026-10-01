@@ -21,7 +21,7 @@ def get_redis() -> redis.Redis | None:
 # Cache TTL constants (seconds)
 CACHE_PAGE_TITLE_TTL = 30 * 24 * 3600      # 30 days
 CACHE_CANDIDATES_TTL = 24 * 3600            # 24 hours
-CACHE_QUIZ_TTL = 14 * 24 * 3600             # 14 days
+CACHE_QUIZ_TTL = 60 * 24 * 3600             # 60 days (2 months)
 CACHE_TIMELINE_TTL = 24 * 3600             # 24 hours
-CACHE_QUIZ_PROGRESS_TTL = 7 * 24 * 3600     # 7 days
+CACHE_QUIZ_PROGRESS_TTL = 60 * 24 * 3600     # 60 days (2 months)
 LOCK_QUIZ_TTL = 120                          # 2 minutes

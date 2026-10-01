@@ -32,7 +32,7 @@ class TestUEHNotion(unittest.TestCase):
         self.assertEqual(r.get("test_key_integration"), "ok")
         r.delete("test_key_integration")
         self.assertIsNone(r.get("test_key_integration"))
-        self.assertEqual(CACHE_QUIZ_TTL, 14 * 24 * 3600)
+        self.assertEqual(CACHE_QUIZ_TTL, 60 * 24 * 3600)
 
     def test_notion_service_connection(self):
         """Test NotionService initialization and database query."""
