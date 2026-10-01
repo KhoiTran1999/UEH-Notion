@@ -545,14 +545,14 @@ function showLoading(text, allowCancel = false, showProgressBar = false) {
     showView('loading');
 }
 
-function renderSkeletonTopics(count = 5) {
+function renderSkeletonTopics(count = 6) {
     ui.topicsList.innerHTML = '';
     ui.topicsList.classList.remove('hidden');
     ui.noTopics.classList.add('hidden');
 
     for (let i = 0; i < count; i++) {
         const skel = document.createElement('div');
-        skel.className = 'w-full bg-white dark:bg-gray-900 p-4 rounded-xl shadow-xs border border-gray-200 dark:border-gray-800 flex flex-col space-y-3 relative overflow-hidden';
+        skel.className = 'w-full bg-white dark:bg-gray-900 p-4 sm:p-5 rounded-2xl shadow-2xs border border-gray-200 dark:border-gray-800 flex flex-col space-y-3 relative overflow-hidden';
         skel.innerHTML = `
             <div class="absolute inset-0 shimmer pointer-events-none"></div>
             <div class="flex justify-between items-center">
@@ -1010,8 +1010,8 @@ function renderTopics(topics) {
         const isCached = !!topic.has_cached_quiz;
         const card = document.createElement('div');
         const cardClasses = isCached
-            ? 'w-full bg-indigo-50/50 dark:bg-indigo-950/30 p-4 rounded-xl shadow-sm border border-indigo-200 dark:border-indigo-800/80 hover:shadow-md transition duration-200 flex flex-col space-y-3'
-            : 'w-full bg-gray-50/80 dark:bg-gray-900/60 p-4 rounded-xl shadow-xs border border-dashed border-gray-300 dark:border-gray-800 hover:shadow-sm opacity-85 transition duration-200 flex flex-col space-y-3';
+            ? 'w-full bg-indigo-50/50 dark:bg-indigo-950/30 p-4 sm:p-5 rounded-2xl shadow-2xs border border-indigo-200 dark:border-indigo-800/80 hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700 transition duration-200 flex flex-col justify-between space-y-3'
+            : 'w-full bg-gray-50/80 dark:bg-gray-900/60 p-4 sm:p-5 rounded-2xl shadow-2xs border border-dashed border-gray-300 dark:border-gray-800 hover:shadow-xs hover:border-gray-400 dark:hover:border-gray-700 opacity-90 hover:opacity-100 transition duration-200 flex flex-col justify-between space-y-3';
         card.className = cardClasses;
 
         let chapterHtml = '';
@@ -1248,7 +1248,7 @@ function renderQuestion(animate = true) {
             const isCorrect = item.selected === item.correct;
             const isFlagged = !!item.flagged;
 
-            let dotClasses = 'w-7 h-7 rounded-lg text-xs font-bold transition-all duration-200 flex items-center justify-center relative cursor-pointer active:scale-90 ';
+            let dotClasses = 'w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 flex items-center justify-center relative cursor-pointer active:scale-90 ';
 
             if (isActive) {
                 dotClasses += 'bg-blue-500 text-white ring-2 ring-blue-300 dark:ring-blue-800 shadow-sm ';
@@ -1261,7 +1261,7 @@ function renderQuestion(animate = true) {
                     dotClasses += 'bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400 border border-red-300 dark:border-red-800 ';
                 }
             } else {
-                dotClasses += 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 ';
+                dotClasses += 'bg-white dark:bg-gray-850 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-750 ';
             }
 
             dot.className = dotClasses;
@@ -1300,8 +1300,8 @@ function renderQuestion(animate = true) {
             const letter = optionLabels[idx] || (idx + 1);
             const isAnswered = q.selected !== undefined;
 
-            let containerClasses = 'w-full text-left p-3.5 rounded-xl border-2 font-medium transition-all duration-200 ease-out active:scale-[0.99] shadow-sm flex items-start gap-3 whitespace-normal break-words ';
-            let badgeClasses = 'w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 transition-colors ';
+            let containerClasses = 'w-full text-left p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border-2 font-medium transition-all duration-200 ease-out active:scale-[0.99] shadow-2xs flex items-start gap-3 whitespace-normal break-words cursor-pointer ';
+            let badgeClasses = 'w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl flex items-center justify-center font-bold text-xs sm:text-sm shrink-0 transition-colors ';
 
             if (isAnswered) {
                 if (isExamMode) {
@@ -1333,6 +1333,7 @@ function renderQuestion(animate = true) {
             btn.innerHTML = `
                 <span class="${badgeClasses}">${letter}</span>
                 <span class="flex-1 pt-0.5 leading-snug">${escapeHtml(opt)}</span>
+                <span class="hidden md:inline-flex items-center text-[10px] text-gray-400 dark:text-gray-500 font-mono px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700/80 ml-auto shrink-0 select-none" title="Phím tắt: ${letter}">${letter}</span>
             `;
 
             btn.onclick = () => {
@@ -1470,7 +1471,7 @@ function showQuizResults() {
             const isCorrect = q.selected === q.correct;
             const isFlagged = !!q.flagged;
 
-            let btnClasses = 'py-2 px-1 rounded-xl font-bold text-xs flex flex-col items-center justify-center gap-0.5 transition active:scale-95 border ';
+            let btnClasses = 'py-2.5 px-1.5 rounded-xl font-bold text-xs flex flex-col items-center justify-center gap-0.5 transition active:scale-95 border cursor-pointer ';
             if (isCorrect) {
                 btnClasses += 'bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400 border-green-300 dark:border-green-800 hover:bg-green-100';
             } else {

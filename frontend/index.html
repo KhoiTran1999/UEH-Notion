@@ -48,28 +48,41 @@
             0% { background-position: -200% 0; }
             100% { background-position: 200% 0; }
         }
-        /* Custom scrollbar for better mobile UX */
+        /* Prevent horizontal scroll on small devices (R1) */
+        html, body {
+            overflow-x: hidden;
+            width: 100%;
+            max-width: 100vw;
+        }
+        /* KaTeX math responsive container - prevent wide formulas from expanding viewport */
+        .katex-display {
+            overflow-x: auto;
+            overflow-y: hidden;
+            max-width: 100%;
+            padding: 4px 0;
+        }
+        /* Custom scrollbar for better UX across devices */
         ::-webkit-scrollbar {
-            width: 5px;
-            height: 5px;
+            width: 6px;
+            height: 6px;
         }
         ::-webkit-scrollbar-track {
             background: transparent;
         }
         ::-webkit-scrollbar-thumb {
-            background: rgba(156, 163, 175, 0.4);
+            background: rgba(156, 163, 175, 0.35);
             border-radius: 9999px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: rgba(156, 163, 175, 0.7);
+            background: rgba(156, 163, 175, 0.65);
         }
     </style>
 </head>
-<body class="bg-gray-100 dark:bg-gray-950 min-h-[100dvh] text-gray-800 dark:text-gray-200 font-sans">
-    <div id="app" class="max-w-md mx-auto p-4 flex flex-col h-[100dvh] overflow-hidden">
+<body class="bg-gray-100 dark:bg-gray-950 min-h-[100dvh] text-gray-800 dark:text-gray-200 font-sans antialiased selection:bg-blue-500 selection:text-white">
+    <div id="app" class="w-full max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 flex flex-col h-[100dvh] overflow-hidden">
 
         <!-- Loading State -->
-        <div id="loading-view" class="hidden flex-1 flex flex-col items-center justify-center p-6 space-y-4">
+        <div id="loading-view" class="hidden flex-1 flex flex-col items-center justify-center p-6 space-y-4 max-w-md mx-auto w-full">
             <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
             <p id="loading-text" class="text-gray-600 dark:text-gray-400 text-center font-medium">Đang tải...</p>
             <div id="loading-progress-container" class="hidden w-full bg-gray-200 dark:bg-gray-800 h-2 rounded-full overflow-hidden max-w-xs shadow-inner">
@@ -83,67 +96,72 @@
 
         <!-- Topics View -->
         <div id="topics-view" class="flex-1 flex flex-col min-h-0 overflow-hidden">
-            <div class="flex items-center justify-between mb-4 shrink-0">
-                <div class="flex items-center gap-2.5">
-                    <img src="logo.png" alt="UEH Notion Logo" class="w-10 h-10 rounded-xl object-cover shadow-xs border border-gray-200 dark:border-gray-800 shrink-0">
+            <div class="flex items-center justify-between gap-3 mb-4 shrink-0">
+                <div class="flex items-center gap-2.5 sm:gap-3">
+                    <img src="logo.png" alt="UEH Notion Logo" class="w-10 h-10 md:w-11 md:h-11 rounded-xl object-cover shadow-xs border border-gray-200 dark:border-gray-800 shrink-0">
                     <div>
-                        <h1 class="text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 leading-tight">Chủ đề ôn tập</h1>
-                        <p id="topics-summary-text" class="text-[11px] text-gray-400 dark:text-gray-500 font-medium mt-0.5">Đang tải chủ đề...</p>
+                        <div class="flex items-center gap-2">
+                            <h1 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100 leading-tight">Chủ đề ôn tập</h1>
+                            <span class="hidden md:inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wide uppercase bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">UEH Smart Assistant</span>
+                        </div>
+                        <p id="topics-summary-text" class="text-[11px] md:text-xs text-gray-400 dark:text-gray-500 font-medium mt-0.5">Đang tải chủ đề...</p>
                     </div>
                 </div>
-                <div class="flex items-center gap-1.5">
-                    <button id="toggle-timeline-btn" class="h-9 px-2.5 flex items-center justify-center rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-gray-600 dark:text-gray-300 shadow-xs text-xs font-semibold gap-1" title="Xem Deadline trên Web" aria-label="Xem Deadline">
-                        <span>📅</span><span class="hidden sm:inline">Deadline</span>
+                <div class="flex items-center gap-1.5 sm:gap-2">
+                    <button id="toggle-timeline-btn" class="h-9 px-3 flex items-center justify-center rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-gray-700 dark:text-gray-200 shadow-2xs text-xs font-semibold gap-1.5 cursor-pointer" title="Xem Deadline trên Web" aria-label="Xem Deadline">
+                        <span>📅</span><span class="inline">Deadline</span>
                     </button>
-                    <button id="refresh-candidates-btn" class="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-gray-500 dark:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-xs text-lg font-bold" title="Tải lại từ Notion" aria-label="Tải lại danh sách chủ đề từ Notion">
+                    <button id="refresh-candidates-btn" class="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-gray-500 dark:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs text-lg font-bold cursor-pointer" title="Tải lại từ Notion" aria-label="Tải lại danh sách chủ đề từ Notion">
                         ⟳
                     </button>
                 </div>
             </div>
 
             <!-- Filters & Search -->
-            <div id="filters-container" class="mb-3 space-y-2 shrink-0">
-                <div class="relative flex items-center">
-                    <input type="text" id="search-input" placeholder="🔍 Tìm kiếm chủ đề..." class="w-full pl-3.5 pr-8 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-150">
-                    <button id="clear-search-btn" class="hidden absolute right-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm font-bold p-0.5" title="Xóa tìm kiếm">✕</button>
+            <div id="filters-container" class="mb-4 space-y-2 md:space-y-0 md:flex md:items-center md:gap-3 shrink-0">
+                <div class="relative flex-1 min-w-[200px]">
+                    <input type="text" id="search-input" placeholder="🔍 Tìm kiếm chủ đề..." class="w-full pl-3.5 pr-8 py-2 md:py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-150 shadow-2xs">
+                    <button id="clear-search-btn" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm font-bold p-1 cursor-pointer" title="Xóa tìm kiếm">✕</button>
                 </div>
-                <select id="course-filter" class="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-150">
-                    <option value="">Tất cả môn học</option>
-                </select>
-                <div class="grid grid-cols-2 gap-2">
-                    <button id="quick-review-btn" onclick="startQuickReview()" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold py-2 px-3 rounded-xl shadow-xs transition duration-150 flex items-center justify-center gap-1.5 active:scale-98">
+                <div class="w-full md:w-60 lg:w-72 shrink-0">
+                    <select id="course-filter" class="w-full px-3 py-2 md:py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 text-base md:text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-150 shadow-2xs">
+                        <option value="">Tất cả môn học</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 md:flex md:items-center gap-2 shrink-0">
+                    <button id="quick-review-btn" onclick="startQuickReview()" class="w-full md:w-auto h-10 px-3.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold rounded-xl shadow-2xs transition duration-150 flex items-center justify-center gap-1.5 active:scale-98 cursor-pointer shrink-0">
                         ⚡ Ôn tập nhanh
                     </button>
-                    <button id="batch-quiz-btn" onclick="openBatchQuizModal()" class="w-full bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white text-xs font-bold py-2 px-3 rounded-xl shadow-xs transition duration-150 flex items-center justify-center gap-1.5 cursor-pointer active:scale-98" title="Tạo quiz toàn bộ các chủ đề của môn học cùng lúc">
+                    <button id="batch-quiz-btn" onclick="openBatchQuizModal()" class="w-full md:w-auto h-10 px-3.5 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white text-xs font-bold rounded-xl shadow-2xs transition duration-150 flex items-center justify-center gap-1.5 cursor-pointer active:scale-98 shrink-0" title="Tạo quiz toàn bộ các chủ đề của môn học cùng lúc">
                         ✨ Tạo trọn bộ môn
                     </button>
                 </div>
             </div>
 
             <!-- Resume Quiz Banner -->
-            <div id="resume-quiz-banner" class="hidden mb-3 p-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl shadow-sm flex items-center justify-between gap-3 fade-in cursor-pointer hover:shadow-md transition shrink-0">
+            <div id="resume-quiz-banner" class="hidden mb-4 p-3.5 sm:p-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white rounded-2xl shadow-sm flex items-center justify-between gap-3 fade-in cursor-pointer hover:shadow-md transition shrink-0">
                 <div class="min-w-0 flex-1">
-                    <div class="flex items-center gap-1.5 text-xs font-semibold opacity-90">
+                    <div class="flex items-center gap-2 text-xs font-semibold opacity-95">
                         <span>⏱️</span>
                         <span>Đang làm dở</span>
-                        <span id="resume-quiz-badge" class="bg-white/20 text-[10px] px-1.5 py-0.5 rounded-full font-bold">Câu 1/5</span>
+                        <span id="resume-quiz-badge" class="bg-white/20 text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-bold">Câu 1/5</span>
                     </div>
-                    <p id="resume-quiz-title" class="font-bold text-xs md:text-sm truncate mt-0.5">Tên chủ đề</p>
+                    <p id="resume-quiz-title" class="font-bold text-xs sm:text-sm md:text-base truncate mt-1">Tên chủ đề</p>
                 </div>
-                <div class="flex items-center gap-1.5 shrink-0">
-                    <button id="resume-quiz-btn" class="bg-white text-blue-600 hover:bg-blue-50 text-xs font-bold px-3 py-1.5 rounded-lg shadow-xs transition active:scale-95">
+                <div class="flex items-center gap-2 shrink-0">
+                    <button id="resume-quiz-btn" class="bg-white text-blue-600 hover:bg-blue-50 text-xs sm:text-sm font-bold px-3.5 py-1.5 rounded-xl shadow-xs transition active:scale-95 cursor-pointer">
                         Làm tiếp
                     </button>
-                    <button id="discard-resume-btn" class="text-white/70 hover:text-white text-lg p-1 transition" title="Bỏ qua" aria-label="Bỏ qua bài làm dở">
+                    <button id="discard-resume-btn" class="text-white/80 hover:text-white text-lg p-1 transition cursor-pointer" title="Bỏ qua" aria-label="Bỏ qua bài làm dở">
                         ✕
                     </button>
                 </div>
             </div>
 
-
-            <div id="topics-list" class="flex-1 space-y-3 overflow-y-auto pb-4 min-h-0 pr-0.5">
-                <!-- Initial Skeleton Loading Placeholders -->
-                <div class="w-full bg-white dark:bg-gray-900 p-4 rounded-xl shadow-xs border border-gray-200 dark:border-gray-800 flex flex-col space-y-3 relative overflow-hidden">
+            <!-- Topics Grid: 1 col on mobile, 2 cols on iPad/Tablet, 3 cols on Laptop/Desktop -->
+            <div id="topics-list" class="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 md:gap-4 lg:gap-5 overflow-y-auto pb-6 min-h-0 pr-1 items-start content-start">
+                <!-- Initial 6 Skeleton Loading Placeholders -->
+                <div class="w-full bg-white dark:bg-gray-900 p-4 sm:p-5 rounded-2xl shadow-2xs border border-gray-200 dark:border-gray-800 flex flex-col space-y-3 relative overflow-hidden">
                     <div class="absolute inset-0 shimmer pointer-events-none"></div>
                     <div class="flex justify-between items-center">
                         <div class="h-3 bg-gray-200 dark:bg-gray-800 rounded w-24"></div>
@@ -158,7 +176,7 @@
                         <div class="h-6 w-24 rounded-full bg-gray-200 dark:bg-gray-800"></div>
                     </div>
                 </div>
-                <div class="w-full bg-white dark:bg-gray-900 p-4 rounded-xl shadow-xs border border-gray-200 dark:border-gray-800 flex flex-col space-y-3 relative overflow-hidden">
+                <div class="w-full bg-white dark:bg-gray-900 p-4 sm:p-5 rounded-2xl shadow-2xs border border-gray-200 dark:border-gray-800 flex flex-col space-y-3 relative overflow-hidden">
                     <div class="absolute inset-0 shimmer pointer-events-none"></div>
                     <div class="flex justify-between items-center">
                         <div class="h-3 bg-gray-200 dark:bg-gray-800 rounded w-28"></div>
@@ -173,7 +191,7 @@
                         <div class="h-6 w-24 rounded-full bg-gray-200 dark:bg-gray-800"></div>
                     </div>
                 </div>
-                <div class="w-full bg-white dark:bg-gray-900 p-4 rounded-xl shadow-xs border border-gray-200 dark:border-gray-800 flex flex-col space-y-3 relative overflow-hidden">
+                <div class="w-full bg-white dark:bg-gray-900 p-4 sm:p-5 rounded-2xl shadow-2xs border border-gray-200 dark:border-gray-800 flex flex-col space-y-3 relative overflow-hidden">
                     <div class="absolute inset-0 shimmer pointer-events-none"></div>
                     <div class="flex justify-between items-center">
                         <div class="h-3 bg-gray-200 dark:bg-gray-800 rounded w-20"></div>
@@ -188,7 +206,7 @@
                         <div class="h-6 w-24 rounded-full bg-gray-200 dark:bg-gray-800"></div>
                     </div>
                 </div>
-                <div class="w-full bg-white dark:bg-gray-900 p-4 rounded-xl shadow-xs border border-gray-200 dark:border-gray-800 flex flex-col space-y-3 relative overflow-hidden">
+                <div class="w-full bg-white dark:bg-gray-900 p-4 sm:p-5 rounded-2xl shadow-2xs border border-gray-200 dark:border-gray-800 flex flex-col space-y-3 relative overflow-hidden">
                     <div class="absolute inset-0 shimmer pointer-events-none"></div>
                     <div class="flex justify-between items-center">
                         <div class="h-3 bg-gray-200 dark:bg-gray-800 rounded w-24"></div>
@@ -196,6 +214,36 @@
                     </div>
                     <div class="space-y-1.5 py-0.5">
                         <div class="h-4 bg-gray-200 dark:bg-gray-800 rounded w-2/3"></div>
+                        <div class="h-3 bg-gray-200 dark:bg-gray-800 rounded w-2/5"></div>
+                    </div>
+                    <div class="flex justify-between items-center pt-2.5 border-t border-gray-100 dark:border-gray-800/80">
+                        <div class="w-6 h-6 rounded-lg bg-gray-200 dark:bg-gray-800"></div>
+                        <div class="h-6 w-24 rounded-full bg-gray-200 dark:bg-gray-800"></div>
+                    </div>
+                </div>
+                <div class="w-full bg-white dark:bg-gray-900 p-4 sm:p-5 rounded-2xl shadow-2xs border border-gray-200 dark:border-gray-800 flex flex-col space-y-3 relative overflow-hidden">
+                    <div class="absolute inset-0 shimmer pointer-events-none"></div>
+                    <div class="flex justify-between items-center">
+                        <div class="h-3 bg-gray-200 dark:bg-gray-800 rounded w-26"></div>
+                        <div class="h-2.5 bg-gray-200 dark:bg-gray-800 rounded w-15"></div>
+                    </div>
+                    <div class="space-y-1.5 py-0.5">
+                        <div class="h-4 bg-gray-200 dark:bg-gray-800 rounded w-4/5"></div>
+                        <div class="h-3 bg-gray-200 dark:bg-gray-800 rounded w-1/3"></div>
+                    </div>
+                    <div class="flex justify-between items-center pt-2.5 border-t border-gray-100 dark:border-gray-800/80">
+                        <div class="w-6 h-6 rounded-lg bg-gray-200 dark:bg-gray-800"></div>
+                        <div class="h-6 w-24 rounded-full bg-gray-200 dark:bg-gray-800"></div>
+                    </div>
+                </div>
+                <div class="w-full bg-white dark:bg-gray-900 p-4 sm:p-5 rounded-2xl shadow-2xs border border-gray-200 dark:border-gray-800 flex flex-col space-y-3 relative overflow-hidden">
+                    <div class="absolute inset-0 shimmer pointer-events-none"></div>
+                    <div class="flex justify-between items-center">
+                        <div class="h-3 bg-gray-200 dark:bg-gray-800 rounded w-22"></div>
+                        <div class="h-2.5 bg-gray-200 dark:bg-gray-800 rounded w-12"></div>
+                    </div>
+                    <div class="space-y-1.5 py-0.5">
+                        <div class="h-4 bg-gray-200 dark:bg-gray-800 rounded w-3/4"></div>
                         <div class="h-3 bg-gray-200 dark:bg-gray-800 rounded w-2/5"></div>
                     </div>
                     <div class="flex justify-between items-center pt-2.5 border-t border-gray-100 dark:border-gray-800/80">
@@ -217,136 +265,132 @@
         </div>
 
         <!-- Quiz View -->
-        <div id="quiz-view" class="hidden flex-1 flex flex-col overflow-y-auto bg-white dark:bg-gray-900 p-4 rounded-xl shadow dark:shadow-none dark:border dark:border-gray-800">
-            <div class="flex items-center justify-between mb-3 border-b dark:border-gray-800 pb-2">
-                <div class="flex items-center space-x-2 min-w-0">
-                    <button id="close-quiz-btn" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center justify-center p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition mr-1" title="Quay lại" aria-label="Quay lại danh sách chủ đề">
-                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        <div id="quiz-view" class="hidden flex-1 flex flex-col min-h-0 overflow-y-auto bg-white dark:bg-gray-900 p-4 sm:p-6 md:p-8 rounded-2xl shadow-2xs dark:shadow-none dark:border dark:border-gray-800 max-w-4xl mx-auto w-full">
+            <div class="flex items-center justify-between mb-4 border-b border-gray-100 dark:border-gray-800 pb-3 gap-2">
+                <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+                    <button id="close-quiz-btn" class="w-9 h-9 flex items-center justify-center p-1.5 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition cursor-pointer text-gray-700 dark:text-gray-200 shrink-0" title="Quay lại" aria-label="Quay lại danh sách chủ đề">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                         </svg>
                     </button>
                     <div class="min-w-0">
-                        <h2 id="quiz-topic-title" class="text-base md:text-lg font-bold truncate text-gray-800 dark:text-gray-100">Topic</h2>
-                        <div id="quiz-timer" class="text-[11px] text-gray-500 dark:text-gray-400 font-medium flex items-center gap-1">
-                            <span>⏱️</span> <span id="quiz-timer-text">00:00</span>
+                        <h2 id="quiz-topic-title" class="text-base sm:text-lg md:text-xl font-bold truncate text-gray-900 dark:text-gray-100">Topic</h2>
+                        <div id="quiz-timer" class="text-xs text-gray-500 dark:text-gray-400 font-medium flex items-center gap-1.5 mt-0.5">
+                            <span>⏱️</span> <span id="quiz-timer-text" class="font-mono font-semibold">00:00</span>
                         </div>
                     </div>
                 </div>
-                <div class="flex items-center space-x-1.5 shrink-0">
+                <div class="flex items-center gap-1.5 shrink-0">
                     <!-- Mode Toggle Button (Practice vs Exam) -->
-                    <button id="quiz-mode-btn" class="h-8 px-2.5 flex items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition text-blue-600 dark:text-blue-400 text-xs font-bold shadow-sm" title="Đổi chế độ: Luyện tập / Thi thử" aria-label="Đổi chế độ làm bài">
+                    <button id="quiz-mode-btn" class="h-9 px-2.5 sm:px-3 flex items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition text-blue-600 dark:text-blue-400 text-xs font-bold shadow-2xs cursor-pointer" title="Đổi chế độ: Luyện tập / Thi thử" aria-label="Đổi chế độ làm bài">
                         <span id="quiz-mode-icon">📖</span>
                         <span id="quiz-mode-text" class="ml-1 hidden sm:inline">Luyện tập</span>
                     </button>
-                    <button id="flag-question-btn" class="w-8 h-8 flex items-center justify-center rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:bg-amber-50 dark:hover:bg-gray-800 transition text-gray-400 focus:outline-none shadow-sm text-sm" title="Đánh dấu câu hỏi này" aria-label="Đánh dấu câu hỏi">
+                    <button id="flag-question-btn" class="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-gray-850 border border-gray-200 dark:border-gray-700 hover:bg-amber-50 dark:hover:bg-gray-800 transition text-gray-400 focus:outline-none shadow-2xs text-sm cursor-pointer" title="Đánh dấu câu hỏi này" aria-label="Đánh dấu câu hỏi">
                         🚩
                     </button>
-                    <button id="copy-question-btn" class="w-8 h-8 flex items-center justify-center rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-gray-500 dark:text-gray-400 focus:outline-none shadow-sm text-sm font-bold" title="Copy câu hỏi" aria-label="Sao chép câu hỏi">📋</button>
-                    <button id="force-refresh-btn" class="w-8 h-8 flex items-center justify-center rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-gray-500 dark:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm text-base font-bold" title="Đổi câu hỏi mới" aria-label="Tạo bộ câu hỏi mới">
+                    <button id="copy-question-btn" class="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-gray-850 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-gray-500 dark:text-gray-400 focus:outline-none shadow-2xs text-sm font-bold cursor-pointer" title="Copy câu hỏi" aria-label="Sao chép câu hỏi">📋</button>
+                    <button id="force-refresh-btn" class="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-gray-850 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-gray-500 dark:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs text-base font-bold cursor-pointer" title="Đổi câu hỏi mới" aria-label="Tạo bộ câu hỏi mới">
                         ⟳
                     </button>
-                    <span id="quiz-progress" class="text-xs font-bold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full">1/5</span>
+                    <span id="quiz-progress" class="text-xs font-bold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 px-2.5 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700">1/5</span>
                 </div>
             </div>
 
             <!-- Quiz Progress Bar -->
-            <div id="quiz-progress-container" class="w-full bg-gray-200 dark:bg-gray-800 h-1.5 rounded-full mb-2 overflow-hidden">
-                <div id="quiz-progress-bar" class="bg-blue-500 h-1.5 rounded-full w-0 transition-all duration-300 ease-out"></div>
+            <div id="quiz-progress-container" class="w-full bg-gray-100 dark:bg-gray-800 h-2 rounded-full mb-3 overflow-hidden">
+                <div id="quiz-progress-bar" class="bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full w-0 transition-all duration-300 ease-out"></div>
             </div>
 
             <!-- Interactive Dot Progress Indicator -->
-            <div id="quiz-dot-container" class="flex flex-wrap justify-center items-center gap-1.5 mb-4 py-1 px-2 bg-gray-50 dark:bg-gray-800/40 rounded-xl border border-gray-100 dark:border-gray-800"></div>
+            <div id="quiz-dot-container" class="flex flex-wrap justify-center items-center gap-1.5 sm:gap-2 mb-4 py-2 px-3 bg-gray-50/80 dark:bg-gray-850/60 rounded-xl border border-gray-100 dark:border-gray-800"></div>
 
             <div id="quiz-content" class="fade-in flex-1 flex flex-col">
-                <div id="question-text" class="text-base md:text-lg font-bold text-gray-800 dark:text-gray-100 mb-4 bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800">What is the question?</div>
+                <div id="question-text" class="text-base sm:text-lg md:text-xl font-bold text-gray-900 dark:text-gray-100 mb-4 bg-gray-50/80 dark:bg-gray-850/50 p-4 sm:p-5 md:p-6 rounded-2xl border border-gray-200/80 dark:border-gray-800 leading-relaxed overflow-x-auto">What is the question?</div>
                 <div id="options-container" class="space-y-3 mt-1 flex flex-col"></div>
-                <div id="explanation-box" class="hidden mt-4 p-4 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-800/80 border border-blue-100 dark:border-gray-700 shadow-inner text-sm md:text-base leading-relaxed text-gray-700 dark:text-gray-300"></div>
+                <div id="explanation-box" class="hidden mt-4 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-gray-800/80 dark:to-gray-800/40 border border-blue-200/60 dark:border-gray-700 shadow-inner text-sm md:text-base leading-relaxed text-gray-800 dark:text-gray-200 overflow-x-auto"></div>
             </div>
 
             <!-- Quiz Results -->
             <div id="quiz-results" class="hidden fade-in flex-1 flex flex-col space-y-4 py-2">
-                <div class="bg-blue-50 dark:bg-gray-800/50 border border-blue-100 dark:border-gray-800 rounded-2xl p-5 w-full shadow-sm text-center space-y-3">
-                    <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 text-3xl">
+                <div class="bg-gradient-to-br from-blue-50/90 to-indigo-50/60 dark:from-gray-800/60 dark:to-gray-900/60 border border-blue-200/80 dark:border-gray-800 rounded-2xl p-5 md:p-6 w-full shadow-sm text-center space-y-3">
+                    <div class="inline-flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 text-3xl md:text-4xl shadow-xs">
                         🏆
                     </div>
-                    <h3 class="text-xl font-bold text-gray-800 dark:text-gray-100">Kết quả ôn tập</h3>
+                    <h3 class="text-xl md:text-2xl font-extrabold text-gray-900 dark:text-gray-100">Kết quả ôn tập</h3>
 
-                    <div class="grid grid-cols-3 gap-2 py-2 border-y border-blue-100 dark:border-gray-700/60 my-2">
-                        <div class="flex flex-col items-center">
-                            <span class="text-[11px] text-gray-500 dark:text-gray-400 font-medium">Điểm số</span>
-                            <span class="text-lg font-extrabold text-blue-600 dark:text-blue-400" id="results-score">0 / 0</span>
+                    <div class="grid grid-cols-3 gap-3 md:gap-4 py-3 border-y border-blue-100 dark:border-gray-700/60 my-3 max-w-xl mx-auto">
+                        <div class="flex flex-col items-center p-2 rounded-xl bg-white/70 dark:bg-gray-800/70 shadow-2xs">
+                            <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">Điểm số</span>
+                            <span class="text-xl md:text-2xl font-black text-blue-600 dark:text-blue-400 mt-0.5" id="results-score">0 / 0</span>
                         </div>
-                        <div class="flex flex-col items-center">
-                            <span class="text-[11px] text-gray-500 dark:text-gray-400 font-medium">Tỷ lệ đúng</span>
-                            <span class="text-lg font-extrabold text-indigo-600 dark:text-indigo-400" id="results-percentage">0%</span>
+                        <div class="flex flex-col items-center p-2 rounded-xl bg-white/70 dark:bg-gray-800/70 shadow-2xs">
+                            <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">Tỷ lệ đúng</span>
+                            <span class="text-xl md:text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-0.5" id="results-percentage">0%</span>
                         </div>
-                        <div class="flex flex-col items-center">
-                            <span class="text-[11px] text-gray-500 dark:text-gray-400 font-medium">Thời gian</span>
-                            <span class="text-lg font-extrabold text-emerald-600 dark:text-emerald-400" id="results-time">00:00</span>
+                        <div class="flex flex-col items-center p-2 rounded-xl bg-white/70 dark:bg-gray-800/70 shadow-2xs">
+                            <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">Thời gian</span>
+                            <span class="text-xl md:text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5" id="results-time">00:00</span>
                         </div>
                     </div>
 
-                    <p id="results-feedback" class="text-gray-700 dark:text-gray-300 text-xs md:text-sm leading-relaxed px-2 font-medium">
+                    <p id="results-feedback" class="text-gray-700 dark:text-gray-300 text-xs md:text-sm leading-relaxed px-2 font-medium max-w-lg mx-auto">
                         Phản hồi
                     </p>
                 </div>
 
                 <!-- Questions Overview Matrix -->
-                <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-3.5 space-y-2">
-                    <div class="flex items-center justify-between text-xs font-bold text-gray-700 dark:text-gray-300">
-                        <span>Chi tiết từng câu</span>
-                        <span class="text-[10px] font-normal text-gray-500 dark:text-gray-400">Bấm ô để xem giải thích</span>
+                <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-4 md:p-5 space-y-3">
+                    <div class="flex items-center justify-between text-xs md:text-sm font-bold text-gray-800 dark:text-gray-200">
+                        <span>Chi tiết từng câu hỏi</span>
+                        <span class="text-[11px] font-normal text-gray-500 dark:text-gray-400">Bấm ô để xem giải thích</span>
                     </div>
-                    <div id="results-grid" class="grid grid-cols-5 gap-2 pt-1"></div>
+                    <div id="results-grid" class="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-2 md:gap-2.5 pt-1"></div>
                 </div>
 
                 <!-- Review Buttons Group -->
-                <div class="space-y-2">
-                    <div class="flex gap-2">
-                        <button id="review-answers-btn" class="flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs font-bold py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-1.5 border border-gray-200 dark:border-gray-700">
-                            🔍 Xem tất cả câu hỏi
-                        </button>
-                        <button id="review-mistakes-btn" class="hidden flex-1 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-950/60 text-red-600 dark:text-red-400 text-xs font-bold py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-1.5 border border-red-200 dark:border-red-900/50">
-                            🎯 Xem <span id="mistakes-count">0</span> câu sai
-                        </button>
-                    </div>
-                    <div class="flex gap-2">
-                        <button id="retake-mistakes-btn" class="hidden flex-1 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm">
-                            🔄 Làm lại các câu sai
-                        </button>
-                        <button id="share-results-btn" class="flex-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 text-xs font-bold py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-1.5 border border-indigo-200 dark:border-indigo-900/50">
-                            📋 Sao chép kết quả
-                        </button>
-                    </div>
+                <div class="space-y-2 md:space-y-0 md:grid md:grid-cols-2 lg:grid-cols-4 md:gap-3">
+                    <button id="review-answers-btn" class="w-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 text-xs md:text-sm font-bold py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-1.5 border border-gray-200 dark:border-gray-700 cursor-pointer">
+                        🔍 Xem tất cả câu hỏi
+                    </button>
+                    <button id="review-mistakes-btn" class="hidden w-full bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-950/60 text-red-600 dark:text-red-400 text-xs md:text-sm font-bold py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-1.5 border border-red-200 dark:border-red-900/50 cursor-pointer">
+                        🎯 Xem <span id="mistakes-count">0</span> câu sai
+                    </button>
+                    <button id="retake-mistakes-btn" class="hidden w-full bg-amber-500 hover:bg-amber-600 text-white text-xs md:text-sm font-bold py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer">
+                        🔄 Làm lại các câu sai
+                    </button>
+                    <button id="share-results-btn" class="w-full bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 text-xs md:text-sm font-bold py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-1.5 border border-indigo-200 dark:border-indigo-900/50 cursor-pointer">
+                        📋 Sao chép kết quả
+                    </button>
                 </div>
             </div>
 
             <!-- Quiz Controls -->
-            <div class="mt-4 space-y-3">
+            <div class="mt-4 space-y-3 max-w-xl mx-auto w-full">
                 <div id="nav-btns" class="flex space-x-3">
-                    <button id="prev-btn" class="hidden flex-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-bold py-3 px-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 transition text-sm flex items-center justify-center gap-1">
+                    <button id="prev-btn" class="hidden flex-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-bold py-3 px-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 transition text-sm flex items-center justify-center gap-1 cursor-pointer">
                         ← Câu trước
                     </button>
-                    <button id="next-btn" class="hidden flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-xl shadow-sm transition text-sm flex items-center justify-center gap-1">
+                    <button id="next-btn" class="hidden flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-xl shadow-xs transition text-sm flex items-center justify-center gap-1 cursor-pointer">
                         Câu tiếp →
                     </button>
                 </div>
 
-                <button id="show-results-btn" class="hidden w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-xl shadow-sm transition text-sm flex items-center justify-center gap-1">
+                <button id="show-results-btn" class="hidden w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-xl shadow-xs transition text-sm flex items-center justify-center gap-1 cursor-pointer">
                     🏁 Xem kết quả
                 </button>
 
                 <!-- Final Status Buttons -->
                 <div id="status-btns" class="hidden flex space-x-3">
-                    <button id="status-chua-btn" class="flex-1 bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400 font-bold py-3 px-2 rounded-xl border border-red-200 dark:border-red-900/50 hover:bg-red-200 dark:hover:bg-red-950/60 transition text-sm">
+                    <button id="status-chua-btn" class="flex-1 bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400 font-bold py-3 px-2 rounded-xl border border-red-200 dark:border-red-900/50 hover:bg-red-200 dark:hover:bg-red-950/60 transition text-sm cursor-pointer">
                         ⚠️ Cần xem lại
                     </button>
-                    <button id="status-nam-btn" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-2 rounded-xl shadow-sm transition text-sm">
+                    <button id="status-nam-btn" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-2 rounded-xl shadow-xs transition text-sm cursor-pointer">
                         ✅ Nắm vững
                     </button>
                 </div>
 
-                <button id="quiz-done-btn" class="hidden w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-xl shadow-sm transition text-sm">
+                <button id="quiz-done-btn" class="hidden w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-xl shadow-xs transition text-sm cursor-pointer">
                     Hoàn thành
                 </button>
             </div>
@@ -354,30 +398,30 @@
         </div>
 
         <!-- Timeline View -->
-        <div id="timeline-view" class="hidden flex-1 flex flex-col overflow-y-auto bg-white dark:bg-gray-900 p-4 rounded-xl shadow dark:shadow-none dark:border dark:border-gray-800">
-            <div class="flex items-center justify-between mb-4 border-b dark:border-gray-800 pb-2">
-                <div class="flex items-center space-x-2 min-w-0">
-                    <button id="close-timeline-btn" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center justify-center p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition mr-1" title="Quay lại" aria-label="Quay lại danh sách chủ đề">
-                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        <div id="timeline-view" class="hidden flex-1 flex flex-col min-h-0 overflow-y-auto bg-white dark:bg-gray-900 p-4 sm:p-6 md:p-8 rounded-2xl shadow-2xs dark:shadow-none dark:border dark:border-gray-800 max-w-4xl mx-auto w-full">
+            <div class="flex items-center justify-between mb-4 border-b border-gray-100 dark:border-gray-800 pb-3">
+                <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+                    <button id="close-timeline-btn" class="w-9 h-9 flex items-center justify-center p-1.5 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition cursor-pointer text-gray-700 dark:text-gray-200 shrink-0" title="Quay lại" aria-label="Quay lại danh sách chủ đề">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                         </svg>
                     </button>
-                    <h2 class="text-lg font-bold truncate text-gray-800 dark:text-gray-100">📅 Lịch Deadline</h2>
+                    <h2 class="text-base sm:text-lg md:text-xl font-bold truncate text-gray-900 dark:text-gray-100">📅 Lịch Deadline</h2>
                 </div>
-                <button id="refresh-timeline-btn" class="w-8 h-8 flex items-center justify-center rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-gray-500 dark:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm text-base font-bold" title="Tải lại từ Notion" aria-label="Tải lại timeline từ Notion">
+                <button id="refresh-timeline-btn" class="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-gray-850 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-gray-500 dark:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs text-base font-bold cursor-pointer" title="Tải lại từ Notion" aria-label="Tải lại timeline từ Notion">
                     ⟳
                 </button>
             </div>
 
             <!-- Filter controls -->
-            <div class="flex gap-2 mb-4 shrink-0">
-                <select id="timeline-course-filter" class="flex-1 px-2 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 text-[10px] font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm transition duration-150">
+            <div class="flex flex-col sm:flex-row gap-2.5 mb-5 shrink-0">
+                <select id="timeline-course-filter" class="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 text-base sm:text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs transition duration-150">
                     <option value="">Tất cả môn</option>
                 </select>
-                <select id="timeline-month-filter" class="flex-1 px-2 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 text-[10px] font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm transition duration-150">
+                <select id="timeline-month-filter" class="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 text-base sm:text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs transition duration-150">
                     <option value="">Tất cả tháng</option>
                 </select>
-                <select id="timeline-date-filter" class="flex-1 px-2 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 text-[10px] font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm transition duration-150">
+                <select id="timeline-date-filter" class="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 text-base sm:text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs transition duration-150">
                     <option value="">Tất cả thời gian</option>
                     <option value="today">Hôm nay</option>
                     <option value="week">Tuần này</option>
@@ -391,16 +435,16 @@
 
         <!-- Quiz Config Customization Modal -->
         <div id="quiz-config-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-            <div class="modal-card modal-enter bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 w-full max-w-sm rounded-2xl shadow-2xl p-5 space-y-4">
+            <div class="modal-card modal-enter bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 w-full max-w-md rounded-2xl shadow-2xl p-5 md:p-6 space-y-4">
                 <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
                     <div class="flex items-center gap-2">
                         <span class="text-xl">⚙️</span>
                         <div>
                             <h3 class="font-bold text-gray-900 dark:text-gray-100 text-base leading-tight">Cấu trúc đề ôn tập</h3>
-                            <p id="modal-topic-title" class="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px] mt-0.5">Tên chủ đề</p>
+                            <p id="modal-topic-title" class="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[240px] mt-0.5">Tên chủ đề</p>
                         </div>
                     </div>
-                    <button id="close-config-modal-btn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition" title="Đóng">
+                    <button id="close-config-modal-btn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer" title="Đóng">
                         ✕
                     </button>
                 </div>
@@ -410,11 +454,11 @@
                     <label class="block text-xs font-bold text-gray-700 dark:text-gray-300">
                         📊 Số lượng câu hỏi: <span id="config-num-questions-val" class="text-blue-600 dark:text-blue-400 font-extrabold">15 câu</span>
                     </label>
-                    <div class="grid grid-cols-4 gap-1.5" id="config-num-questions-group">
-                        <button type="button" data-val="5" class="config-btn py-2 px-1 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-950 transition">5 câu</button>
-                        <button type="button" data-val="10" class="config-btn py-2 px-1 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-950 transition">10 câu</button>
-                        <button type="button" data-val="15" class="config-btn active py-2 px-1 rounded-xl text-xs font-bold border border-blue-500 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 shadow-xs transition">15 câu</button>
-                        <button type="button" data-val="20" class="config-btn py-2 px-1 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-950 transition">20 câu</button>
+                    <div class="grid grid-cols-4 gap-2" id="config-num-questions-group">
+                        <button type="button" data-val="5" class="config-btn py-2 px-1 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-950 transition cursor-pointer">5 câu</button>
+                        <button type="button" data-val="10" class="config-btn py-2 px-1 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-950 transition cursor-pointer">10 câu</button>
+                        <button type="button" data-val="15" class="config-btn active py-2 px-1 rounded-xl text-xs font-bold border border-blue-500 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 shadow-2xs transition cursor-pointer">15 câu</button>
+                        <button type="button" data-val="20" class="config-btn py-2 px-1 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-950 transition cursor-pointer">20 câu</button>
                     </div>
                 </div>
 
@@ -423,16 +467,16 @@
                     <label class="block text-xs font-bold text-gray-700 dark:text-gray-300">
                         🎯 Độ khó câu hỏi:
                     </label>
-                    <div class="grid grid-cols-3 gap-1.5" id="config-difficulty-group">
-                        <button type="button" data-val="easy" class="config-btn py-2 px-1.5 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-emerald-50 dark:hover:bg-emerald-950 transition flex flex-col items-center gap-0.5">
+                    <div class="grid grid-cols-3 gap-2" id="config-difficulty-group">
+                        <button type="button" data-val="easy" class="config-btn py-2 px-1.5 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-emerald-50 dark:hover:bg-emerald-950 transition flex flex-col items-center gap-0.5 cursor-pointer">
                             <span>🌱 Cơ bản</span>
                             <span class="text-[9px] font-normal opacity-75">Nền tảng</span>
                         </button>
-                        <button type="button" data-val="medium" class="config-btn active py-2 px-1.5 rounded-xl text-xs font-bold border border-blue-500 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 shadow-xs transition flex flex-col items-center gap-0.5">
+                        <button type="button" data-val="medium" class="config-btn active py-2 px-1.5 rounded-xl text-xs font-bold border border-blue-500 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 shadow-2xs transition flex flex-col items-center gap-0.5 cursor-pointer">
                             <span>⚡ Chuẩn thi</span>
                             <span class="text-[9px] font-normal opacity-75">Đề thi UEH</span>
                         </button>
-                        <button type="button" data-val="hard" class="config-btn py-2 px-1.5 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-purple-50 dark:hover:bg-purple-950 transition flex flex-col items-center gap-0.5">
+                        <button type="button" data-val="hard" class="config-btn py-2 px-1.5 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-purple-50 dark:hover:bg-purple-950 transition flex flex-col items-center gap-0.5 cursor-pointer">
                             <span>🔥 Nâng cao</span>
                             <span class="text-[9px] font-normal opacity-75">Bẫy & Sâu</span>
                         </button>
@@ -444,16 +488,16 @@
                     <label class="block text-xs font-bold text-gray-700 dark:text-gray-300">
                         ⚖️ Định hướng câu hỏi:
                     </label>
-                    <div class="grid grid-cols-3 gap-1.5" id="config-type-group">
-                        <button type="button" data-val="theory" class="config-btn py-2 px-1.5 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-amber-50 dark:hover:bg-amber-950 transition flex flex-col items-center gap-0.5">
+                    <div class="grid grid-cols-3 gap-2" id="config-type-group">
+                        <button type="button" data-val="theory" class="config-btn py-2 px-1.5 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-amber-50 dark:hover:bg-amber-950 transition flex flex-col items-center gap-0.5 cursor-pointer">
                             <span>📖 Lý thuyết</span>
                             <span class="text-[9px] font-normal opacity-75">Khái niệm</span>
                         </button>
-                        <button type="button" data-val="balanced" class="config-btn active py-2 px-1.5 rounded-xl text-xs font-bold border border-blue-500 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 shadow-xs transition flex flex-col items-center gap-0.5">
+                        <button type="button" data-val="balanced" class="config-btn active py-2 px-1.5 rounded-xl text-xs font-bold border border-blue-500 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 shadow-2xs transition flex flex-col items-center gap-0.5 cursor-pointer">
                             <span>⚖️ Cân bằng</span>
                             <span class="text-[9px] font-normal opacity-75">50 / 50</span>
                         </button>
-                        <button type="button" data-val="calculation" class="config-btn py-2 px-1.5 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-950 transition flex flex-col items-center gap-0.5">
+                        <button type="button" data-val="calculation" class="config-btn py-2 px-1.5 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-950 transition flex flex-col items-center gap-0.5 cursor-pointer">
                             <span>🧮 Tính toán</span>
                             <span class="text-[9px] font-normal opacity-75">Tình huống</span>
                         </button>
@@ -462,10 +506,10 @@
 
                 <!-- Actions -->
                 <div class="pt-2 border-t border-gray-100 dark:border-gray-800 flex gap-2">
-                    <button id="modal-cancel-btn" type="button" class="flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold py-2.5 px-3 rounded-xl text-xs transition">
+                    <button id="modal-cancel-btn" type="button" class="flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold py-2.5 px-3 rounded-xl text-xs transition cursor-pointer">
                         Đóng
                     </button>
-                    <button id="modal-start-quiz-btn" type="button" class="flex-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs shadow-md transition flex items-center justify-center gap-1.5">
+                    <button id="modal-start-quiz-btn" type="button" class="flex-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-98">
                         <span>✨ Tạo câu hỏi</span>
                     </button>
                 </div>
@@ -474,35 +518,35 @@
 
         <!-- Batch Quiz Generation Modal for Entire Course -->
         <div id="batch-quiz-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-            <div class="modal-card modal-enter bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 w-full max-w-lg rounded-2xl shadow-2xl p-5 space-y-4 max-h-[90vh] flex flex-col">
+            <div class="modal-card modal-enter bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 w-full max-w-xl md:max-w-3xl lg:max-w-4xl rounded-2xl shadow-2xl p-5 md:p-6 space-y-4 max-h-[90vh] flex flex-col">
                 <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
                     <div class="flex items-center gap-2">
                         <span class="text-xl">✨</span>
                         <div>
                             <h3 class="font-bold text-gray-900 dark:text-gray-100 text-base leading-tight">Tạo trắc nghiệm toàn bộ môn học</h3>
-                            <p id="batch-modal-course-title" class="text-xs text-indigo-600 dark:text-indigo-400 font-semibold truncate max-w-[280px] mt-0.5">Môn học đã chọn</p>
+                            <p id="batch-modal-course-title" class="text-xs text-indigo-600 dark:text-indigo-400 font-semibold truncate max-w-[280px] sm:max-w-md mt-0.5">Môn học đã chọn</p>
                         </div>
                     </div>
-                    <button id="close-batch-modal-btn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition" title="Đóng">
+                    <button id="close-batch-modal-btn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer" title="Đóng">
                         ✕
                     </button>
                 </div>
 
                 <!-- Global Preset Controls (Applies to all topics) -->
-                <div class="bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 p-3 rounded-xl space-y-2">
+                <div class="bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 p-3 sm:p-4 rounded-xl space-y-2.5">
                     <div class="flex items-center justify-between">
                         <label class="flex items-center gap-2 cursor-pointer text-xs font-bold text-indigo-900 dark:text-indigo-300 select-none">
                             <input type="checkbox" id="batch-select-all-cb" checked class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300 cursor-pointer">
                             <span>Chọn tất cả (<span id="batch-selected-count" class="text-indigo-600 dark:text-indigo-400 font-extrabold">0</span>/<span id="batch-total-count">0</span>)</span>
                         </label>
-                        <button id="batch-apply-all-btn" class="text-[11px] bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-2.5 py-1 rounded-lg transition shadow-xs cursor-pointer">
+                        <button id="batch-apply-all-btn" class="text-[11px] bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded-lg transition shadow-2xs cursor-pointer active:scale-95">
                             Áp dụng toàn bộ
                         </button>
                     </div>
-                    <div class="grid grid-cols-3 gap-2">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <div>
                             <label class="block text-[10px] font-bold text-gray-600 dark:text-gray-400 mb-1">Số câu/chủ đề</label>
-                            <select id="batch-global-num" class="w-full text-xs font-bold p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+                            <select id="batch-global-num" class="w-full text-xs font-bold p-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200">
                                 <option value="5">5 câu</option>
                                 <option value="10">10 câu</option>
                                 <option value="15" selected>15 câu</option>
@@ -511,7 +555,7 @@
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-gray-600 dark:text-gray-400 mb-1">Độ khó</label>
-                            <select id="batch-global-diff" class="w-full text-xs font-bold p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+                            <select id="batch-global-diff" class="w-full text-xs font-bold p-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200">
                                 <option value="easy">🌱 Cơ bản</option>
                                 <option value="medium" selected>⚡ Chuẩn thi</option>
                                 <option value="hard">🔥 Nâng cao</option>
@@ -519,7 +563,7 @@
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-gray-600 dark:text-gray-400 mb-1">Dạng câu</label>
-                            <select id="batch-global-type" class="w-full text-xs font-bold p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+                            <select id="batch-global-type" class="w-full text-xs font-bold p-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200">
                                 <option value="theory">📖 Lý thuyết</option>
                                 <option value="balanced" selected>⚖️ Cân bằng</option>
                                 <option value="calculation">🧮 Tính toán</option>
@@ -528,8 +572,8 @@
                     </div>
                 </div>
 
-                <!-- Topic List with Per-Topic Settings -->
-                <div class="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[160px] max-h-[300px]" id="batch-topics-list">
+                <!-- Topic List with Per-Topic Settings: 1 col on mobile, 2 cols on tablet/desktop -->
+                <div class="flex-1 overflow-y-auto space-y-2 md:space-y-0 md:grid md:grid-cols-2 md:gap-2.5 pr-1 min-h-[160px] max-h-[380px]" id="batch-topics-list">
                     <!-- Injected via JavaScript -->
                 </div>
 
@@ -547,10 +591,10 @@
 
                 <!-- Actions -->
                 <div class="pt-2 border-t border-gray-100 dark:border-gray-800 flex gap-2">
-                    <button id="batch-cancel-btn" type="button" class="flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold py-2.5 px-3 rounded-xl text-xs transition">
+                    <button id="batch-cancel-btn" type="button" class="flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold py-2.5 px-3 rounded-xl text-xs transition cursor-pointer">
                         Đóng
                     </button>
-                    <button id="batch-start-btn" type="button" class="flex-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs shadow-md transition flex items-center justify-center gap-1.5">
+                    <button id="batch-start-btn" type="button" class="flex-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-98">
                         <span>⚡ Bắt đầu tạo toàn bộ môn</span>
                     </button>
                 </div>
@@ -559,6 +603,6 @@
 
     </div>
 
-    <script src="app.js?v=2.8"></script>
+    <script src="app.js?v=3.0"></script>
 </body>
 </html>
