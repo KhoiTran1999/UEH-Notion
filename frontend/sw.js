@@ -1,21 +1,22 @@
 // UEH Notion PWA - Service Worker
-const CACHE_NAME = 'ueh-notion-pwa-v3.2';
+const CACHE_NAME = 'ueh-notion-pwa-v3.3';
 
 const STATIC_ASSETS = [
     './',
     './index.html',
-    './app.js?v=3.2',
+    './app.js?v=3.3',
+    './assets/tailwind.css',
+    './vendor/telegram-web-app.js',
+    './vendor/katex.min.css',
+    './vendor/katex.min.js',
+    './vendor/auto-render.min.js',
     './manifest.json',
     './logo.png',
     './icon-192.png',
     './icon-512.png',
     './icon-192-maskable.png',
     './icon-512-maskable.png',
-    './apple-touch-icon.png',
-    'https://cdn.tailwindcss.com',
-    'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css',
-    'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js',
-    'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js'
+    './apple-touch-icon.png'
 ];
 
 // Install: Cache essential shell assets
@@ -91,7 +92,7 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // 3. Static assets (JS, CSS, Images, Fonts, CDNs): Stale-While-Revalidate
+    // 3. Static assets (JS, CSS, images, fonts): Stale-While-Revalidate
     event.respondWith(
         caches.match(request).then((cachedResponse) => {
             const fetchPromise = fetch(request)

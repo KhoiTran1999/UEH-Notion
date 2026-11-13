@@ -62,7 +62,7 @@
 ## 💻 Tech Stack
 
 - **Backend:** Python 3.12, FastAPI, Uvicorn, Pydantic v2, HTTPX, Redis (`redis-py`).
-- **Frontend:** HTML5, Vanilla JavaScript (ES6+), Tailwind CSS (CDN), KaTeX, Telegram WebApp SDK.
+- **Frontend:** HTML5, Vanilla JavaScript (ES6+), Tailwind CSS (build-time), KaTeX, Telegram WebApp SDK.
 - **AI & Voice:** OpenAI Python SDK (Custom Router / 9Router / HuggingFace Spaces), Gemini API (Fallback / Legacy TTS).
 - **Cơ sở dữ liệu:** Notion API (`2025-09-03`), Redis (Aiven / Upstash).
 - **Hạ tầng & CI/CD:** Render (Web Service), Cloudflare Pages (Frontend Hosting), GitHub Actions.
@@ -160,7 +160,11 @@ source .venv/bin/activate  # Trên Windows: .venv\Scripts\activate
 # 2. Cài đặt dependencies
 pip install -r requirements.txt
 
-# 3. Khởi chạy FastAPI server
+# 3. Build frontend assets
+npm install
+npm run build
+
+# 4. Khởi chạy FastAPI server
 uvicorn src.api.main:app --reload --port 8000
 ```
 
@@ -171,7 +175,9 @@ uvicorn src.api.main:app --reload --port 8000
    - Thiết lập các biến môi trường tương ứng trong mục Environment.
 2. **Frontend (Cloudflare Pages):**
    - Connect Git repository vào Cloudflare Pages.
-   - Build output directory: `frontend` (Build command để trống).
+   - Build command: `npm run build`.
+   - Build output directory: `frontend`.
+   - Dependencies được cài bằng `npm install`; CSS Tailwind và các vendor asset được tạo/local hóa trước khi deploy.
    - Cập nhật `API_BASE_URL` trong `frontend/app.js` và cấu hình `WEBAPP_URL` trên Backend.
 3. **Cài Đặt Telegram Webhook:**
    ```text

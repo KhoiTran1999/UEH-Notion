@@ -1,0 +1,13 @@
+{
+  "name": "ueh-notion-frontend",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build-frontend.mjs"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.17"
+  },
+  "dependencies": {
+    "katex": "0.16.25"
+  }
+}
