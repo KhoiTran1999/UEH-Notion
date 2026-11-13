@@ -31,11 +31,17 @@ app = FastAPI(title="Study Quiz API")
 # Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=Config.CORS_ORIGINS,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def internal_server_error(operation: str, error: Exception) -> HTTPException:
+    """Log implementation details while returning a safe client-facing error."""
+    logger.exception("Study API operation failed: %s", operation, exc_info=error)
+    return HTTPException(status_code=500, detail=f"{operation} failed")
 
 class QuizRequest(BaseModel):
     topic_id: str
@@ -152,7 +158,7 @@ def api_get_candidates(limit: int = None, force_refresh: bool = False):
             decorated_candidates.append({**c, "has_cached_quiz": is_cached})
         return {"candidates": decorated_candidates}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_server_error("Loading study topics", e)
 
 @app.post("/api/study/quiz")
 async def api_generate_quiz(http_request: Request, request: QuizRequest):
@@ -186,7 +192,7 @@ async def api_generate_quiz(http_request: Request, request: QuizRequest):
             media_type="application/x-ndjson"
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_server_error("Generating quiz", e)
 
 @app.post("/api/study/batch-quiz")
 async def api_generate_batch_quiz(http_request: Request, request: BatchQuizRequest):
@@ -217,7 +223,7 @@ async def api_generate_batch_quiz(http_request: Request, request: BatchQuizReque
             media_type="application/x-ndjson"
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_server_error("Generating batch quiz", e)
 
 @app.delete("/api/study/quiz/{topic_id}")
 def api_clear_quiz_cache(topic_id: str):
@@ -258,8 +264,10 @@ def api_quick_review(course: str = None):
         if not quiz_data:
             raise HTTPException(status_code=404, detail="No topics or questions found for quick review")
         return quiz_data
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_server_error("Generating quick review", e)
 
 @app.get("/api/study/timeline")
 def api_study_timeline(force_refresh: bool = False):
@@ -268,7 +276,7 @@ def api_study_timeline(force_refresh: bool = False):
         timeline_data = get_structured_timeline(force_refresh=force_refresh)
         return {"timeline": timeline_data}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_server_error("Loading timeline", e)
 
 def run_background_safe(func, *args, **kwargs):
     """Executes a background task safely, sending a Telegram error alert on failure."""

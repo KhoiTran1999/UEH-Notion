@@ -107,6 +107,19 @@ UEH-Notion/
 
 ## ⚙️ Cài Đặt & Triển Khai
 
+### Chạy Web App ở môi trường local
+
+Không mở trực tiếp `frontend/index.html` bằng `file://`, vì Service Worker của PWA
+chỉ hoạt động trên `localhost` hoặc HTTPS. Sau khi chạy backend, mở terminal tại
+thư mục gốc và dùng:
+
+```powershell
+python -m http.server 5500 -d frontend
+```
+
+Sau đó truy cập `http://localhost:5500`. Nếu frontend được deploy ở domain khác,
+cập nhật biến `CORS_ORIGINS` trong backend, phân cách các domain bằng dấu phẩy.
+
 ### 1. Biến Môi Trường (`.env`)
 
 Tạo file `.env` tại thư mục gốc dựa theo cấu hình mẫu:

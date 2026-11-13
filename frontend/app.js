@@ -612,10 +612,26 @@ async function fetchTopics(forceRefresh = false) {
     } catch (error) {
         console.error(error);
         if (!hasRenderedFromCache) {
-            alert('Lỗi tải chủ đề. Vui lòng kiểm tra kết nối.');
             allTopics = [];
-            filterAndRenderTopics();
+            showTopicsConnectionError();
         }
+    }
+}
+
+function showTopicsConnectionError() {
+    showView('topics');
+    if (ui.topicsSummaryText) {
+        ui.topicsSummaryText.textContent = 'Không thể kết nối máy chủ';
+    }
+    if (ui.noTopics) {
+        ui.noTopics.classList.remove('hidden');
+    }
+    if (ui.noTopicsDesc) {
+        ui.noTopicsDesc.textContent = 'Kiểm tra kết nối mạng hoặc máy chủ rồi thử tải lại.';
+    }
+    if (ui.noTopics) {
+        const heading = ui.noTopics.querySelector('h3');
+        if (heading) heading.textContent = 'Không tải được dữ liệu';
     }
 }
 

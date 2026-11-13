@@ -1,10 +1,10 @@
 // UEH Notion PWA - Service Worker
-const CACHE_NAME = 'ueh-notion-pwa-v3.1';
+const CACHE_NAME = 'ueh-notion-pwa-v3.2';
 
 const STATIC_ASSETS = [
     './',
     './index.html',
-    './app.js?v=3.1',
+    './app.js?v=3.2',
     './manifest.json',
     './logo.png',
     './icon-192.png',
@@ -12,7 +12,7 @@ const STATIC_ASSETS = [
     './icon-192-maskable.png',
     './icon-512-maskable.png',
     './apple-touch-icon.png',
-    'https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4',
+    'https://cdn.tailwindcss.com',
     'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css',
     'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js',
     'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js'

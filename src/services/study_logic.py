@@ -27,9 +27,8 @@ def get_cached_quiz_topic_ids() -> set[str]:
     if not r:
         return set()
     try:
-        keys = r.keys("quiz_*")
         cached_ids = set()
-        for k in keys:
+        for k in r.scan_iter("quiz_*"):
             if k.startswith("quiz_lock_"):
                 continue
             if k.startswith("quiz_progress_"):
@@ -977,4 +976,3 @@ def clear_quiz_progress(telegram_id: str | int, topic_id: str | None = None) -> 
     except Exception as e:
         logger.warning(f"Failed to clear quiz progress for user {telegram_id}: {e}")
         return False
-

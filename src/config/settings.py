@@ -39,6 +39,14 @@ class Config:
     TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
     TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
     WEBAPP_URL = os.getenv("WEBAPP_URL", "https://ueh-notion.pages.dev")
+    CORS_ORIGINS = [
+        origin.strip().rstrip("/")
+        for origin in os.getenv(
+            "CORS_ORIGINS",
+            f"{WEBAPP_URL},http://localhost:5500,http://127.0.0.1:5500"
+        ).split(",")
+        if origin.strip()
+    ]
 
     # Voice
     # VOICE_NAME = "vi-VN-HoaiMyNeural" # Old Edge-TTS voice
