@@ -33,4 +33,13 @@ jobs:
           NOTION_PROMPT_TOKEN: ${{ secrets.NOTION_PROMPT_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+          USE_CUSTOM_AI: 'true'
+          CUSTOM_AI_BASE_URL: ${{ secrets.CUSTOM_AI_BASE_URL }}
+          CUSTOM_AI_API_KEY: ${{ secrets.CUSTOM_AI_API_KEY }}
+          CUSTOM_AI_MODEL: ${{ secrets.CUSTOM_AI_MODEL }}
+          MODEL_BRAIN: ${{ secrets.MODEL_BRAIN }}
+          MODEL_WORKER: ${{ secrets.MODEL_WORKER }}
+          REASONING_EFFORT: ${{ secrets.REASONING_EFFORT }}
+          CUSTOM_AI_VOICE_MODEL: ${{ secrets.CUSTOM_AI_VOICE_MODEL }}
         run: python src/main.py run daily-report
