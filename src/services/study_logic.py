@@ -299,6 +299,37 @@ def clean_json_string(json_str):
         return '"' + "".join(fixed) + '"'
     return pattern.sub(replace_string, json_str)
 
+def parse_quiz_response(response, num_questions):
+    """Extract valid quiz arrays from an AI response."""
+    if not isinstance(response, str) or not response.strip():
+        return []
+
+    decoder = json.JSONDecoder()
+    questions = []
+    position = 0
+    while True:
+        start = response.find("[", position)
+        if start == -1:
+            break
+        try:
+            parsed, end = decoder.raw_decode(clean_json_string(response[start:]))
+        except (json.JSONDecodeError, ValueError):
+            position = start + 1
+            continue
+
+        if isinstance(parsed, list):
+            for item in parsed:
+                if isinstance(item, dict) and ("q" in item or "question" in item) and "options" in item:
+                    questions.append(item)
+            position = start + end
+            continue
+
+        position = start + 1
+
+    for idx, question in enumerate(questions[:num_questions], 1):
+        question["id"] = idx
+    return questions[:num_questions]
+
 def clear_quiz_cache(topic_id: str, num_questions: int | None = None, difficulty: str | None = None, question_type: str | None = None) -> bool:
     """Delete cached quiz and user progress for a specific topic (or specific config) from Redis."""
     try:
@@ -477,6 +508,7 @@ def generate_quiz(topic_id, force_refresh=False, num_questions=15, difficulty='m
                 return None
             raw_content = ai.generate_quiz(full_content, num_questions=num_questions, difficulty=difficulty, question_type=question_type)
 
+        generated_content = raw_content
         if cancel_event and cancel_event.is_set():
             return None
 
@@ -512,27 +544,11 @@ def generate_quiz(topic_id, force_refresh=False, num_questions=15, difficulty='m
             progress_callback("parsing_quiz", 96, "✨ Đang đối chiếu cấu trúc câu hỏi hoàn tất...")
 
         questions = []
-        is_valid_quiz = False
-
-        import re
-        import json
-
-        match = re.search(r'\[\s*\{.*\}\s*\]', final_latex_content, re.DOTALL)
-        if match:
-            try:
-                parsed_questions = json.loads(clean_json_string(match.group(0)))
-                if isinstance(parsed_questions, list) and len(parsed_questions) > 0:
-                    valid_items = []
-                    for idx, q in enumerate(parsed_questions, 1):
-                        if isinstance(q, dict) and ("q" in q or "question" in q) and "options" in q:
-                            q["id"] = idx
-                            valid_items.append(q)
-                    if valid_items:
-                        # Limit to requested num_questions if AI returned slightly more
-                        questions = valid_items[:num_questions]
-                        is_valid_quiz = True
-            except Exception as e:
-                logger.error(f"Failed to parse JSON quiz: {e}")
+        for candidate in (final_latex_content, raw_content, generated_content):
+            questions = parse_quiz_response(candidate, num_questions)
+            if questions:
+                break
+        is_valid_quiz = bool(questions)
 
         if not is_valid_quiz:
             logger.error("No valid questions parsed from AI response")

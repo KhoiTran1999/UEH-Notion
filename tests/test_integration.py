@@ -223,7 +223,7 @@ class TestUEHNotion(unittest.TestCase):
             with patch("src.services.notion.NotionService.fetch_page_content", return_value=["Some lesson content"]), \
                  patch("src.services.study_logic.get_page_title", return_value="Test Lesson"), \
                  patch("src.services.ai.AIService.generate_quiz", return_value="Broken AI raw response"), \
-                 patch("src.services.ai.AIService.review_quiz", return_value="Still broken"), \
+                 patch("src.services.ai.AIService.enhance_quiz", return_value="Still broken"), \
                  patch("src.services.ai.AIService.review_latex_quiz", return_value="Invalid JSON response not matching schema"):
 
                 res = generate_quiz(test_topic_id, force_refresh=True)
